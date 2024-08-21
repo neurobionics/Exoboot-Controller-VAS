@@ -291,44 +291,6 @@ class AssistanceGenerator:
 
         return output_torque_clipped
     
-    def torque_generator_spike(self, time_in_current_stance:float, stride_period:float=1.12, stance_period:float=0.65, peak_torque:float=2, in_swing:bool=False)->float:
-        """Generate torque curve based on current time in stance. Torque is held at holding torque when in_swing_flag is tripped, otherwise
-        exo actuates according to thresholds set in terms of stance phase.
-        
-        args:
-            time_in_current_stance: time in current stance
-            stance_period: average stance period
-            peak_torque: peak torque commanded by user via GUI
-            in_swing_flag: boolean flag for swing phase
-        
-        returns:
-            torque: torque value at current time in stride
-        """
-
-        time_nodes = self.convert_percent_stride_thresholds_to_stance_times(stance_period)       
-        # time_nodes = self.convert_percent_thresholds_to_time(stride_period)
-        stance_t_onset = time_nodes[0]
-        stance_t_peak = time_nodes[1]
-        stance_t_dropoff = time_nodes[2]
-        # stance_t_toeoff = time_nodes[3]
-               
-        if False: #(in_swing):
-            output_torque = self.holding_torque
-        else:
-            if (time_in_current_stance > 0) and (time_in_current_stance <= stance_t_onset):
-                output_torque = self.holding_torque
-                
-            elif (time_in_current_stance > stance_t_onset) and (time_in_current_stance <= stance_t_peak):
-                output_torque = 1.0 * float(peak_torque)
-
-            elif (time_in_current_stance > stance_t_peak) and (time_in_current_stance <= stance_t_dropoff):
-                output_torque = 0.5 * float(peak_torque) 
-                
-            else:
-                output_torque = self.holding_torque
-            
-        return output_torque
-     
     def convert_percent_stride_thresholds_to_stance_times(self, stance_period:float)->list:
             """Converts 4ptSpline thresholds from units of % stride to seconds within the current stance phase
             using the average stance period

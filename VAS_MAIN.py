@@ -23,8 +23,7 @@ sys.path.append(thisdir)
 import traceback
 from flexsea.device import Device
 
-# from ExoClass import ExoObject
-from ExoClass_new import ExoObject
+from ExoClass import ExoObject
 from SoftRTloop import FlexibleTimer
 from utils import MovingAverageFilter
 

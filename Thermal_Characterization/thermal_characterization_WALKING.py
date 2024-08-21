@@ -5,6 +5,8 @@
 # Author: Nundini Rawal
 # Date: 08/4/2024
 
+# TODO: UPDATE EXOBOOT CALLS USING THE NEW FLEXSEA LIBRARY
+
 import datetime as dt
 import sys
 import csv
@@ -23,8 +25,7 @@ from flexsea import flexsea as flex
 from flexsea import fxUtils as fxu
 from flexsea import fxEnums as fxe
 
-# from ExoClass import ExoObject
-from ExoClass_new import ExoObject
+from ExoClass import ExoObject
 from SoftRTloop import FlexibleTimer
 from utils import MovingAverageFilter
 

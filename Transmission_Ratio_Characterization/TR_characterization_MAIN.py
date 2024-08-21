@@ -3,24 +3,17 @@
 import csv
 import threading
 import numpy as np
-
 from time import time, sleep
-
-# from flexsea import flexsea as flex
-# from flexsea import fxUtils as fxu
-# from flexsea import fxEnums as fxe
 from flexsea.device import Device
-
 import sys
-sys.path.insert(0, '/home/pi/VAS_exoboot_controller/')
-from ExoClass_new import ExoObject
+sys.path.insert(0, '/home/pi/Exoboot-Controller-VAS/')
+from ExoClass import ExoObject
 import config
 
 def get_active_ports():
     """To use the exos, it is necessary to define the ports they are going to be connected to. 
     These are defined in the ports.yaml file in the flexsea repo.
      """
-    # port_cfg_path = '/home/pi/VAS_exoboot_controller/ports.yaml'
     print("in get_active_ports")
     device_1 = Device(port="/dev/ttyACM0", firmwareVersion="7.2.0", baudRate=230400, logLevel=6)
     device_2 = Device(port="/dev/ttyACM1", firmwareVersion="7.2.0", baudRate=230400, logLevel=6)

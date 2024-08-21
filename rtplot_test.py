@@ -6,47 +6,6 @@ import numpy as np
 import csv
 import array
 
-################################################
-#### Testing Transmission ratio functionality: 
-################################################
-# side = input("Input left/right:")
-
-# # compute the transmission ratio for the current ankle angle:
-# def get_TR_for_ank_ang(curr_ank_angle):
-#     N = np.polyval(p_TR, curr_ank_angle)  # Instantaneous transmission ratio
-    
-#     return N
-
-# def desired_torque_2_current(desired_spline_torque):
-#     N = get_TR_for_ank_ang(25.3)
-#     des_current = (desired_spline_torque / 
-#                         (N * 0.9 * 0.000146) * 1000)*-1  # mA
-#     return des_current
-
-# # Open and read the CSV file
-# if side == "left":
-#     with open('default_TR_coefs_left.csv', mode='r') as file:
-#         csv_reader = csv.reader(file)
-#         p_master = next(csv_reader)  # Read the first row, which is the motor_angle_curve_coeffs
-#         p_TR = next(csv_reader)      # Read the second row, which is the TR_coeffs
-#         p_TR = [float(x) for x in p_TR]
-
-# elif side == "right":
-#     with open('default_TR_coefs_right.csv', mode='r') as file:
-#         csv_reader = csv.reader(file)
-#         p_master = next(csv_reader)  # Read the first row, which is the motor_angle_curve_coeffs
-#         p_TR = next(csv_reader)      # Read the second row, which is the TR_coeffs
-#         p_TR = [float(x) for x in p_TR]
-        
-# print('p_master:', p_master)
-# print('p_TR:', p_TR)
-# desired_spline_torque = 2
-
-# des_current = desired_torque_2_current(desired_spline_torque)
-# print("Desired current is:", des_current)
-
-
-
 ######################################
 #### Testing rtPlot Functionality ####
 ######################################

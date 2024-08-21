@@ -14,17 +14,8 @@ from rtplot import client
 import threading
 import csv
 from time import strftime
-
-# from flexsea import flexsea as flex
-#from flexsea import fxUtils as fxu
-# from flexsea import fxEnums as fxe
 from flexsea.device import Device
 
-# # logging from Bertec
-# import sys
-# sys.path.insert(0, '/home/pi/VAS_exoboot_controller/Reference_Scripts_Bertec_Sync')
-# from ZMQ_PubSub import Subscriber 
-# from GroundContact import GroundContact 
 from SoftRTloop import FlexibleTimer
 from utils import MovingAverageFilter
 
@@ -82,19 +73,7 @@ class Gait_State_Estimator(threading.Thread):
             str(config.trial_presentation), 
             strftime("%m%d%Y")
         )
-        self.filename = '/home/pi/VAS_exoboot_controller/Experimental_Logs/' + str(fname_construction)
-        
-        # # Initialize ZmQ subscribers for Bertec and instantiate Ground contact detectors for each foot
-        # self.sub_bertec_right = Subscriber(publisher_ip=config.Vicon_ip_address,topic_filter='fz_right',timeout_ms=5)
-        # self.sub_bertec_left = Subscriber(publisher_ip=config.Vicon_ip_address,topic_filter='fz_left',timeout_ms=5)
-        # # self.bertec_times = Subscriber(publisher_ip=config.Vicon_ip_address,topic_filter='time',timeout_ms=5)
-        
-        # self.right_stance_detector = GroundContact()            
-        # self.left_stance_detector = GroundContact()
-        
-        # #hs and to thresholds and variables to verify Bertec updates 
-        # self.prev_z_right = 0
-        # self.prev_z_left = 0
+        self.filename = '/home/pi/Exoboot-Controller-VAS/Experimental_Logs/' + str(fname_construction)
         
         # instantiate soft real-time loop
         loopFreq = 300 #425 # Hz
@@ -277,10 +256,6 @@ class Gait_State_Estimator(threading.Thread):
             
         self.time_in_current_stride_right = time.time() - self.start_time_right
         config.time_in_current_stride_right = self.time_in_current_stride_right
-            
-        #return config.heel_strike_right , np.mean(self.stride_time_right), self.time_in_current_stride_right 
-        #print("Current time: ", config.time_in_current_stride_left)
-        #print("Stride period: ", config.stride_time_right)
     
     def logging(self, filename, datapoint_array): #Adding VSO/ VSPA style of logging
         with open(filename, 'a') as f:
@@ -335,81 +310,6 @@ class Gait_State_Estimator(threading.Thread):
         prev_end_time = time.time()
 
         while self.quit_event.is_set():
-            # try:
-            
-                # # Recieve Bertec data from subscribed channels 
-                # topic_right, z_forces_right, timestep_valid_right = self.sub_bertec_right.get_message()
-                # topic_left, z_forces_left, timestep_valid_left = self.sub_bertec_left.get_message()
-                # # topic_left, bertec_times, timestep_valid_left = self.bertec_times.get_message()
-                
-                # # Catching empty messages from ZmQ Bertec Streaming
-                # if z_forces_right == '':
-                #     z_forces_right = prev_z_right  
-                # else:
-                #     z_forces_right = float(z_forces_right)
-                # if z_forces_left == '':
-                #     z_forces_left = prev_z_left 
-                # else: 
-                #     z_forces_left = float(z_forces_left)
-                
-                # ##### For Bertec Lag Testing: 
-                # if bertec_times == '':
-                #     bertec_times = prev_bertec_times  
-                # else:
-                #     bertec_times = float(bertec_times)
-
-                # print('Lag:', bertec_times - time.time())
-                
-                # prev_bertec_times = bertec_times
-                # ######
-                
-                # # Heel Strike + Toe-off Detection and stance time computation 
-                # stance_time_right, HS_bool_right, time_in_current_stance_right, stride_period_bertec_right = self.right_stance_detector.update(z_forces_right)
-                # stance_time_left, HS_bool_left, time_in_current_stance_left, stride_period_bertec_left = self.left_stance_detector.update(z_forces_left)
-                
-                # # Set config variables with stance times, time in current stance and stride time using Bertec data
-                # config.stance_time_left = stance_time_left
-                # config.stance_time_right = stance_time_right
-                # config.stride_period_bertec_right = stride_period_bertec_right
-                # config.stride_period_bertec_left = stride_period_bertec_left
-                
-                # # right HS: 
-                # if HS_bool_right:
-                #     config.bertec_HS_right = 10
-                #     config.in_swing_start_right = False
-                #     config.swing_val_right = 0
-                # else:
-                #     config.bertec_HS_right = 0
-                #     config.in_swing_start_right = True
-                #     config.swing_val_right = 100
-                
-                # # left HS:
-                # if HS_bool_left:
-                #     config.bertec_HS_left = 10
-                #     config.in_swing_start_left = False
-                #     config.swing_val_left = 0
-                # else:
-                #     config.bertec_HS_left = 0
-                #     config.in_swing_start_left = True
-                #     config.swing_val_left = 100
-                    
-                # # Remove simulataneous forceplate activation by setting the in-swing flag
-                # if (HS_bool_right) & (HS_bool_left):
-                #     config.in_swing_start_left = True
-                #     config.swing_val_left = 100
-                    
-                #     config.in_swing_start_right = True
-                #     config.swing_val_right = 100
-                # else:
-                #     config.in_swing_start_left = False
-                #     config.swing_val_left = 0
-                    
-                #     config.in_swing_start_right = False
-                #     config.swing_val_right = 0
-                
-                # prev_z_right = z_forces_right
-                # prev_z_left = z_forces_left
-                
                 
                 # Running the GSE
                 self.read_exo_sensors()

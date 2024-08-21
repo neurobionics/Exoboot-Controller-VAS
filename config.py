@@ -2,12 +2,9 @@
 
 ######### PARAMS TO MODIFY PRIOR TO EACH VAS SESSION ######### 
 # gRPC ip addresses (run in the following order: rtplot, then GUI client, then VAS_MAIN() script)
-# server_ip = f"{'10.0.0.200'}:" f"{'50051'}"   # IP address of the Controller (rPi)
 server_ip = f"{'35.3.134.250'}:" f"{'50051'}"   # IP address of the Controller (rPi)
 
 # client_ip = f"{'0.0.0.0'}:" f"{'50051'}"         # IP address of Tablet (or my laptop if debugging) running the GUI
-# client_ip = f"{'35.3.147.189'}:" f"{'50051'}"         # IP address of Tablet (or my laptop if debugging) running the GUI
-
 rtplot_ip = '35.3.80.31'    # ip address of server for real time ploting (monitor)
 Vicon_ip_address='141.212.77.30'    # Vicon ip to connect to Bertec Forceplates for streaming
 ##############################################################  
@@ -28,15 +25,15 @@ max_Vickrey_torque : float = 37.5   # Nm
 in_torque_FSM_mode: bool = True      # Toggle for 4pt FSM-based Torque Control or biomimetic Torque Control
 bertec_fp_streaming: bool = True      # Toggle for Bertec Forceplate Streaming or IMU-based Gait State Estimation
 
-# Timing Parameters for the 4-Point Spline (CURRENTLY HAVE VARUN'S PREF STUDY PARAMS LOADED FOR FLAT WALKING AT 1.20m/s)
+# ~ Timing Parameters for the 4-Point Spline ~
 
-# # Flat Walking
+# # VARUN'S PREF STUDY PARAMS LOADED FOR FLAT WALKING AT 1.20m/s:
 # t_rise = 27.9		# stance from t_peak
-# t_peak = 53.3       # stance from heel strike
-# t_fall = 10	        # stance from t_peak
-# t_toe_off = 65		# stance from heel strike
+# t_peak = 53.3     # stance from heel strike
+# t_fall = 10	    # stance from t_peak
+# t_toe_off = 65    # stance from heel strike
 
-# Incline Walking
+# Incline Walking:
 t_rise = 15		    # stance from t_peak
 t_peak = 54		    # stance from heel strike
 t_fall = 12		    # stance from t_peak
@@ -84,7 +81,7 @@ efficiency = 0.9    # 90% efficiency for belt drive
 HS_THRESHOLD = 80
 TO_THRESHOLD = 30
 
-# Data variables
+# Logging and Data variables
 state_time_left: float = 0.0
 temperature_left: float = 0.0
 

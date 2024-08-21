@@ -28,7 +28,7 @@ import config
 import bertec_communication_thread
 import Gait_State_EstimatorThread
 
-from ExoClass_new import ExoObject
+from ExoClass import ExoObject
 from SoftRTloop import FlexibleTimer
 from utils import MovingAverageFilter
 

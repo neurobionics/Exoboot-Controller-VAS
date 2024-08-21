@@ -1,7 +1,5 @@
 import threading
 import grpc 
-# import Message_pb2
-# import Message_pb2_grpc
 import gui2controller2_pb2
 import gui2controller2_pb2_grpc
 from concurrent import futures
