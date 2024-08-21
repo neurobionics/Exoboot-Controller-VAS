@@ -1,0 +1,16 @@
+syntax = "proto3";
+
+message Null {};
+
+/* This service is between
+Client: Sending logging data from GUI
+Server: Once receiving the logging data, RPI sends a null message
+*/
+
+message data_stream {
+    repeated string logging_data = 1;
+}
+
+service CommunicationService{
+  rpc GUI_Messenger (data_stream) returns (Null) {}
+}

@@ -1,0 +1,64 @@
+#this file is used to define the layout of the GUI
+#:import Factory kivy.factory.Factory
+#:import utils kivy.utils
+
+#This describes the layout and the orientation of the VAS GUI
+<GuiVas>:
+    GridLayout:
+        cols: 2
+        size: root.width, root.height
+
+        GridLayout:
+            #orientation: 'horizontal'
+            cols:3
+            size_hint_y: 1
+            size_hint_x: 0.7
+
+            BoxLayout:
+                id: left_label
+                orientation: 'vertical'
+                size_hint_x: 0.2
+                Label:
+                    text: root.npo_mv_text
+                    halign: 'center'
+                    valign: 'center'
+                    text_size: self.size
+                    font_name: 'Roboto'
+
+            BoxLayout:
+                id: slider_layout
+                orientation: 'vertical'
+                size_hint_y: 0.8
+                on_kv_post: root.create_sliders()
+            BoxLayout:
+                id: right_label
+                orientation: 'vertical'
+                size_hint_x: 0.2
+                Label:
+                    text: root.epo_mv_text
+                    halign: 'center'
+                    valign: 'center'
+                    text_size: self.size
+                    font_name: 'Roboto'
+
+        BoxLayout:
+            id: button_layout
+            orientation: 'vertical'
+            size_hint_y: 0.8
+            size_hint_x: 0.3
+            on_kv_post: root.create_buttons()
+
+        BoxLayout:
+            id: new_button_layout
+            orientation: 'horizontal'
+            size_hint_y: 0.1
+            Button:
+                text: 'Confirm'
+                font_name: 'Roboto'
+                font_size: 40
+                size_hint_x: 0.3
+                pos_hint: {'center_x': 0.25}
+                background_normal: ''
+                background_color: utils.get_color_from_hex('#0000FF')
+                on_press: root.confirm_button_pressed()
+
