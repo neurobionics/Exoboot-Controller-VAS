@@ -19,13 +19,13 @@ GUI_commanded_torque: float = 0.0   # Current Torque Experienced (Nm)
 adjusted_slider_btn: str = 'nan'    # Adjusted Slider Btn
 adjusted_slider_value: float = 0.0  # Adjusted Slider Value($)
 confirm_btn_pressed: str = 'False'  # Confirm Button Pressed?
-max_Vickrey_torque : float = 37.5   # Nm
+max_Vickrey_torque : float = 40.0   # Nm
 
 # TOGGLES:
-in_torque_FSM_mode: bool = True      # Toggle for 4pt FSM-based Torque Control or biomimetic Torque Control
+in_torque_FSM_mode: bool = True       # Toggle for 4pt FSM-based Torque Control or biomimetic Torque Control
 bertec_fp_streaming: bool = True      # Toggle for Bertec Forceplate Streaming or IMU-based Gait State Estimation
 
-# ~ Timing Parameters for the 4-Point Spline ~
+## ~ Timing Parameters for the 4-Point Spline ~ ##
 
 # # VARUN'S PREF STUDY PARAMS LOADED FOR FLAT WALKING AT 1.20m/s:
 # t_rise = 27.9		# stance from t_peak
@@ -38,6 +38,11 @@ t_rise = 15		    # stance from t_peak
 t_peak = 54		    # stance from heel strike
 t_fall = 12		    # stance from t_peak
 t_toe_off = 67		# stance from heel strike
+
+# t_rise = 13		    # % stride from t_peak
+# t_peak = 54		    # % stride from heel strike
+# t_fall = 10		    # % stride from t_peak
+# t_toe_off = 65		# % stride from heel strike
 
 END_OF_STANCE = t_toe_off
 END_OF_STRIDE = 100

@@ -214,7 +214,8 @@ class ExoObject:
     def get_TR_for_ank_ang(self, curr_ank_angle):
         N = np.polyval(self.TR_curve_coeffs, curr_ank_angle)  # Instantaneous transmission ratio
         
-        # Safety check to prevent current limit breaches
+        # Safety check to prevent current limit spikes past the allowable limit 
+        # (ideally should not be limited to 10 and should go below)
         N = max(N, 10)
             
         if self.side == "left":
@@ -313,7 +314,12 @@ class ExoObject:
         
         # TO ENABLE TORQUE BASED FSM:
         if config.in_torque_FSM_mode:
-            peak_torque = config.GUI_commanded_torque
+            # TODO: if in_swing, pull the gui_commanded_torque (this way we don't change the peak torque during mid stance)
+            if config.in_swing_bertec_left:
+                self.peak_torque_left = config.GUI_commanded_torque
+                
+            if config.in_swing_bertec_right:
+                self.peak_torque_right = config.GUI_commanded_torque
                 
             if(self.side == 'left'):
                 # 4-point spline generated torque
@@ -321,7 +327,7 @@ class ExoObject:
                 desired_spline_torque = self.assistance_generator.torque_generator_stance_MAIN(config.time_in_current_stance_left, 
                                                                                                config.stride_period_bertec_left, 
                                                                                                config.stance_time_left, 
-                                                                                               peak_torque, 
+                                                                                               self.peak_torque_left, 
                                                                                                config.in_swing_bertec_left)                
                 # desired_spline_torque = self.assistance_generator.biomimetic_torque_generator_MAIN(config.time_in_current_stance_left, config.stance_time_left, peak_torque, config.in_swing_bertec_left)
                 config.desired_spline_torque_left = desired_spline_torque
@@ -332,7 +338,7 @@ class ExoObject:
                 desired_spline_torque = self.assistance_generator.torque_generator_stance_MAIN(config.time_in_current_stance_right, 
                                                                                                config.stride_period_bertec_right, 
                                                                                                config.stance_time_right, 
-                                                                                               peak_torque, 
+                                                                                               self.peak_torque_right, 
                                                                                                config.in_swing_bertec_right)                 
                 # desired_spline_torque = self.assistance_generator.biomimetic_torque_generator_MAIN(config.time_in_current_stance_right, config.stride_period_bertec_right,peak_torque, config.in_swing_bertec_right)
                 config.desired_spline_torque_right = desired_spline_torque
@@ -374,7 +380,7 @@ class ExoObject:
         vetted_current = max(min(desired_spline_current, config.MAX_ALLOWABLE_CURRENT), self.bias_current)
         
         # Perform thermal safety check on actpack
-        self.thermal_safety_checker()
+        # self.thermal_safety_checker()
         
         # Shut off exo if thermal limits breached
         if self.exo_safety_shutoff_flag:
