@@ -16,7 +16,7 @@ starting_val:int = 0         # Initial value of the slider cursor
 ###### MODIFY THESE VALUES FOR EACH SUBJECT ######
 ##################################################
 
-GUI_btn_setup:str = 'full'                              # Full 12 btn setup or 4 btn setup ('full' or '4btn')
+GUI_btn_setup:str = '4btn'                              # Full 12 btn setup or 4 btn setup ('full' or '4btn')
 sub_num:int = 1
 curr_trial_num:int = 1                                  # Current trial number (out of 4 if '4btn' setup and 3 if 'full' setup)
 current_presentation_num:int = 3                        # Only 1 presentation if 'full' setup and 3 presentations if '4btn' setup

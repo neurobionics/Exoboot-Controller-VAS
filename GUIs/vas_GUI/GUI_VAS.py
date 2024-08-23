@@ -12,7 +12,8 @@ from kivy.uix.gridlayout import GridLayout
 from kivy.clock import Clock
 from kivy.uix.textinput import TextInput
 from kivy.properties import StringProperty
-from kivy.properties import NumericProperty
+from kivy.properties import NumericProperty, ListProperty
+from kivy_garden.tickmarker import TickMarker
 
 import numpy as np
 import time
@@ -26,6 +27,10 @@ import config
 import grpc
 
 # Define the GUI class
+class TickSlider(Slider, TickMarker):
+    ticks = ListProperty([])  # Add ticks property
+    pass
+
 class GuiVas(BoxLayout):
     """Actual Class for the GUI"""
     
@@ -63,7 +68,6 @@ class GuiVas(BoxLayout):
         """Initialize the GUI"""
         super(GuiVas, self).__init__(**kwargs)
         self.prev_btn_instance =  None
-        self.last_pressed_button = None
         
         # Random colors and counter for confirm button background color changes
         self.rand_colors = ['#34308F','#590f2c']
@@ -130,7 +134,7 @@ class GuiVas(BoxLayout):
             print(f"An unexpected error occurred: {e}")
 
 
-    def on_slider_value(self,additional_variable,instance_slider: Slider, value: float):
+    def on_slider_value(self,instance_slider: Slider, value: float):
         """Slider value change event method"""
         self.vas_value = value
 
@@ -279,7 +283,6 @@ class GuiVas(BoxLayout):
         for count, i in enumerate(self.button_order):
             # Create the button
             button = Button(text=f"{i}") # unicode point for 'A' is 65
-            self.last_pressed_button= i
             button.bind(on_press=self.press)
             button.background_color = button_colors[count-1]
             button.font_size = 64
@@ -297,26 +300,45 @@ class GuiVas(BoxLayout):
 
         self.ids.slider_layout.clear_widgets()
         for count,i in enumerate(self.button_order):
-            #for i in range(self.num_torque_options):
+
             # Create a BoxLayout for each slider
-            box_layout = BoxLayout(orientation='horizontal')
+            slider_layout = BoxLayout(orientation='horizontal')
 
             # Create the slider
-            slider = Slider(min=config.NPO_MV, max=config.EPO_MV, value=self.button_slider_values[i], cursor_size=(65, 65), cursor_image="pin_1.png")
-            self.last_pressed_button = i
-            additional_variable = i
-            slider.bind(value=partial(self.on_slider_value, additional_variable))
+            slider = Slider(min=config.NPO_MV, 
+                            max=config.EPO_MV, 
+                            value=self.button_slider_values[i], 
+                            cursor_size=(65, 65), 
+                            cursor_image="pin_1.png", 
+                            value_track=True, 
+                            value_track_color=slider_colors[count-1])
+            
+            # TickMarker widget created and added tick marks
+            # endpt_left = config.NPO_MV - 2
+            # endpt_right = config.EPO_MV + 2
+            # slider = TickSlider(min=endpt_left,
+            #                     max=endpt_right, 
+            #                     value=self.button_slider_values[i], 
+            #                     ticks_major=abs(endpt_left-config.NPO_MV), 
+            #                     ticks_minor=0, 
+            #                     size_hint=(.8, .15),
+            #                     cursor_size=(65, 65),
+            #                     cursor_image="pin_1.png",
+            #                     value_track=True,
+            #                     value_track_color=slider_colors[count-1])
+            
+            slider.bind(value=partial(self.on_slider_value))
 
             # Create the cursor label and initially set the opacity to 0
-            cursor_label = Label(text=f"${round(slider.value, 2)}", size_hint=(None, None), color=slider_colors[count-1],opacity=1)
+            cursor_label = Label(text=f"${round(slider.value, 2)}", size_hint=(None, None), color=slider_colors[count-1], opacity=1)
             self.labels.append(cursor_label)
 
             # Add the labels and the slider to the BoxLayout
-            box_layout.add_widget(slider)
-            box_layout.add_widget(cursor_label)
+            slider_layout.add_widget(slider)
+            slider_layout.add_widget(cursor_label)
             
             # Add the BoxLayout to the slider_layout
-            self.ids.slider_layout.add_widget(box_layout)
+            self.ids.slider_layout.add_widget(slider_layout)
 
 
 class VAS_GUIApp(App):
