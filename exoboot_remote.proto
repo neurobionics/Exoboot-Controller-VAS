@@ -1,0 +1,35 @@
+syntax = "proto3";
+
+/* General Communication to Exoboot_Wrapper class
+build command: python -m grpc_tools.protoc -I. --python_out=. --grpc_python_out=. exoboot_remote.proto
+*/
+
+message receipt_exoboot {
+   bool received = 1;
+}
+
+message subject_info_eb {
+    string subjectID = 1;
+    string trial_type = 2;
+    string description = 3;
+}
+
+message pause {
+    bool mybool = 1;
+}
+
+message quit {
+    bool mybool = 1;
+}
+
+message torques {
+    float peak_torque_left = 1;
+    float peak_torque_right = 2;
+}
+
+service exoboot_over_network {
+    rpc send_subject_info (subject_info_eb) returns (receipt_exoboot) {}
+    rpc set_pause (pause) returns (receipt_exoboot) {}
+    rpc set_quit (quit) returns (receipt_exoboot) {}
+    rpc set_torque (torques) returns (receipt_exoboot) {}
+}

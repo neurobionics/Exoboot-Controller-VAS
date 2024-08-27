@@ -1,5 +1,7 @@
 class MovingAverageFilter:
-    # Use to track averages of some numerical quantity
+    """
+    Use to track averages of some numerical quantity
+    """
     def __init__(self, initial_value:float = 0, size:int = 5):
         self.size = size
         self.buffer = [initial_value] * self.size
@@ -17,25 +19,30 @@ class MovingAverageFilter:
 
 
 class TrueAfter:
-    # Returns false if called <= after times
-    # Returns true otherwise
+    """
+    Returns False if called <= after times
+    Returns True otherwise
+    """
     def __init__(self, after:int):
         self.after = after
         self.current = 0
         self.mybool = False
 
+    def step(self):
+        self.current += 1
+        self.mybool = self.current > self.after
+
     def isafter(self):
-        if self.mybool:
-            return True
-        else:
-            self.current += 1
-            self.mybool = self.current > self.after
-            return self.mybool
+        return self.mybool
 
 
 class MovingAverageFilterPlus:
-    # Use to track averages of max_size number of values
-    # Plus adds cold start option fills buffer overtime until reaches max_size
+    
+    """
+    Track averages over iterations
+
+    Includes cold start functionality that starts with buffer size 1 which increases until size
+    """
     def __init__(self, cold_start:bool = False, initial_value:float = 0, size:int = 5):
         # Buffer size atleast 2 for trimmed average 
         self.size = max(size, 2)
@@ -43,7 +50,7 @@ class MovingAverageFilterPlus:
         # Cold start condition
         # warm bool indicates if buffer has been filled
         if cold_start:
-            self.warm = TrueAfter(self.size)
+            self.warm = TrueAfter(self.size-1)
             init_val = 0
         else:
             self.warm = TrueAfter(0)
@@ -69,7 +76,7 @@ class MovingAverageFilterPlus:
         # Returns average without largest value in buffer
         if self.warm.isafter():
             return (sum(self.buffer) - max(self.buffer)) / (self.size - 1)
-        elif self.pntr < 1:
+        elif self.pntr < 2:
             # Need atleast 2 element for trimmed average
             return sum(self.buffer)
         else:
@@ -79,3 +86,6 @@ class MovingAverageFilterPlus:
         self.size = min(self.size + 1, self.size)
         self.buffer[self.pntr] = val
         self.pntr = (self.pntr + 1) % self.size
+
+        # Step TrueAfter
+        self.warm.step()

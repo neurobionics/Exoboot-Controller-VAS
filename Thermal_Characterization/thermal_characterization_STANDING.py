@@ -16,8 +16,6 @@
 # author: Nundini Rawal
 # date: 7/4/24
 
-# TODO: UPDATE EXOBOOT CALLS USING THE NEW FLEXSEA LIBRARY
-
 import os
 import csv
 import traceback
@@ -29,7 +27,7 @@ from flexsea import fxUtils as fxu
 from flexsea import fxEnums as fxe
 
 import sys
-sys.path.insert(0, '/home/pi/Exoboot-Controller-VAS/')
+sys.path.insert(0, '/home/pi/VAS_exoboot_controller/')
 from ExoClass import ExoObject
 from SoftRTloop import FlexibleTimer
 import config
@@ -39,7 +37,7 @@ def get_active_ports(fxs):
     These are defined in the ports.yaml file in the flexsea repo.
     """
 
-    port_cfg_path = '/home/pi/Exoboot-Controller-VAS/'
+    port_cfg_path = '/home/pi/VAS_exoboot_controller/ports.yaml'
     ports, baud_rate = fxu.load_ports_from_file(port_cfg_path) #Flexsea api initialization
 
     # Always turn left exo on first for ports to line up or switch these numbers
