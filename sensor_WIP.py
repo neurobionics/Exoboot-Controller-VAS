@@ -11,6 +11,7 @@ from utils import MovingAverageFilter
 
 class Sensor(threading.Thread):
     def __init__(self, fxs, devices: list, name:str='sensor', quit_event=Type[threading.Event]):
+        # TODO implement in full
         super().__init__(name=name)
         self.devices = devices
         self.quit_event = quit_event

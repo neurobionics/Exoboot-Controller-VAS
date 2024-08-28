@@ -25,7 +25,7 @@ class MainControllerWrapper:
     """
     Runs Necessary threads on pi to run exoboot
 
-    Allows for high level interaction with controller
+    Allows for high level interaction with flexsea controller
     """
     def __init__(self, streamingfrequency, clockspeed=0.2):
         self.streamingfrequency = streamingfrequency
@@ -124,7 +124,6 @@ class MainControllerWrapper:
             self.pause_event.set()
             while self.quit_event.is_set():
                 try:
-                    # TODO remove config logging and move logging here
                     print("Peak Torques L/R: ", self.gse_thread.peak_torque_left, '/', self.gse_thread.peak_torque_right)
 
                     # Data logging

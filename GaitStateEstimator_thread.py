@@ -19,7 +19,6 @@ from utils import MovingAverageFilter
 from GroundContact import BertecEstimator
 from SoftRTloop import FlexibleTimer, FlexibleSleeper
 
-import config
 from constants import RTPLOT_IP, VICON_IP
 from constants import DEV_ID_TO_MOTOR_SIGN_DICT, DEV_ID_TO_ANK_ENC_SIGN_DICT
 from constants import EFFICIENCY, Kt, ENC_CLICKS_TO_DEG, GYRO_GAIN, ACCEL_GAIN
@@ -38,7 +37,7 @@ class GaitStateEstimator(BaseThread):
         self.peak_torque_right = 0
 
         # Logging fields
-        self.fields = ['timestamp', 'forceplate_left', 'forceplate_right', 'thread_freq']
+        self.fields = ['pitime', 'forceplate_left', 'forceplate_right', 'thread_freq']
         self.data_dict = dict.fromkeys(self.fields)
 
         # LoggingNexus
@@ -104,7 +103,7 @@ class GaitStateEstimator(BaseThread):
         Runs even if threads are paused
         """
         # Set starting time stamp
-        self.data_dict['timestamp'] = time.perf_counter() - self.startstamp
+        self.data_dict['pitime'] = time.perf_counter() - self.startstamp
 
         # TODO IMU Estimation
         # self.get_sensor_data()
@@ -136,7 +135,7 @@ class GaitStateEstimator(BaseThread):
         """
         Loop period tracking and soft real time pause
         """
-        # Update Period Tracker and config
+        # Update Period Tracker
         end_time = time.perf_counter()
         self.period_tracker.update(end_time - self.prev_end_time)
         self.prev_end_time = end_time

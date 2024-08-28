@@ -10,7 +10,6 @@ import os, csv, time, copy, threading
 import numpy as np
 from typing import Type, Tuple
 
-# import config
 from constants import DEV_ID_TO_ANK_ENC_SIGN_DICT, DEV_ID_TO_MOTOR_SIGN_DICT, TR_COEFS_PREFIX
 from constants import MAX_ALLOWABLE_CURRENT, BIAS_CURRENT, EFFICIENCY, Kt, ENC_CLICKS_TO_DEG, SPINE_TIMING_PARAMS_DICT, GYRO_GAIN, ACCEL_GAIN
 
@@ -24,6 +23,9 @@ from TransmissionRatioGenerator import TransmissionRatioGenerator
 
 class ExobootThread(BaseThread):
     def __init__(self, side, flexdevice, startstamp, name='exobootthread', daemon=True, pause_event=Type[threading.Event], quit_event=Type[threading.Event]):
+        """
+        TODO make overview
+        """
         super().__init__(name=name, daemon=daemon, pause_event=pause_event, quit_event=quit_event)
         # Necessary Inputs for Exo Class
         self.side = side
@@ -63,7 +65,7 @@ class ExobootThread(BaseThread):
         self.in_swing = False
 
         # Logging fields
-        self.general_fields = ['timestamp', 'thread_freq']
+        self.general_fields = ['pitime', 'thread_freq']
         self.estimate_fields = ['HS', 'current_time', 'stride_period', 'peak_torque', 'in_swing', 'N', 'torque_command', 'current_command']
         self.sensor_fields = ['state_time', 'temperature', 'winding_temp', 'accel_x', 'accel_y', 'accel_z', 'gyro_x', 'gyro_y' ,'gyro_z',
                  'ankle_angle', 'ankle_velocity', 'motor_angle', 'motor_velocity', 'motor_current', 'motor_voltage', 'battery_voltage', 'battery_current', 'act_ank_torque', 'forceplate']
@@ -92,7 +94,6 @@ class ExobootThread(BaseThread):
         
         Subject must stand sufficiently still (>95%) in order to register the angle as the zero
         """
-        # TODO remove config
         filename = os.path.join('Autogen_zeroing_coeff_files','offsets_Exo{}.csv'.format(self.side.capitalize()))
 
         # conduct zeroing/homing procedure and log offsets
@@ -291,7 +292,7 @@ class ExobootThread(BaseThread):
         Set Startstamp and read sensor data
         """
         # Set starting time stamp
-        self.data_dict['timestamp'] = time.perf_counter() - self.startstamp
+        self.data_dict['pitime'] = time.perf_counter() - self.startstamp
 
         # Read sensors
         self.read_sensors()
