@@ -16,17 +16,13 @@
 # author: Nundini Rawal
 # date: 7/4/24
 
-# TODO: UPDATE EXOBOOT CALLS USING THE NEW FLEXSEA LIBRARY
-
 import os
 import csv
 import traceback
 import numpy as np
 from time import time, sleep
 
-from flexsea import flexsea as flex
-from flexsea import fxUtils as fxu
-from flexsea import fxEnums as fxe
+from flexsea.device import Device
 
 import sys
 sys.path.insert(0, '/home/pi/Exoboot-Controller-VAS/')
@@ -34,73 +30,77 @@ from ExoClass import ExoObject
 from SoftRTloop import FlexibleTimer
 import config
 
-def get_active_ports(fxs):
+def get_active_ports():
     """To use the exos, it is necessary to define the ports they are going to be connected to. 
     These are defined in the ports.yaml file in the flexsea repo.
-    """
-
-    port_cfg_path = '/home/pi/Exoboot-Controller-VAS/'
-    ports, baud_rate = fxu.load_ports_from_file(port_cfg_path) #Flexsea api initialization
-
-    # Always turn left exo on first for ports to line up or switch these numbers
-    print("active ports recieved")
-
-    dev_id_1 = fxs.open(ports[0], config.BAUD_RATE, 3)
-    dev_id_2 = fxs.open(ports[1], config.BAUD_RATE, 3)
-
-    print("dev_id_1",dev_id_1)
-    print("dev_id_2",dev_id_2)
-
-    if(dev_id_1 in config.LEFT_EXO_DEV_IDS):
+     """
+    # port_cfg_path = '/home/pi/VAS_exoboot_controller/ports.yaml'
+    print("in get_active_ports")
+    device_1 = Device(port="/dev/ttyACM0", firmwareVersion="7.2.0", baudRate=230400, logLevel=6)
+    device_2 = Device(port="/dev/ttyACM1", firmwareVersion="7.2.0", baudRate=230400, logLevel=6)
+    
+    # Establish a connection between the computer and the device    
+    device_1.open()
+    device_2.open()
+    
+    print("Dev1", device_1.id, device_1.connected)
+    print("Dev2", device_2.id, device_2.connected)
+    print("opened comm with device")
+    
+    if(device_1.id in config.LEFT_EXO_DEV_IDS):
         side_1  = 'left'
         side_2 = 'right'
-    elif(dev_id_1 in config.RIGHT_EXO_DEV_IDS):
+    elif(device_1.id in config.RIGHT_EXO_DEV_IDS):
         side_1 = 'right' 
         side_2 = 'left'
-
-    return side_1, dev_id_1, side_2, dev_id_2
     
+    print("device connected and active ports recieved")
+
+    return side_1, device_1, side_2, device_2
+
 
 if __name__ == "__main__":
     # Recieve active ports that the exoskeletons are connected to
-    fxs = flex.FlexSEA()
-    side_1, dev_id_1, side_2, dev_id_2 = get_active_ports(fxs)
+    side_1, device_1, side_2, device_2 = get_active_ports()
+    print(side_1, device_1.id, side_2, device_2.id)
+    
+    frequency = 1000
+    device_1.start_streaming(frequency)
+    device_2.start_streaming(frequency)
+    device_1.set_gains(config.DEFAULT_KP, config.DEFAULT_KI, config.DEFAULT_KD, 0, 0, config.DEFAULT_FF)
+    device_2.set_gains(config.DEFAULT_KP, config.DEFAULT_KI, config.DEFAULT_KD, 0, 0, config.DEFAULT_FF)
+    
+    if side_1 == "left":
+        motor_sign_left = -1
+        motor_sign_right = -1
+    else:
+        motor_sign_left = -1
+        motor_sign_right = -1
 
     # Instantiate exo object for both left and right sides
     if(side_1 == 'left'):
-        exoLeft = ExoObject(fxs, side=side_1, dev_id=dev_id_1, stream_freq=1000, data_log=False, debug_logging_level=3)
-        exoRight = ExoObject(fxs, side=side_2, dev_id=dev_id_2, stream_freq=1000, data_log=False, debug_logging_level=3)
+        exo_left = ExoObject(side = side_1, device = device_1)
+        exo_right = ExoObject(side = side_2, device = device_2)
     else:
-        exoLeft = ExoObject(fxs, side=side_2, dev_id=dev_id_2, stream_freq=1000, data_log=False, debug_logging_level=3)
-        exoRight = ExoObject(fxs, side=side_1, dev_id=dev_id_1, stream_freq=1000, data_log=False, debug_logging_level=3)
-
-    # Start streaming
-    exoLeft.start_streaming()
-    exoRight.start_streaming()
+        exo_left = ExoObject(side=side_2, device = device_2)
+        exo_right = ExoObject(side=side_1, device = device_1)
     
-    input('Press ANY KEY to spool the RIGHT exo belt')
+    input('Press ANY KEY to spool the LEFT exo belt')
+    exo_left.spool_belt()
     
-    exoLeft.spool_belt()
-    
-    input('Press ANY KEY to load in Transmission Ratio and FSM params')
-    
-    # loading in TR curve
-    coefficients = exoLeft.load_TR_curve_coeffs()
-    
-    # load in the 4-point spline parameters:
-    exoLeft.set_spline_timing_params(config.spline_timing_params)
-    
-    print('Thermal Testing for RIGHT Exo ONLY will commence shortly...')
+    input('Hit ANY KEY to START ZEROING procedure for LEFT exo')
+    exo_left.zeroProcedure()
+    exo_left.set_spline_timing_params(config.spline_timing_params)
 
     peak_current = input("Define a peak current amount (in mA): ")
     peak_current = float(peak_current)
     
     if(side_1 == 'left'):
-        L_exo_filename = "/home/pi/VAS_exoboot_controller/Thermal_Characterization/thermal_fulldata_{}_{}mA.csv".format(side_1, peak_current)
-        R_exo_filename = "/home/pi/VAS_exoboot_controller/Thermal_Characterizationthermal_fulldata_{}_{}mA.csv".format(side_2, peak_current)
+        L_exo_filename = "/home/pi/Exoboot-Controller-VAS/Thermal_Characterization/thermal_fulldata_{}_{}mA.csv".format(side_1, peak_current)
+        R_exo_filename = "/home/pi/Exoboot-Controller-VAS/Thermal_Characterizationthermal_fulldata_{}_{}mA.csv".format(side_2, peak_current)
     else:
-        L_exo_filename = "/home/pi/VAS_exoboot_controller/Thermal_Characterizationthermal_fulldata_{}_{}mA.csv".format(side_2, peak_current)
-        R_exo_filename = "/home/pi/VAS_exoboot_controller/Thermal_Characterizationthermal_fulldata_{}_{}mA.csv".format(side_1, peak_current)
+        L_exo_filename = "/home/pi/Exoboot-Controller-VAS/Thermal_Characterizationthermal_fulldata_{}_{}mA.csv".format(side_2, peak_current)
+        R_exo_filename = "/home/pi/Exoboot-Controller-VAS/Thermal_Characterizationthermal_fulldata_{}_{}mA.csv".format(side_1, peak_current)
     
     act_current = np.array([])
     act_T_c = np.array([])
@@ -110,7 +110,7 @@ if __name__ == "__main__":
     array_time_in_current_stride = np.array([])
     motor_currs = np.array([])
     
-    input('Press ANY KEY if you are ready to begin thermal testing')
+    input('HIT ANY KEY to COMMENCE Thermal Testing for LEFT Exo ONLY...')
     
     inProcedure = True
     loopFreq = 60 # Hz
@@ -120,24 +120,30 @@ if __name__ == "__main__":
     iterations = 0
     current_time_in_stride = 0
     stride = 0
-    stride_period = 1.12
+    stride_period = 1.2
     exo_safety_shutoff_flag = False
-    
     start_time = time()
     
-    with open(R_exo_filename, "w", newline="\n") as fd:
-        writer = csv.writer(fd)
-
+    # Header
+    datapoint_array = ['state_time_left', 
+                       'current_time_in_stride',
+                       'commanded_current', 
+                       'case_temp', 
+                       'modelled_winding_temp',
+                       'motor_current',
+                       'motor_voltage',
+                       'current_ank_ang']
+    
+    with open(L_exo_filename, 'a') as fd:
+        writer = csv.writer(fd,lineterminator='\n',quotechar='|')
+        writer.writerow(datapoint_array)
+        
         while inProcedure:
             iterations += 1
-            # fxu.clear_terminal()
             os.system('clear')
             try:
-                # soft real-time loop
-                softRTloop.pause()
 
-                # simulate a gait state estimator: set a fixed stride period of 2s & 
-                # increase current_time_in_stride in increments of 0.01s. 
+                # simulate a gait state estimator: set a fixed stride period & increment by 0,01s
                 if current_time_in_stride >= stride_period:
                     current_time_in_stride = 0
                     start_time = time()
@@ -147,65 +153,66 @@ if __name__ == "__main__":
                     current_time_in_stride = time() - start_time
                     print("time in curr stride: ", current_time_in_stride)
 
-                # command the exoskeleton using 4-point spline: 
-                # desired_spline_torque = exoRight.fourPtSpline.torque_generator_MAIN(current_time_in_stride, 
-                                                                            # stride_period, commanded_torque)
-
                 # read from the exoskeleton (testing without Varun's GSE/sensor reading thread)
-                act_pack = exoLeft.fxs.read_device(exoLeft.dev_id)
-
-                current_ank_angle = (exoLeft.ank_enc_sign*act_pack.ank_ang * exoLeft.ANK_ENC_CLICKS_TO_DEG) - exoLeft.max_dorsi_offset  # obtain ankle angle in deg wrt max dorsi offset
-                current_mot_angle = (act_pack.mot_ang * exoLeft.MOT_ENC_CLICKS_TO_DEG)  # obtain motor angle in deg
+                act_pack = exo_left.device.read()
+                state_time = act_pack['state_time'] / 1000 # converting to seconds
+                current_ank_angle = (exo_left.ank_enc_sign*act_pack['ank_ang'] * exo_left.ANK_ENC_CLICKS_TO_DEG)  # obtain ankle angle in deg wrt max dorsi offset
+                current_mot_angle = (motor_sign_left * act_pack['mot_ang'] * exo_left.MOT_ENC_CLICKS_TO_DEG)  # obtain motor angle in deg
                 
-                # Convert spline torque to it's corresponding current
-                # N = exoLeft.get_TR_for_ank_ang(float(current_ank_angle),coefficients)
-                # spline_current = (desired_spline_torque / (N * exoRight.efficiency * exoRight.Kt))* exoRight.exo_left_or_right_sideMultiplier   # mA
-
-                spline_current = exoLeft.fourPtSpline.current_generator_test(current_time_in_stride, stride_period, peak_current)
+                spline_current = exo_left.assistance_generator.current_generator_MAIN(current_time_in_stride, stride_period, peak_current, False)
                 print("commanded current: ", spline_current)    # current in terms of mA
 
                 # Check whether commanded current is above the maximum current threshold
-                vetted_current = exoLeft.max_current_safety_checker(spline_current)
+                vetted_current = int( max(min(int(spline_current), exo_left.CURRENT_THRESHOLD), exo_left.bias_current) )
 
-                # Current control if desired torque is greater than minimum holding torque, otherwise position control
-                exoLeft.fxs.send_motor_command(exoLeft.dev_id, fxe.FX_CURRENT, vetted_current)
+                # Current control vetted current:
+                exo_left.device.command_motor_current(exo_left.exo_left_or_right_sideMultiplier * vetted_current)
                     
                 # determine actual case temperature & motor current
-                actpack_current = act_pack.mot_cur
-                act_T_case = act_pack.temperature
-                act_V = act_pack.mot_volt
+                actpack_current = act_pack['mot_cur']
+                act_T_case = act_pack['temperature']
+                act_V = act_pack['mot_volt']
                 print("measured case temp: ", act_T_case)
                 print("actpack_current", actpack_current)
 
                 # determine modeled case & winding temp
-                exoLeft.thermalModel.T_c = act_T_case
-                exoLeft.thermalModel.update(dt=(1 / loopFreq), motor_current=actpack_current)
-                exoLeft.winding_temperature = exoLeft.thermalModel.T_w
+                exo_left.thermalModel.T_c = act_T_case
+                exo_left.thermalModel.update(dt=(1 / loopFreq), motor_current=actpack_current)
+                exo_left.winding_temperature = exo_left.thermalModel.T_w
 
                 # Shut off exo if thermal limits breached
-                if act_T_case >= exoLeft.max_case_temperature:
+                if act_T_case >= exo_left.max_case_temperature:
                     exo_safety_shutoff_flag = True 
                     print("Case Temperature has exceed 75°C soft limit. Exiting Gracefully")
-                if exoLeft.winding_temperature >= exoLeft.max_winding_temperature:
+                if exo_left.winding_temperature >= exo_left.max_winding_temperature:
                     exo_safety_shutoff_flag = True 
                     print("Winding Temperature has exceed 115°C soft limit. Exiting Gracefully")
 
                 # Shut off the exo motors and exit out of loop gracefully
                 if exo_safety_shutoff_flag == True:
                     print("Exiting curve characterization procedure")
-                    exoLeft.fxs.send_motor_command(exoLeft.dev_id, fxe.FX_CURRENT, 0)
+                    exo_left.device.command_motor_current(0)
                     sleep(0.5)
                     # exit out of method and while loop
                     """Exit the execution loop"""
                     inProcedure = False
 
                 # write data to csv
-                # writer.writerow([current_time_in_stride, vetted_current, act_T_case, exoRight.thermalModel.T_c, exoRight.winding_temperature, desired_spline_torque, actpack_current, act_V, N, spline_current, current_ank_angle])
-                writer.writerow([current_time_in_stride, vetted_current, act_T_case, exoLeft.thermalModel.T_c, exoLeft.winding_temperature, 0, actpack_current, act_V, 0, spline_current, current_ank_angle])
+                writer.writerow([state_time,
+                                 current_time_in_stride,
+                                 vetted_current,
+                                 act_T_case,
+                                 exo_left.winding_temperature,
+                                 actpack_current, 
+                                 act_V,
+                                 current_ank_angle])
+
+                # soft real-time loop
+                softRTloop.pause()
                 
             except KeyboardInterrupt:
                 print('Ctrl-C detected, Exiting Gracefully')
-                exoLeft.fxs.send_motor_command(exoLeft.dev_id, fxe.FX_CURRENT, 0)
+                exo_left.device.command_motor_current(0)
                 sleep(0.5)
                 break
 
