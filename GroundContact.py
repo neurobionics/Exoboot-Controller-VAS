@@ -108,12 +108,22 @@ class BertecEstimator:
     def return_estimate_right(self):
         return self.HS_right, self.stride_period_filter_r.average(), not self.contact_right
 
-    def get_estimate(self, pause_event):
+    def return_steps_per_min(self):
+        return 1/(self.stride_period_filter_l.average() + self.stride_period_filter_r.average())
+
+    def get_estimate(self, pause_event=None):
         """
         Using Bertec forceplate thresholding to determine HS/TO
 
         Only updates filters if threads are not paused
         """
+        # Validate pause_event. Defaults to True if None
+        if not pause_event:
+            updatefilters = True
+        else:
+            updatefilters = pause_event.is_set()
+
+        # Forceplate streaming get forces
         topic_left, fp_l, timestep_valid_left = self.subscriber_left.get_message()
         topic_right, fp_r, timestep_valid_right = self.subscriber_right.get_message()
 
@@ -132,7 +142,7 @@ class BertecEstimator:
                 stance_estimate_left = self.stance_period_filter_l.average()
                 
                 # New period is within +/-ACCEPT_STANCE_THRESHOLD of estimate and thread is not paused
-                if abs((new_stance_period_left - stance_estimate_left) / stance_estimate_left) < ACCEPT_STANCE_THRESHOLD and pause_event.is_set():
+                if abs((new_stance_period_left - stance_estimate_left) / stance_estimate_left) < ACCEPT_STANCE_THRESHOLD and updatefilters:
                     self.stance_period_filter_l.update(new_stance_period_left)
             else:
                 in_contact_left = True  # Still in contact
@@ -146,7 +156,7 @@ class BertecEstimator:
                 stride_period_estimate_left = self.stride_period_filter_r.average()
 
                 # New period is within +/-ACCEPT_STRIDE_THRESHOLD of estimate and thread is not paused
-                if abs((new_stride_period_left - stride_period_estimate_left) / stride_period_estimate_left) < ACCEPT_STRIDE_THRESHOLD and pause_event.is_set():
+                if abs((new_stride_period_left - stride_period_estimate_left) / stride_period_estimate_left) < ACCEPT_STRIDE_THRESHOLD and updatefilters:
                     self.stride_period_filter_l.update(new_stride_period_left)
                     
                 self.HS_left = new_HS_left
@@ -164,7 +174,7 @@ class BertecEstimator:
                 stance_estimate_right = self.stance_period_filter_l.average()
                 
                 # make sure stance period is appropriate before appending to averaging list:
-                if abs((new_stance_period_right - stance_estimate_right) / stance_estimate_right) < ACCEPT_STANCE_THRESHOLD and pause_event.is_set():
+                if abs((new_stance_period_right - stance_estimate_right) / stance_estimate_right) < ACCEPT_STANCE_THRESHOLD and updatefilters:
                     self.stance_period_filter_l.update(new_stance_period_right)
             else:
                 in_contact_right = True  # Still in contact
@@ -177,7 +187,7 @@ class BertecEstimator:
                 new_stride_period_right = new_HS_right - self.HS_right
                 stride_period_estimate_right = self.stride_period_filter_r.average()
                 # make sure stride_period is appropriate before appending to averaging list:
-                if abs((new_stride_period_right - stride_period_estimate_right) / stride_period_estimate_right) < ACCEPT_STRIDE_THRESHOLD and pause_event.is_set():
+                if abs((new_stride_period_right - stride_period_estimate_right) / stride_period_estimate_right) < ACCEPT_STRIDE_THRESHOLD and updatefilters:
                     self.stride_period_filter_l.update(new_stride_period_right)
                     
                 self.HS_right = new_HS_right

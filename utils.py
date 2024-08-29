@@ -89,3 +89,25 @@ class MovingAverageFilterPlus:
 
         # Step TrueAfter
         self.warm.step()
+
+class PID:
+    """
+    Generic DT PID controller
+    """
+    def __init__(self, Kp, Kd, Ki):
+        self.Kp = Kp
+        self.Kd = Kd
+        self.Ki = Ki
+
+        self.last_error = 0
+        self.integral = 0
+    
+    def update(self, setpoint, measured, dt):
+        error = setpoint - measured
+        derivative = (error-self.last_error) / dt
+        self.integral += error * dt
+
+        output = self.Kp * error + self.Kd * derivative + self.Ki * self.integral
+        self.last_error = error
+
+        return output
