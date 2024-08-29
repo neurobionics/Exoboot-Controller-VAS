@@ -113,7 +113,7 @@ if __name__ == "__main__":
     input('HIT ANY KEY to COMMENCE Thermal Testing for LEFT Exo ONLY...')
     
     inProcedure = True
-    loopFreq = 60 # Hz
+    loopFreq = 200 # Hz
     softRTloop = FlexibleTimer(target_freq=loopFreq)	# instantiate soft real-time loop 
     
     # Iterate through your state machine controller that controls the exos 
@@ -125,14 +125,18 @@ if __name__ == "__main__":
     start_time = time()
     
     # Header
-    datapoint_array = ['state_time_left', 
-                       'current_time_in_stride',
-                       'commanded_current', 
-                       'case_temp', 
-                       'modelled_winding_temp',
-                       'motor_current',
-                       'motor_voltage',
-                       'current_ank_ang']
+    datapoint_array = [ 'time_stamp',
+                        'state_time_left', 
+                        'current_time_in_stride',
+                        'commanded_current', 
+                        'case_temp', 
+                        'modelled_winding_temp',
+                        'motor_current',
+                        'motor_voltage',
+                        'current_ank_ang',
+                        'battery_volt',
+                        'battery_current',
+                        'step_energy']
     
     with open(L_exo_filename, 'a') as fd:
         writer = csv.writer(fd,lineterminator='\n',quotechar='|')
@@ -155,6 +159,10 @@ if __name__ == "__main__":
 
                 # read from the exoskeleton (testing without Varun's GSE/sensor reading thread)
                 act_pack = exo_left.device.read()
+                bat_volt = act_pack['batt_volt']
+                bat_curr = act_pack['batt_curr']
+                time_stamp = act_pack['timestamp']
+                step_energy = act_pack['step_energy']
                 state_time = act_pack['state_time'] / 1000 # converting to seconds
                 current_ank_angle = (exo_left.ank_enc_sign*act_pack['ank_ang'] * exo_left.ANK_ENC_CLICKS_TO_DEG)  # obtain ankle angle in deg wrt max dorsi offset
                 current_mot_angle = (motor_sign_left * act_pack['mot_ang'] * exo_left.MOT_ENC_CLICKS_TO_DEG)  # obtain motor angle in deg
@@ -198,14 +206,18 @@ if __name__ == "__main__":
                     inProcedure = False
 
                 # write data to csv
-                writer.writerow([state_time,
-                                 current_time_in_stride,
-                                 vetted_current,
-                                 act_T_case,
-                                 exo_left.winding_temperature,
-                                 actpack_current, 
-                                 act_V,
-                                 current_ank_angle])
+                writer.writerow([time_stamp,
+                                state_time,
+                                current_time_in_stride,
+                                vetted_current,
+                                act_T_case,
+                                exo_left.winding_temperature,
+                                actpack_current, 
+                                act_V,
+                                current_ank_angle,
+                                bat_volt,
+                                bat_curr,
+                                step_energy])
 
                 # soft real-time loop
                 softRTloop.pause()
