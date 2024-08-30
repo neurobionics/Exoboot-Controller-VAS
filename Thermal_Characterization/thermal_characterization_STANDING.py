@@ -89,7 +89,7 @@ if __name__ == "__main__":
     exo_left.spool_belt()
     
     input('Hit ANY KEY to START ZEROING procedure for LEFT exo')
-    exo_left.zeroProcedure()
+    # exo_left.zeroProcedure()
     exo_left.set_spline_timing_params(config.spline_timing_params)
 
     peak_current = input("Define a peak current amount (in mA): ")
@@ -112,6 +112,8 @@ if __name__ == "__main__":
     
     input('HIT ANY KEY to COMMENCE Thermal Testing for LEFT Exo ONLY...')
     
+    # TODO: Add current dt calculation to put into thermal model
+    
     inProcedure = True
     loopFreq = 200 # Hz
     softRTloop = FlexibleTimer(target_freq=loopFreq)	# instantiate soft real-time loop 
@@ -125,8 +127,7 @@ if __name__ == "__main__":
     start_time = time()
     
     # Header
-    datapoint_array = [ 'time_stamp',
-                        'state_time_left', 
+    datapoint_array = [ 'state_time_left', 
                         'current_time_in_stride',
                         'commanded_current', 
                         'case_temp', 
@@ -135,8 +136,7 @@ if __name__ == "__main__":
                         'motor_voltage',
                         'current_ank_ang',
                         'battery_volt',
-                        'battery_current',
-                        'step_energy']
+                        'battery_current']
     
     with open(L_exo_filename, 'a') as fd:
         writer = csv.writer(fd,lineterminator='\n',quotechar='|')
@@ -144,7 +144,7 @@ if __name__ == "__main__":
         
         while inProcedure:
             iterations += 1
-            os.system('clear')
+            # os.system('clear')
             try:
 
                 # simulate a gait state estimator: set a fixed stride period & increment by 0,01s
@@ -152,23 +152,21 @@ if __name__ == "__main__":
                     current_time_in_stride = 0
                     start_time = time()
                     stride += 1
-                    print('{} stride(s) completed', stride)
+                    # print('{} stride(s) completed', stride)
                 elif current_time_in_stride < stride_period:
                     current_time_in_stride = time() - start_time
-                    print("time in curr stride: ", current_time_in_stride)
+                    # print("time in curr stride: ", current_time_in_stride)
 
                 # read from the exoskeleton (testing without Varun's GSE/sensor reading thread)
                 act_pack = exo_left.device.read()
                 bat_volt = act_pack['batt_volt']
                 bat_curr = act_pack['batt_curr']
-                time_stamp = act_pack['timestamp']
-                step_energy = act_pack['step_energy']
                 state_time = act_pack['state_time'] / 1000 # converting to seconds
                 current_ank_angle = (exo_left.ank_enc_sign*act_pack['ank_ang'] * exo_left.ANK_ENC_CLICKS_TO_DEG)  # obtain ankle angle in deg wrt max dorsi offset
                 current_mot_angle = (motor_sign_left * act_pack['mot_ang'] * exo_left.MOT_ENC_CLICKS_TO_DEG)  # obtain motor angle in deg
                 
                 spline_current = exo_left.assistance_generator.current_generator_MAIN(current_time_in_stride, stride_period, peak_current, False)
-                print("commanded current: ", spline_current)    # current in terms of mA
+                # print("commanded current: ", spline_current)    # current in terms of mA
 
                 # Check whether commanded current is above the maximum current threshold
                 vetted_current = int( max(min(int(spline_current), exo_left.CURRENT_THRESHOLD), exo_left.bias_current) )
@@ -180,8 +178,8 @@ if __name__ == "__main__":
                 actpack_current = act_pack['mot_cur']
                 act_T_case = act_pack['temperature']
                 act_V = act_pack['mot_volt']
-                print("measured case temp: ", act_T_case)
-                print("actpack_current", actpack_current)
+                # print("measured case temp: ", act_T_case)
+                # print("actpack_current", actpack_current)
 
                 # determine modeled case & winding temp
                 exo_left.thermalModel.T_c = act_T_case
@@ -189,16 +187,16 @@ if __name__ == "__main__":
                 exo_left.winding_temperature = exo_left.thermalModel.T_w
 
                 # Shut off exo if thermal limits breached
-                if act_T_case >= exo_left.max_case_temperature:
+                if act_T_case >= 60:#exo_left.max_case_temperature:
                     exo_safety_shutoff_flag = True 
                     print("Case Temperature has exceed 75°C soft limit. Exiting Gracefully")
-                if exo_left.winding_temperature >= exo_left.max_winding_temperature:
+                if exo_left.winding_temperature >= 80:#exo_left.max_winding_temperature:
                     exo_safety_shutoff_flag = True 
                     print("Winding Temperature has exceed 115°C soft limit. Exiting Gracefully")
 
                 # Shut off the exo motors and exit out of loop gracefully
                 if exo_safety_shutoff_flag == True:
-                    print("Exiting curve characterization procedure")
+                    print("Exiting thermal loop procedure")
                     exo_left.device.command_motor_current(0)
                     sleep(0.5)
                     # exit out of method and while loop
@@ -206,8 +204,7 @@ if __name__ == "__main__":
                     inProcedure = False
 
                 # write data to csv
-                writer.writerow([time_stamp,
-                                state_time,
+                writer.writerow([state_time,
                                 current_time_in_stride,
                                 vetted_current,
                                 act_T_case,
@@ -216,8 +213,7 @@ if __name__ == "__main__":
                                 act_V,
                                 current_ank_angle,
                                 bat_volt,
-                                bat_curr,
-                                step_energy])
+                                bat_curr])
 
                 # soft real-time loop
                 softRTloop.pause()
