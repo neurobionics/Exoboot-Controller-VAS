@@ -75,3 +75,4 @@ class GroundContact:
         self.contact = newContact   # reset gait state to current gait state
                 
         return self.stance_period, newContact, self.time_in_current_stance, self.stride_period_bertec
+    
