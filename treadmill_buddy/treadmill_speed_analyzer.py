@@ -40,7 +40,7 @@ class TreadmillBase:
 
 class TreadmillBuddyOptimizer(TreadmillBase):
     def __init__(self, walk_period=15):
-        super().__init__(self, name='TreadmillBuddyOptimizer')
+        super().__init__(name='TreadmillBuddyOptimizer')
         self.walk_period = walk_period # s
 
     def run(self):
@@ -82,10 +82,10 @@ class TreadmillBuddyOptimizer(TreadmillBase):
                     v = self.bertec.speed   # m/s
 
                     # Predict new v to reach spm criteria (105)
-                    v_set = self.target_v_from_spm(v, f, f_target)
+                    v_set = self.estimate_new_v(v, f, f_target)
 
                     # Finish if target is v_set is within 5% of target cadence
-                    IsOptimized = abs((f - f_target)/f_target) < 0.05
+                    IsOptimized = abs((f - f_target)/f_target) < 0.01
 
                     print("Target Cadence: {}".format(f_target))
                     print("Observed Treadmill Speed: ", v)
@@ -95,6 +95,7 @@ class TreadmillBuddyOptimizer(TreadmillBase):
 
             print("Treadmill Optimizer Finished")
             print("Target Cadence: {}".format(f_target))
+            print("Observed Cadence: ", f)
             print("Required Treadmill Speed: {}".format(v_set))
             print()
 
@@ -111,9 +112,9 @@ class TreadmillBuddyOptimizer(TreadmillBase):
             self.bertec.write_command(0, 0, incline=None, accR=BERTEC_ACC_RIGHT, accL=BERTEC_ACC_LEFT)
             self.bertec.stop()
 
-class TreadmillBuddy:
+class TreadmillBuddy(TreadmillBase):
     def __init__(self):
-        super().__init__(self, name='TreadmillBuddy')
+        super().__init__(name='TreadmillBuddy')
 
     def run(self):
         v_ss = float(input("Set self selected speed: "))
@@ -171,8 +172,7 @@ class TreadmillBuddy:
 
 if __name__ == "__main__":
     which = sys.argv[1]
-    walk_period = sys.argv[2]
     if which == 'o':
-        TreadmillBuddyOptimizer(walk_period=walk_period).run() 
+        TreadmillBuddyOptimizer(walk_period=20).run() 
     else:
         TreadmillBuddy().run()
