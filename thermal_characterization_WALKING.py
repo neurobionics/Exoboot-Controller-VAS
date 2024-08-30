@@ -188,5 +188,3 @@ if __name__ == '__main__':
         print("Exiting")
         print(e)
         quit_event.clear()
-
-

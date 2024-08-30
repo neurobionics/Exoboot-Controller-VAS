@@ -97,6 +97,7 @@ class BertecEstimator:
         stance_period_init = 0.92   # initial guess of stance time (@ 0.8m/s & 1.0)
 
         # Track stride/stance periods
+        # TODO fix stride period collection
         self.stride_period_filter_l = MovingAverageFilter(initial_value=stride_period_init, size=filter_size) # cold_start=True start with empty buffer
         self.stride_period_filter_r = MovingAverageFilter(initial_value=stride_period_init, size=filter_size)
         self.stance_period_filter_l = MovingAverageFilter(initial_value=stance_period_init, size=filter_size) # cold_start=True start with empty buffer
@@ -109,7 +110,7 @@ class BertecEstimator:
         return self.HS_right, self.stride_period_filter_r.average(), not self.contact_right
 
     def return_steps_per_min(self):
-        return 1/(self.stride_period_filter_l.average() + self.stride_period_filter_r.average())
+        return (1/self.stride_period_filter_l.average() + 1/self.stride_period_filter_r.average()) * 60
 
     def get_estimate(self, pause_event=None):
         """
