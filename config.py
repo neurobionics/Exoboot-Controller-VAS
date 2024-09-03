@@ -183,7 +183,7 @@ time_in_current_stance_left = 0
 time_in_current_stance_right = 0
 
 # Thread Period Tracking
-vas_main_frequency: float = 0
+vas_main_frequency: float = 400
 gui_communication_thread_frequency: float = 0
 gse_thread_frequency: float = 0
 bertec_thread_frequency: float = 0
