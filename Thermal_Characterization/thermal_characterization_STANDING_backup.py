@@ -116,6 +116,7 @@ if __name__ == "__main__":
     stride = 0
     stride_period = 1.2
     exo_safety_shutoff_flag = False
+    act_T_case_buffer = [25, 25]
     
     softRTloop = FlexibleTimer(target_freq = frequency)
     
@@ -138,13 +139,13 @@ if __name__ == "__main__":
         writer = csv.writer(fd,lineterminator='\n',quotechar='|')
         writer.writerow(datapoint_array)
         
-        sim_start_time = time.monotonic()
+        sim_start_time = time.time()
         trial_start_time = sim_start_time      
         prev_time = sim_start_time
         
         while inProcedure:
             iterations += 1
-            curr_time = time.monotonic()
+            curr_time = time.time()
             loop_dt = curr_time - prev_time
             
             if loop_dt >= 0.001:
@@ -158,11 +159,11 @@ if __name__ == "__main__":
                 # simulate a gait state estimator: set a fixed stride period & increment by 0,01s
                 if current_time_in_stride >= stride_period:
                     current_time_in_stride = 0.0
-                    sim_start_time = time.monotonic()
+                    sim_start_time = time.time()
                     stride += 1
                     # print('{} stride(s) completed', stride)
                 elif current_time_in_stride < stride_period:
-                    current_time_in_stride = time.monotonic() - sim_start_time
+                    current_time_in_stride = time.time() - sim_start_time
                     # print("time in curr stride: ", current_time_in_stride)
 
                 # read from the exoskeleton (testing without Varun's GSE/sensor reading thread)
@@ -189,6 +190,17 @@ if __name__ == "__main__":
                 # determine actual case temperature & motor current
                 actpack_current = act_pack['mot_cur']
                 act_T_case = act_pack['temperature']
+                act_T_case_buffer.append(act_T_case) 
+                
+                print(f"OG case temp:{act_T_case}")
+                
+                if len(act_T_case_buffer) > 2:
+                    act_T_case_buffer.pop() 
+                    
+                if ( act_T_case > 1000 ) or ( abs(act_T_case_buffer[1] - act_T_case_buffer[0]) ) > 5:
+                    act_T_case = act_T_case_buffer[0]   # set it to the previous recorded value
+                    print(f"HAD TO RESET THE TEMP to: {act_T_case}")
+                 
                 act_V = act_pack['mot_volt']
                 # print("measured case temp: ", act_T_case)
                 # print("actpack_current", actpack_current)
@@ -202,7 +214,7 @@ if __name__ == "__main__":
                 if act_T_case >= 75:#exo_left.max_case_temperature
                     exo_safety_shutoff_flag = True 
                     print("Case Temperature has exceed 75°C soft limit. Exiting Gracefully")
-                if exo_left.winding_temperature >= exo_left.max_winding_temperature:
+                if exo_left.winding_temperature >= 110: #exo_left.max_winding_temperature:
                     exo_safety_shutoff_flag = True 
                     print("Winding Temperature has exceed 115°C soft limit. Exiting Gracefully")
 
