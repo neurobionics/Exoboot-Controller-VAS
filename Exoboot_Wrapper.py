@@ -30,12 +30,18 @@ class MainControllerWrapper:
     def __init__(self, streamingfrequency, clockspeed=0.2):
         self.streamingfrequency = streamingfrequency
         self.clockspeed = clockspeed
+        self.trial_types = ['vickrey', 'vas', 'jnd', 'thermal']
 
-        # Info to be filled in from LoggingServer
-        self.subjectID = 'who'
-        self.trial_type = 'what'
-        self.description = 'additional'
-        self.file_prefix = self.create_prefix()
+        # Set subject name, trial type, and description
+        self.subjectID = input("Enter subject ID: ")
+
+        self.trial_type = input('Enter trial type (VICKREY, VAS, JND, THERMAL): ')
+        while not self.trial_type.lower() in self.trial_types:
+            self.trial_type = input('Invalid trial type, choose from (VICKREY, VAS, JND, THERMAL): ')
+
+        self.description = input("Additional Information: ")
+
+        self.file_prefix = "{}_{}_{}".format(self.subjectID, self.trial_type.upper(), self.description)
 
     @staticmethod
     def get_active_ports():
@@ -65,18 +71,6 @@ class MainControllerWrapper:
             return side_2, device_2, side_1, device_1
         else:
             raise Exception("Invalid sides for devices: Probably not possible?")
-
-    def create_prefix(self):
-        return "{}_{}_{}".format(self.subjectID, self.trial_type, self.description)
-
-    def set_subject_info(self, subjectID, trial_type, description):
-        """
-        Set subject info
-        """
-        self.subjectID = subjectID
-        self.trial_type = trial_type
-        self.description = description
-        self.file_prefix = self.create_prefix()
     
     def run(self):
         """
@@ -85,6 +79,9 @@ class MainControllerWrapper:
         TODO Print good info
         """
         try:
+            # Set subject information
+            self.set_subject_info()
+
             # Initializing the Exo
             side_left, device_left, side_right, device_right = self.get_active_ports()
             
@@ -113,7 +110,7 @@ class MainControllerWrapper:
             self.gse_thread.start()
 
             # Thread 4: Exoboot Remote Control
-            self.remote_thread = ExobootRemoteServerThread(self, pause_event=self.pause_event, quit_event=self.quit_event)
+            self.remote_thread = ExobootRemoteServerThread(self, self.startstamp, self.trial_type, pause_event=self.pause_event, quit_event=self.quit_event)
             self.remote_thread.start()
 
             # LoggingNexus

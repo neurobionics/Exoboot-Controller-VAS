@@ -2,6 +2,20 @@ import os, csv, copy, threading
 from typing import Type
 from collections import deque
 
+class ImposterThread:
+    """
+    Entry point to LoggingNexus
+    """
+    def __init__(self, name='imposterthread', fields=['pitime']):
+        self.loggingnexus = None
+        self.name = name
+        self.fields = fields
+
+        self.data_dict = dict.fromkeys(self.fields)
+
+    def log_to_nexus(self):
+        self.loggingnexus.append(self.name, self.data_dict)
+
 
 class LoggingNexus:
     def __init__(self, *threads, pause_event=Type[threading.Event], ):
@@ -13,6 +27,10 @@ class LoggingNexus:
         self.setup(threads)
 
     def setup(self, threads):
+        """
+        Add each thread to LoggingNexus dicts
+        Threads log to deques using their name
+        """
         for thread in threads:
             thread.loggingnexus = self
 
@@ -39,6 +57,9 @@ class LoggingNexus:
         self.thread_stashes[threadname].append(data)
 
     def rename_existing(self, file_prefix):
+        """
+        Rename TEMP using file prefix
+        """
         for threadname in self.thread_names:
             filename = self.filenames[threadname]
             os.rename(filename, file_prefix + '_' + threadname + '.csv')

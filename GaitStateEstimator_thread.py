@@ -20,7 +20,7 @@ from GroundContact import BertecEstimator
 from SoftRTloop import FlexibleTimer, FlexibleSleeper
 
 from constants import RTPLOT_IP, VICON_IP
-from constants import DEV_ID_TO_MOTOR_SIGN_DICT, DEV_ID_TO_ANK_ENC_SIGN_DICT
+from constants import DEV_ID_TO_MOTOR_SIGN_DICT, DEV_ID_TO_ANK_ENC_SIGN_DICT, GSETHREAD_FIELDS
 from constants import EFFICIENCY, Kt, ENC_CLICKS_TO_DEG, GYRO_GAIN, ACCEL_GAIN
 
 class GaitStateEstimator(BaseThread):
@@ -37,7 +37,7 @@ class GaitStateEstimator(BaseThread):
         self.peak_torque_right = 0
 
         # Logging fields
-        self.fields = ['pitime', 'forceplate_left', 'forceplate_right', 'thread_freq']
+        self.fields = GSETHREAD_FIELDS
         self.data_dict = dict.fromkeys(self.fields)
 
         # LoggingNexus

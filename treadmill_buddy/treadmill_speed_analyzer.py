@@ -1,7 +1,7 @@
 import sys, csv, time, threading
 
-sys.path.insert(0, '/home/pi/Exoboot-Controller-VAS/')
-sys.path.insert(0, '/home/pi/Exoboot-Controller-VAS/Reference_Scripts_Bertec_Sync')
+sys.path.insert(1, '/home/pi/Exoboot-Controller-VAS/')
+sys.path.insert(1, '/home/pi/Exoboot-Controller-VAS/Reference_Scripts_Bertec_Sync')
 
 from SoftRTloop import FlexibleSleeper
 from BertecMan import Bertec

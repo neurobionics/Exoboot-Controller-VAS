@@ -10,7 +10,7 @@ import os, csv, time, copy, threading
 import numpy as np
 from typing import Type, Tuple
 
-from constants import DEV_ID_TO_ANK_ENC_SIGN_DICT, DEV_ID_TO_MOTOR_SIGN_DICT, TR_COEFS_PREFIX
+from constants import DEV_ID_TO_ANK_ENC_SIGN_DICT, DEV_ID_TO_MOTOR_SIGN_DICT, TR_COEFS_PREFIX, EXOTHREAD_FIELDS
 from constants import MAX_ALLOWABLE_CURRENT, BIAS_CURRENT, EFFICIENCY, Kt, ENC_CLICKS_TO_DEG, SPINE_TIMING_PARAMS_DICT, GYRO_GAIN, ACCEL_GAIN
 
 from thermal import ThermalModel
@@ -65,11 +65,7 @@ class ExobootThread(BaseThread):
         self.in_swing = False
 
         # Logging fields
-        self.general_fields = ['pitime', 'thread_freq']
-        self.estimate_fields = ['HS', 'current_time', 'stride_period', 'peak_torque', 'in_swing', 'N', 'torque_command', 'current_command']
-        self.sensor_fields = ['state_time', 'temperature', 'winding_temp', 'accel_x', 'accel_y', 'accel_z', 'gyro_x', 'gyro_y' ,'gyro_z',
-                 'ankle_angle', 'ankle_velocity', 'motor_angle', 'motor_velocity', 'motor_current', 'motor_voltage', 'battery_voltage', 'battery_current', 'act_ank_torque', 'forceplate']
-        self.fields = self.general_fields + self.estimate_fields + self.sensor_fields
+        self.fields = EXOTHREAD_FIELDS
         self.data_dict = dict.fromkeys(self.fields)
 
         # LoggingNexus

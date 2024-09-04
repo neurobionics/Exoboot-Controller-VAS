@@ -1,9 +1,5 @@
 # Constants file for CONSTANTS
 
-# Runtime Toggles
-IN_TORQUE_FSM_MODE = True   # Toggle for 4pt FSM-based Torque Control or biomimetic Torque Control
-BERTEC_FP_STREAMING = True  # Toggle for Bertec Forceplate Streaming or IMU-based Gait State Estimation
-
 ######### PARAMS TO MODIFY PRIOR TO EACH VAS SESSION ######### 
 # gRPC ip addresses (run in the following order: rtplot, then GUI client, then VAS_MAIN() script)
 PI_IP = f"{'35.3.206.241'}:" f"{'50051'}"   # IP address of the Controller (rPi)
@@ -20,6 +16,23 @@ VICON_IP='141.212.77.30'    # Vicon ip to connect to Bertec Forceplates for stre
 PORT_CFG_PATH = '/home/pi/VAS_exoboot_controller/ports.yaml'
 TR_COEFS_PREFIX = "Transmission_Ratio_Characterization/default_TR_coefs_"
 
+
+"""LoggingNexus Fields for each thread"""
+GENERAL_FIELDS = ['pitime', 'thread_freq']
+GAIT_ESTIMATE_FIELDS = ['HS', 'current_time', 'stride_period', 'peak_torque', 'in_swing', 'N', 'torque_command', 'current_command']
+SENSOR_FIELDS = ['state_time', 'temperature', 'winding_temp', 'accel_x', 'accel_y', 'accel_z', 'gyro_x', 'gyro_y' ,'gyro_z',
+            'ankle_angle', 'ankle_velocity', 'motor_angle', 'motor_velocity', 'motor_current', 'motor_voltage', 'battery_voltage', 'battery_current', 'act_ank_torque', 'forceplate']
+BERTEC_FIELDS = ['forceplate_left', 'forceplate_right']
+
+EXOTHREAD_FIELDS = GENERAL_FIELDS + GAIT_ESTIMATE_FIELDS + SENSOR_FIELDS
+GSETHREAD_FIELDS = GENERAL_FIELDS + BERTEC_FIELDS
+
+REMOTE_FIELDS = {'VICKREY': {'AUCTION': ['t', 'subject_bid', 'user_win_flag', 'current_payout', 'total_winnings'],
+                             'SURVEY': ['enjoyment', 'rpe']},
+                 'VAS': {'PRESENTATION': [],
+                         'OVERTIME': []},
+                 'JND': {'RESULT': ['i', 'torque_left', 'torque_right', 'higher']},
+                 'THERMAL': {'TBD': ['tbd']}}
 
 """Assistance Profile Constants"""
 # Timing Parameters for the 4-Point Spline (CURRENTLY HAVE VARUN'S PREF STUDY PARAMS LOADED FOR FLAT WALKING AT 1.20m/s)
