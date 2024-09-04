@@ -114,13 +114,14 @@ class MainControllerWrapper:
             self.remote_thread.start()
 
             # LoggingNexus
-            self.loggingnexus = LoggingNexus(self.exothread_left, self.exothread_right, self.gse_thread, self.remote_thread, pause_event=self.pause_event)
+            self.loggingnexus = LoggingNexus(self.exothread_left, self.exothread_right, self.gse_thread, pause_event=self.pause_event)
 
             # ~~~Main Loop~~~
             self.softrtloop = FlexibleSleeper(period=1/self.clockspeed)
             self.pause_event.set()
             while self.quit_event.is_set():
                 try:
+                    # TODO add curses fancy terminal
                     print("Peak Torques L/R: ", self.gse_thread.peak_torque_left, '/', self.gse_thread.peak_torque_right)
 
                     # Data logging
@@ -140,10 +141,7 @@ class MainControllerWrapper:
             fname = os.path.split(exc_tb.tb_frame.f_code.co_filename)[1]
             print(exc_type, fname, exc_tb.tb_lineno)
 
-        finally:
-            # Rename temp file
-            self.loggingnexus.rename_existing(self.file_prefix)
-            
+        finally:            
             # Routine to close threads safely
             self.pause_event.set()
             time.sleep(0.5)

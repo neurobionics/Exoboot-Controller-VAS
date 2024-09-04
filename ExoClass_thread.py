@@ -70,7 +70,7 @@ class ExobootThread(BaseThread):
 
         # LoggingNexus
         self.startstamp = startstamp
-        self.loggingnexus = None        
+        self.loggingnexus = None
 
     def getval(self, what):
         """
@@ -206,7 +206,7 @@ class ExobootThread(BaseThread):
         Uses Jianpings model to project forward the measured temperature from Dephy ActPack.
         
         Returns:
-        exo_safety_shutoff_flag (bool): flag that indicates if the exo has exceeded thermal limits. 
+        exo_safety_shutoff_flag (bool): flag that indicates if the exo has exceeded thermal limits.
         Used to toggle whether the device should be shut off.
         """
             
@@ -302,7 +302,7 @@ class ExobootThread(BaseThread):
         """
         self.current_time = time.perf_counter() - self.HS
 
-        # Acquire Torque command based on gait estimate            
+        # Acquire Torque command based on gait estimate
         torque_command = self.assistance_generator.generic_torque_generator(self.current_time, self.stride_period, self.peak_torque, self.in_swing)
         self.data_dict['torque_command'] = torque_command
 

@@ -4,32 +4,113 @@ syntax = "proto3";
 build command: python -m grpc_tools.protoc -I. --python_out=. --grpc_python_out=. exoboot_remote.proto
 */
 
-message receipt_exoboot {
-   bool received = 1;
+// General Messages
+message null {}
+
+message receipt {
+    bool received = 1;
 }
 
-message subject_info_eb {
-    string subjectID = 1;
-    string trial_type = 2;
-    string description = 3;
-}
-
+// Exoboot Controller Messages
 message pause {
     bool mybool = 1;
 }
-
 message quit {
     bool mybool = 1;
 }
-
 message torques {
     float peak_torque_left = 1;
     float peak_torque_right = 2;
 }
 
+
+// Logging Messages
+message beaver {}
+
+message startstamp {
+    float time = 1;
+}
+
+message testmsg {
+    string msg = 1;
+}
+
+message subject_info {
+    string subjectID = 1;
+    string trial_type = 2;
+    string description = 3;
+}
+
+// Vickrey Auction Messages
+message result {
+    float t = 1;
+    float subject_bid = 2;
+    bool user_win_flag = 3;
+    float current_payout = 4;
+    float total_winnings = 5;
+}
+
+message survey {
+    float t = 1;
+    float enjoyment = 2;
+    float rpe = 3;
+}
+
+// VAS Messages
+message slider {
+    float torque = 1;
+    float pos = 2;
+}
+
+message presentation {
+    float trial = 1;
+    float pres_num = 2;
+    repeated float torques = 3;
+    repeated float pos = 4; 
+}
+
+// JND Messages
+message comparison {
+    float t = 1;
+    repeated float torques = 2;
+    float higher = 3;
+}
+
+// Logging Messages
+message header {
+    repeated string names = 1;
+}
+
+message type {
+    repeated string types = 1;
+}
+
+message datastream {
+    repeated string data = 1;
+}
+
+
+// GRPC Service
 service exoboot_over_network {
-    rpc send_subject_info (subject_info_eb) returns (receipt_exoboot) {}
-    rpc set_pause (pause) returns (receipt_exoboot) {}
-    rpc set_quit (quit) returns (receipt_exoboot) {}
-    rpc set_torque (torques) returns (receipt_exoboot) {}
+    // General Methods
+    rpc testconnection (testmsg) returns (receipt) {};
+    rpc get_startstamp (null) returns (startstamp) {};
+    rpc get_subject_info(null) returns (subject_info);
+    rpc chop (beaver) returns (receipt) {}; // LoggingServer kill message
+
+    // Exoboot Controller Commands
+    rpc set_pause (pause) returns (receipt) {}
+    rpc set_quit (quit) returns (receipt) {}
+    rpc set_torque (torques) returns (receipt) {}
+
+    // Vickrey Auction Specific
+    rpc call (result) returns (receipt) {};
+    rpc question (survey) returns (receipt) {};
+
+    //VAS Specific
+    rpc slider_update (slider) returns (receipt) {};
+    rpc presentation_result (presentation) returns (receipt) {};
+
+    //JND Specific
+    rpc comparison_result (comparison) returns (receipt) {};
 }

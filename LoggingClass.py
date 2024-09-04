@@ -56,14 +56,6 @@ class LoggingNexus:
         data = copy.deepcopy(data_dict)
         self.thread_stashes[threadname].append(data)
 
-    def rename_existing(self, file_prefix):
-        """
-        Rename TEMP using file prefix
-        """
-        for threadname in self.thread_names:
-            filename = self.filenames[threadname]
-            os.rename(filename, file_prefix + '_' + threadname + '.csv')
-
     def log(self):
         """
         Empty data from thread_stashes and write to corresponding file

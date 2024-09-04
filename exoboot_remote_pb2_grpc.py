@@ -31,7 +31,8 @@ if _version_not_supported:
 
 
 class exoboot_over_networkStub(object):
-    """Missing associated documentation comment in .proto file."""
+    """GRPC Service
+    """
 
     def __init__(self, channel):
         """Constructor.
@@ -39,44 +40,100 @@ class exoboot_over_networkStub(object):
         Args:
             channel: A grpc.Channel.
         """
-        self.send_subject_info = channel.unary_unary(
-                '/exoboot_over_network/send_subject_info',
-                request_serializer=exoboot__remote__pb2.subject_info_eb.SerializeToString,
-                response_deserializer=exoboot__remote__pb2.receipt_exoboot.FromString,
+        self.testconnection = channel.unary_unary(
+                '/exoboot_over_network/testconnection',
+                request_serializer=exoboot__remote__pb2.testmsg.SerializeToString,
+                response_deserializer=exoboot__remote__pb2.receipt.FromString,
+                _registered_method=True)
+        self.get_startstamp = channel.unary_unary(
+                '/exoboot_over_network/get_startstamp',
+                request_serializer=exoboot__remote__pb2.null.SerializeToString,
+                response_deserializer=exoboot__remote__pb2.startstamp.FromString,
+                _registered_method=True)
+        self.get_subject_info = channel.unary_unary(
+                '/exoboot_over_network/get_subject_info',
+                request_serializer=exoboot__remote__pb2.null.SerializeToString,
+                response_deserializer=exoboot__remote__pb2.subject_info.FromString,
+                _registered_method=True)
+        self.chop = channel.unary_unary(
+                '/exoboot_over_network/chop',
+                request_serializer=exoboot__remote__pb2.beaver.SerializeToString,
+                response_deserializer=exoboot__remote__pb2.receipt.FromString,
                 _registered_method=True)
         self.set_pause = channel.unary_unary(
                 '/exoboot_over_network/set_pause',
                 request_serializer=exoboot__remote__pb2.pause.SerializeToString,
-                response_deserializer=exoboot__remote__pb2.receipt_exoboot.FromString,
+                response_deserializer=exoboot__remote__pb2.receipt.FromString,
                 _registered_method=True)
         self.set_quit = channel.unary_unary(
                 '/exoboot_over_network/set_quit',
                 request_serializer=exoboot__remote__pb2.quit.SerializeToString,
-                response_deserializer=exoboot__remote__pb2.receipt_exoboot.FromString,
+                response_deserializer=exoboot__remote__pb2.receipt.FromString,
                 _registered_method=True)
         self.set_torque = channel.unary_unary(
                 '/exoboot_over_network/set_torque',
                 request_serializer=exoboot__remote__pb2.torques.SerializeToString,
-                response_deserializer=exoboot__remote__pb2.receipt_exoboot.FromString,
+                response_deserializer=exoboot__remote__pb2.receipt.FromString,
                 _registered_method=True)
-        self.schedule_torque = channel.unary_unary(
-                '/exoboot_over_network/schedule_torque',
-                request_serializer=exoboot__remote__pb2.torque_schedule.SerializeToString,
-                response_deserializer=exoboot__remote__pb2.receipt_exoboot.FromString,
+        self.call = channel.unary_unary(
+                '/exoboot_over_network/call',
+                request_serializer=exoboot__remote__pb2.result.SerializeToString,
+                response_deserializer=exoboot__remote__pb2.receipt.FromString,
+                _registered_method=True)
+        self.question = channel.unary_unary(
+                '/exoboot_over_network/question',
+                request_serializer=exoboot__remote__pb2.survey.SerializeToString,
+                response_deserializer=exoboot__remote__pb2.receipt.FromString,
+                _registered_method=True)
+        self.slider_update = channel.unary_unary(
+                '/exoboot_over_network/slider_update',
+                request_serializer=exoboot__remote__pb2.slider.SerializeToString,
+                response_deserializer=exoboot__remote__pb2.receipt.FromString,
+                _registered_method=True)
+        self.presentation_result = channel.unary_unary(
+                '/exoboot_over_network/presentation_result',
+                request_serializer=exoboot__remote__pb2.presentation.SerializeToString,
+                response_deserializer=exoboot__remote__pb2.receipt.FromString,
+                _registered_method=True)
+        self.comparison_result = channel.unary_unary(
+                '/exoboot_over_network/comparison_result',
+                request_serializer=exoboot__remote__pb2.comparison.SerializeToString,
+                response_deserializer=exoboot__remote__pb2.receipt.FromString,
                 _registered_method=True)
 
 
 class exoboot_over_networkServicer(object):
-    """Missing associated documentation comment in .proto file."""
+    """GRPC Service
+    """
 
-    def send_subject_info(self, request, context):
+    def testconnection(self, request, context):
+        """General Methods
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def get_startstamp(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def get_subject_info(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def chop(self, request, context):
         """Missing associated documentation comment in .proto file."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
     def set_pause(self, request, context):
-        """Missing associated documentation comment in .proto file."""
+        """Exoboot Controller Commands
+        """
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
@@ -93,8 +150,35 @@ class exoboot_over_networkServicer(object):
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
-    def schedule_torque(self, request, context):
+    def call(self, request, context):
+        """Vickrey Auction Specific
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def question(self, request, context):
         """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def slider_update(self, request, context):
+        """VAS Specific
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def presentation_result(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def comparison_result(self, request, context):
+        """JND Specific
+        """
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
@@ -102,30 +186,65 @@ class exoboot_over_networkServicer(object):
 
 def add_exoboot_over_networkServicer_to_server(servicer, server):
     rpc_method_handlers = {
-            'send_subject_info': grpc.unary_unary_rpc_method_handler(
-                    servicer.send_subject_info,
-                    request_deserializer=exoboot__remote__pb2.subject_info_eb.FromString,
-                    response_serializer=exoboot__remote__pb2.receipt_exoboot.SerializeToString,
+            'testconnection': grpc.unary_unary_rpc_method_handler(
+                    servicer.testconnection,
+                    request_deserializer=exoboot__remote__pb2.testmsg.FromString,
+                    response_serializer=exoboot__remote__pb2.receipt.SerializeToString,
+            ),
+            'get_startstamp': grpc.unary_unary_rpc_method_handler(
+                    servicer.get_startstamp,
+                    request_deserializer=exoboot__remote__pb2.null.FromString,
+                    response_serializer=exoboot__remote__pb2.startstamp.SerializeToString,
+            ),
+            'get_subject_info': grpc.unary_unary_rpc_method_handler(
+                    servicer.get_subject_info,
+                    request_deserializer=exoboot__remote__pb2.null.FromString,
+                    response_serializer=exoboot__remote__pb2.subject_info.SerializeToString,
+            ),
+            'chop': grpc.unary_unary_rpc_method_handler(
+                    servicer.chop,
+                    request_deserializer=exoboot__remote__pb2.beaver.FromString,
+                    response_serializer=exoboot__remote__pb2.receipt.SerializeToString,
             ),
             'set_pause': grpc.unary_unary_rpc_method_handler(
                     servicer.set_pause,
                     request_deserializer=exoboot__remote__pb2.pause.FromString,
-                    response_serializer=exoboot__remote__pb2.receipt_exoboot.SerializeToString,
+                    response_serializer=exoboot__remote__pb2.receipt.SerializeToString,
             ),
             'set_quit': grpc.unary_unary_rpc_method_handler(
                     servicer.set_quit,
                     request_deserializer=exoboot__remote__pb2.quit.FromString,
-                    response_serializer=exoboot__remote__pb2.receipt_exoboot.SerializeToString,
+                    response_serializer=exoboot__remote__pb2.receipt.SerializeToString,
             ),
             'set_torque': grpc.unary_unary_rpc_method_handler(
                     servicer.set_torque,
                     request_deserializer=exoboot__remote__pb2.torques.FromString,
-                    response_serializer=exoboot__remote__pb2.receipt_exoboot.SerializeToString,
+                    response_serializer=exoboot__remote__pb2.receipt.SerializeToString,
             ),
-            'schedule_torque': grpc.unary_unary_rpc_method_handler(
-                    servicer.schedule_torque,
-                    request_deserializer=exoboot__remote__pb2.torque_schedule.FromString,
-                    response_serializer=exoboot__remote__pb2.receipt_exoboot.SerializeToString,
+            'call': grpc.unary_unary_rpc_method_handler(
+                    servicer.call,
+                    request_deserializer=exoboot__remote__pb2.result.FromString,
+                    response_serializer=exoboot__remote__pb2.receipt.SerializeToString,
+            ),
+            'question': grpc.unary_unary_rpc_method_handler(
+                    servicer.question,
+                    request_deserializer=exoboot__remote__pb2.survey.FromString,
+                    response_serializer=exoboot__remote__pb2.receipt.SerializeToString,
+            ),
+            'slider_update': grpc.unary_unary_rpc_method_handler(
+                    servicer.slider_update,
+                    request_deserializer=exoboot__remote__pb2.slider.FromString,
+                    response_serializer=exoboot__remote__pb2.receipt.SerializeToString,
+            ),
+            'presentation_result': grpc.unary_unary_rpc_method_handler(
+                    servicer.presentation_result,
+                    request_deserializer=exoboot__remote__pb2.presentation.FromString,
+                    response_serializer=exoboot__remote__pb2.receipt.SerializeToString,
+            ),
+            'comparison_result': grpc.unary_unary_rpc_method_handler(
+                    servicer.comparison_result,
+                    request_deserializer=exoboot__remote__pb2.comparison.FromString,
+                    response_serializer=exoboot__remote__pb2.receipt.SerializeToString,
             ),
     }
     generic_handler = grpc.method_handlers_generic_handler(
@@ -136,10 +255,11 @@ def add_exoboot_over_networkServicer_to_server(servicer, server):
 
  # This class is part of an EXPERIMENTAL API.
 class exoboot_over_network(object):
-    """Missing associated documentation comment in .proto file."""
+    """GRPC Service
+    """
 
     @staticmethod
-    def send_subject_info(request,
+    def testconnection(request,
             target,
             options=(),
             channel_credentials=None,
@@ -152,9 +272,90 @@ class exoboot_over_network(object):
         return grpc.experimental.unary_unary(
             request,
             target,
-            '/exoboot_over_network/send_subject_info',
-            exoboot__remote__pb2.subject_info_eb.SerializeToString,
-            exoboot__remote__pb2.receipt_exoboot.FromString,
+            '/exoboot_over_network/testconnection',
+            exoboot__remote__pb2.testmsg.SerializeToString,
+            exoboot__remote__pb2.receipt.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def get_startstamp(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/exoboot_over_network/get_startstamp',
+            exoboot__remote__pb2.null.SerializeToString,
+            exoboot__remote__pb2.startstamp.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def get_subject_info(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/exoboot_over_network/get_subject_info',
+            exoboot__remote__pb2.null.SerializeToString,
+            exoboot__remote__pb2.subject_info.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def chop(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/exoboot_over_network/chop',
+            exoboot__remote__pb2.beaver.SerializeToString,
+            exoboot__remote__pb2.receipt.FromString,
             options,
             channel_credentials,
             insecure,
@@ -181,7 +382,7 @@ class exoboot_over_network(object):
             target,
             '/exoboot_over_network/set_pause',
             exoboot__remote__pb2.pause.SerializeToString,
-            exoboot__remote__pb2.receipt_exoboot.FromString,
+            exoboot__remote__pb2.receipt.FromString,
             options,
             channel_credentials,
             insecure,
@@ -208,7 +409,7 @@ class exoboot_over_network(object):
             target,
             '/exoboot_over_network/set_quit',
             exoboot__remote__pb2.quit.SerializeToString,
-            exoboot__remote__pb2.receipt_exoboot.FromString,
+            exoboot__remote__pb2.receipt.FromString,
             options,
             channel_credentials,
             insecure,
@@ -235,7 +436,7 @@ class exoboot_over_network(object):
             target,
             '/exoboot_over_network/set_torque',
             exoboot__remote__pb2.torques.SerializeToString,
-            exoboot__remote__pb2.receipt_exoboot.FromString,
+            exoboot__remote__pb2.receipt.FromString,
             options,
             channel_credentials,
             insecure,
@@ -247,7 +448,7 @@ class exoboot_over_network(object):
             _registered_method=True)
 
     @staticmethod
-    def schedule_torque(request,
+    def call(request,
             target,
             options=(),
             channel_credentials=None,
@@ -260,9 +461,117 @@ class exoboot_over_network(object):
         return grpc.experimental.unary_unary(
             request,
             target,
-            '/exoboot_over_network/schedule_torque',
-            exoboot__remote__pb2.torque_schedule.SerializeToString,
-            exoboot__remote__pb2.receipt_exoboot.FromString,
+            '/exoboot_over_network/call',
+            exoboot__remote__pb2.result.SerializeToString,
+            exoboot__remote__pb2.receipt.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def question(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/exoboot_over_network/question',
+            exoboot__remote__pb2.survey.SerializeToString,
+            exoboot__remote__pb2.receipt.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def slider_update(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/exoboot_over_network/slider_update',
+            exoboot__remote__pb2.slider.SerializeToString,
+            exoboot__remote__pb2.receipt.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def presentation_result(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/exoboot_over_network/presentation_result',
+            exoboot__remote__pb2.presentation.SerializeToString,
+            exoboot__remote__pb2.receipt.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def comparison_result(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/exoboot_over_network/comparison_result',
+            exoboot__remote__pb2.comparison.SerializeToString,
+            exoboot__remote__pb2.receipt.FromString,
             options,
             channel_credentials,
             insecure,
