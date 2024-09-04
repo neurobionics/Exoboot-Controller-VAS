@@ -129,6 +129,26 @@ class ExobootCommServicer(pb2_grpc.exoboot_over_networkServicer):
         # file prefix from mainwrapper
         self.file_prefix = self.mainwrapper.file_prefix
 
+        # Write file headers depending on trial type
+        match self.mainwrapper.trial_type:
+            case 'VICKREY':
+                self.auction_filename = self.file_prefix + '_auction.csv'
+                with open(self.auction_filename, 'w', newline='') as f:
+                    csv.writer(f).writerow(['t', 'subject_bid', 'user_win_flag', 'current_payout', 'total_winnings'])
+
+                self.surveyfilename = self.file_prefix + '_survey.csv'
+                with open(self.surveyfilename, 'w', newline='') as f:
+                    csv.writer(f).writerow(['t', 'enjoyment', 'rpe'])
+
+            case 'VAS':
+                pass
+
+            case 'JND':
+                pass
+            
+            case 'THERMAL':
+                pass
+
 # General Methods
     def testconnection(self, request, context):
         print("Testing Connection: {}".format(request.msg))
@@ -199,8 +219,7 @@ class ExobootCommServicer(pb2_grpc.exoboot_over_networkServicer):
         print("Received auction results: {}, {}, {}, {}, {}".format(t, subject_bid, user_win_flag, current_payout, total_winnings))
         datalist = [t, subject_bid, user_win_flag, current_payout, total_winnings]
 
-        auction_filename = self.file_prefix + '_auction.csv'
-        with open(auction_filename, 'a', newline='') as f:
+        with open(self.auction_filename, 'a', newline='') as f:
             csv.writer(f).writerow(datalist)
 
         return pb2.receipt(received=True)
@@ -213,8 +232,7 @@ class ExobootCommServicer(pb2_grpc.exoboot_over_networkServicer):
         print("Received survey results: {}, {}, {}".format(t, enjoyment, rpe))
         datalist = [t, enjoyment, rpe]
 
-        surveyfilename = self.file_prefix + '_survey.csv'
-        with open(surveyfilename, 'a', newline='') as f:
+        with open(self.surveyfilename, 'a', newline='') as f:
             csv.writer(f).writerow(datalist)
 
         return pb2.receipt(received=True)

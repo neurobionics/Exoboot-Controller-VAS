@@ -30,18 +30,18 @@ class MainControllerWrapper:
     def __init__(self, streamingfrequency, clockspeed=0.2):
         self.streamingfrequency = streamingfrequency
         self.clockspeed = clockspeed
-        self.trial_types = ['vickrey', 'vas', 'jnd', 'thermal']
+        self.trial_types = ['VICKREY', 'VAS', 'JND', 'THERMAL']
 
         # Set subject name, trial type, and description
         self.subjectID = input("Enter subject ID: ")
 
-        self.trial_type = input('Enter trial type (VICKREY, VAS, JND, THERMAL): ')
-        while not self.trial_type.lower() in self.trial_types:
+        self.trial_type = input('Enter trial type not case sensitive (VICKREY, VAS, JND, THERMAL): ').upper()
+        while not self.trial_type in self.trial_types:
             self.trial_type = input('Invalid trial type, choose from (VICKREY, VAS, JND, THERMAL): ')
 
         self.description = input("Additional Information: ")
 
-        self.file_prefix = "{}_{}_{}".format(self.subjectID, self.trial_type.upper(), self.description)
+        self.file_prefix = "{}_{}_{}".format(self.subjectID, self.trial_type, self.description)
 
     @staticmethod
     def get_active_ports():
