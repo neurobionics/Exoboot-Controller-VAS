@@ -108,9 +108,12 @@ class ExobootRemoteClient:
         return response
 
 # JND Specific    
-    def comparison_result(self, torques, higher):
-        msg = pb2.comparison(torques=torques, higher=higher)
-        response = self.stub.comparison_result(msg)
+    def comparison_result(self, pres, prop, T_ref, T_comp, truth, answer):
+        print("asdf")
+        print(pres, prop, T_ref, T_comp, truth, answer)
+        compmsg = pb2.comparison(pres=pres, prop=prop, T_ref=T_ref, T_comp=T_comp, truth=truth, answer=answer)
+        print("Hello", compmsg)
+        response = self.stub.comparison_result(compmsg)
         return response
 
 
@@ -130,7 +133,7 @@ class ExobootCommServicer(pb2_grpc.exoboot_over_networkServicer):
         self.file_prefix = self.mainwrapper.file_prefix
 
         # Write file headers depending on trial type
-        match self.mainwrapper.trial_type:
+        match self.mainwrapper.trial_type.upper():
             case 'VICKREY':
                 self.auction_filename = self.file_prefix + '_auction.csv'
                 with open(self.auction_filename, 'w', newline='') as f:
@@ -144,7 +147,9 @@ class ExobootCommServicer(pb2_grpc.exoboot_over_networkServicer):
                 pass
 
             case 'JND':
-                pass
+                self.comparisonfilename = self.file_prefix + '_comparison.csv'
+                with open(self.comparisonfilename, 'w', newline='') as f:
+                    csv.writer(f).writerow(['pres', 'prop', 'T_ref', 'T_comp', 'truth', 'higher'])
             
             case 'THERMAL':
                 pass
@@ -159,7 +164,9 @@ class ExobootCommServicer(pb2_grpc.exoboot_over_networkServicer):
         return pb2.startstamp(time=self.startstamp)
     
     def get_subject_info(self, nullmsg, context):
-        return pb2.subject_info(subjectID=self.subjectID, trial_type=self.trial_type, description=self.description)
+        return pb2.subject_info(subjectID=self.mainwrapper.subjectID,
+                                trial_type=self.mainwrapper.trial_type,
+                                description=self.mainwrapper.description)
 
     def chop(self, beaver, context):
         """
@@ -267,11 +274,18 @@ class ExobootCommServicer(pb2_grpc.exoboot_over_networkServicer):
         return pb2.receipt(received=True)
 
 # JND Specific  
-    def comparison_result(self, compmsg):
-        torques = compmsg.torques
-        higher = compmsg.higher
-        
-        print("Received comparison results: {}, {}".format(torques, higher))
+    def comparison_result(self, compmsg, context):
+        pres = compmsg.pres
+        prop = compmsg.prop
+        T_ref = compmsg.T_ref
+        T_comp = compmsg.T_comp
+        truth = compmsg.truth
+        answer = compmsg.answer
+
+        print("Received comparison results: {}, {}, {}, {}, {}, {}".format(pres, prop, T_ref, T_comp, truth, answer))
+        datalist = [pres, prop, T_ref, T_comp, truth, answer]
+        with open(self.comparisonfilename, 'a', newline='') as f:
+            csv.writer(f).writerow(datalist)
         return pb2.receipt(received=True)
 
 

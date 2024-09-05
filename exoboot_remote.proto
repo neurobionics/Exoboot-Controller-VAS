@@ -71,12 +71,16 @@ message presentation {
 
 // JND Messages
 message comparison {
-    float t = 1;
-    repeated float torques = 2;
-    float higher = 3;
+    float pres = 1;
+    float prop = 2;
+    float T_ref = 3;
+    float T_comp = 4;
+    float truth = 5;
+    float answer = 6;
 }
 
-// Logging Messages
+// Logging Messages 
+// TODO IMPLEMENT GENERAL DICT LOGGING
 message header {
     repeated string names = 1;
 }

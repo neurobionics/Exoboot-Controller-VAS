@@ -16,7 +16,7 @@ from GaitStateEstimator_thread import GaitStateEstimator
 from exoboot_remote_control import ExobootRemoteServerThread
 
 from SoftRTloop import FlexibleSleeper
-from constants import DEV_ID_TO_SIDE_DICT, DEFAULT_KP, DEFAULT_KI, DEFAULT_KD, DEFAULT_FF
+from constants import PI_IP, DEV_ID_TO_SIDE_DICT, DEFAULT_KP, DEFAULT_KI, DEFAULT_KD, DEFAULT_FF
 
 thisdir = os.path.dirname(os.path.abspath(__file__))
 sys.path.append(thisdir)
@@ -111,6 +111,7 @@ class MainControllerWrapper:
 
             # Thread 4: Exoboot Remote Control
             self.remote_thread = ExobootRemoteServerThread(self, self.startstamp, self.trial_type, pause_event=self.pause_event, quit_event=self.quit_event)
+            self.remote_thread.set_target_IP(PI_IP)
             self.remote_thread.start()
 
             # LoggingNexus
