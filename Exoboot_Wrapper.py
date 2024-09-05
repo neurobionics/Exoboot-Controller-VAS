@@ -79,9 +79,6 @@ class MainControllerWrapper:
         TODO Print good info
         """
         try:
-            # Set subject information
-            self.set_subject_info()
-
             # Initializing the Exo
             side_left, device_left, side_right, device_right = self.get_active_ports()
             
@@ -115,7 +112,7 @@ class MainControllerWrapper:
             self.remote_thread.start()
 
             # LoggingNexus
-            self.loggingnexus = LoggingNexus(self.exothread_left, self.exothread_right, self.gse_thread, pause_event=self.pause_event)
+            self.loggingnexus = LoggingNexus(self.file_prefix, self.exothread_left, self.exothread_right, self.gse_thread, pause_event=self.pause_event)
 
             # ~~~Main Loop~~~
             self.softrtloop = FlexibleSleeper(period=1/self.clockspeed)

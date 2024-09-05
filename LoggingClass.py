@@ -18,7 +18,8 @@ class ImposterThread:
 
 
 class LoggingNexus:
-    def __init__(self, *threads, pause_event=Type[threading.Event], ):
+    def __init__(self, file_prefix, *threads, pause_event=Type[threading.Event], ):
+        self.file_prefix = file_prefix
         self.thread_names = []
         self.thread_fields = {}
         self.thread_stashes = {}
@@ -38,7 +39,7 @@ class LoggingNexus:
             self.thread_names.append(threadname)
             self.thread_fields[threadname] = thread.fields
             self.thread_stashes[threadname] = deque()
-            self.filenames[threadname] = 'TEMP_' + threadname + '.csv'
+            self.filenames[threadname] = self.file_prefix + threadname + '.csv'
 
         # Write Headers to temp name
         for thread in self.thread_names:
