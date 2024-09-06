@@ -2,7 +2,7 @@
 
 ######### PARAMS TO MODIFY PRIOR TO EACH VAS SESSION ######### 
 # gRPC ip addresses (run in the following order: rtplot, then GUI client, then VAS_MAIN() script)
-PI_IP = f"{'35.3.206.241'}:" f"{'50051'}"   # IP address of the Controller (rPi)
+PI_IP = f"{'35.3.163.152'}:" f"{'50051'}"   # IP address of the Controller (rPi)
 
 # CLIENT_IP = f"{'0.0.0.0'}:" f"{'50051'}"         # IP address of Tablet (or my laptop if debugging) running the GUI
 # CLIENT_IP = f"{'35.3.147.189'}:" f"{'50051'}"         # IP address of Tablet (or my laptop if debugging) running the GUI

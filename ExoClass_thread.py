@@ -333,7 +333,7 @@ class ExobootThread(BaseThread):
         self.data_dict['thread_freq'] = my_freq
 
         # Perform thermal safety check on actpack
-        self.thermal_safety_checker()
+        # self.thermal_safety_checker()
 
         # Send GSE data for logging
         if self.loggingnexus and self.pause_event.is_set():
