@@ -38,7 +38,8 @@ message testmsg {
 message subject_info {
     string subjectID = 1;
     string trial_type = 2;
-    string description = 3;
+    string trial_cond = 3;
+    string description = 4;
 }
 
 // Vickrey Auction Messages

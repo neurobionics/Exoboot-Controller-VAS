@@ -45,8 +45,8 @@ class ExobootRemoteClient:
         """
         Sends null message to LoggingServer to get subject details
         """
-        subject_info = self.stub.get_subject_info(pb2.testmsg(msg='TOREMOVE'))
-        return subject_info.subjectID, subject_info.trial_type, subject_info.description
+        subject_info = self.stub.get_subject_info(pb2.null())
+        return subject_info.subjectID, subject_info.trial_type, subject_info.trial_cond, subject_info.description
 
     def chop(self):
         """
@@ -166,6 +166,7 @@ class ExobootCommServicer(pb2_grpc.exoboot_over_networkServicer):
     def get_subject_info(self, nullmsg, context):
         return pb2.subject_info(subjectID=self.mainwrapper.subjectID,
                                 trial_type=self.mainwrapper.trial_type,
+                                trial_cond=self.mainwrapper.trial_cond,
                                 description=self.mainwrapper.description)
 
     def chop(self, beaver, context):

@@ -27,21 +27,30 @@ class MainControllerWrapper:
 
     Allows for high level interaction with flexsea controller
     """
-    def __init__(self, streamingfrequency, clockspeed=0.2):
+    def __init__(self, subjectID, trial_type, trial_cond, description, streamingfrequency=1000, clockspeed=0.2):
+        self.subjectID = subjectID
+        self.trial_type = trial_type.upper()
+        self.trial_cond = trial_cond.upper()
+        self.description = description
+
         self.streamingfrequency = streamingfrequency
         self.clockspeed = clockspeed
-        self.trial_types = ['VICKREY', 'VAS', 'JND', 'THERMAL']
 
-        # Set subject name, trial type, and description
-        self.subjectID = input("Enter subject ID: ")
+        # Trial type and cond validation
+        valid_trial_typeconds = {'VICKREY': [''],
+                             'VAS': [''],
+                             'JND': ['SPLITLEG', 'SAMELEG'],
+                             'THERMAL': ['']}
+        
+        if not self.trial_type in valid_trial_typeconds.keys():
+            Exception("Invalid trial type: {} not in {}".format(self.trial_type, valid_trial_typeconds.keys()))
 
-        self.trial_type = input('Enter trial type not case sensitive (VICKREY, VAS, JND, THERMAL): ').upper()
-        while not self.trial_type in self.trial_types:
-            self.trial_type = input('Invalid trial type, choose from (VICKREY, VAS, JND, THERMAL): ')
+        if not self.trial_cond in valid_trial_typeconds[self.trial_type]:
+            Exception("Invalid trial cond: {} not in {}".format(self.trial_cond, valid_trial_typeconds))
 
         self.description = input("Additional Information: ")
 
-        self.file_prefix = "{}_{}_{}".format(self.subjectID, self.trial_type, self.description)
+        self.file_prefix = "{}_{}_{}_{}".format(self.subjectID, self.trial_type, self.trial_cond, self.description)
 
     @staticmethod
     def get_active_ports():
@@ -157,4 +166,8 @@ class MainControllerWrapper:
             print("Goodbye")
 
 if __name__ == "__main__":
-    MainControllerWrapper(streamingfrequency=1000).run()
+    subjectID = sys.argv[1]
+    trial_type = sys.argv[2]
+    trial_cond = sys.argv[3]
+    description = sys.argv[4]
+    MainControllerWrapper(subjectID, trial_type, trial_cond, description, streamingfrequency=1000).run()
