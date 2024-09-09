@@ -84,10 +84,18 @@ if __name__ == "__main__":
     else:
         exo_left = ExoObject(side=side_2, device = device_2)
         exo_right = ExoObject(side=side_1, device = device_1)
+        
+    # determine which side to test:
+    selected_side = input('Select which exo side you would like to test (L/R):')
     
-    input('Press ANY KEY to spool the LEFT exo belt')
-    exo_left.spool_belt()
-    exo_left.set_spline_timing_params(config.spline_timing_params)
+    if selected_side == "L":
+        exo = exo_left
+    else:
+        exo = exo_right
+    
+    input('Press ANY KEY to spool the exo belt')
+    exo.spool_belt()
+    exo.set_spline_timing_params(config.spline_timing_params)
 
     peak_current = input("Define a peak current amount (in mA): ")
     peak_current = int(peak_current)
@@ -107,7 +115,7 @@ if __name__ == "__main__":
     array_time_in_current_stride = np.array([])
     motor_currs = np.array([])
     
-    input('HIT ANY KEY to COMMENCE Thermal Testing for LEFT Exo ONLY...')
+    input('HIT ANY KEY to COMMENCE Thermal Testing for SELECTED Exo ONLY...')
     
     # Iterate through your state machine controller that controls the exos 
     inProcedure = True
@@ -167,7 +175,7 @@ if __name__ == "__main__":
                     # print("time in curr stride: ", current_time_in_stride)
 
                 # read from the exoskeleton (testing without Varun's GSE/sensor reading thread)
-                act_pack = exo_left.device.read()
+                act_pack = exo.device.read()
                 bat_volt = act_pack['batt_volt']/1000       # converting to volts
                 bat_curr = act_pack['batt_curr']
                 state_time = act_pack['state_time'] / 1000  # converting to seconds
@@ -176,16 +184,16 @@ if __name__ == "__main__":
                     state_time_start = act_pack['state_time'] / 1000    # converting to seconds
                 
                 ang_vel = act_pack['gyroz'] * config.GYRO_GAIN
-                current_ank_angle = (exo_left.ank_enc_sign*act_pack['ank_ang'] * exo_left.ANK_ENC_CLICKS_TO_DEG)    # obtain ankle angle in deg wrt max dorsi offset
-                current_mot_angle = (motor_sign_left * act_pack['mot_ang'] * exo_left.MOT_ENC_CLICKS_TO_DEG)        # obtain motor angle in deg
+                current_ank_angle = (exo.ank_enc_sign*act_pack['ank_ang'] * exo.ANK_ENC_CLICKS_TO_DEG)    # obtain ankle angle in deg wrt max dorsi offset
+                current_mot_angle = (motor_sign_left * act_pack['mot_ang'] * exo.MOT_ENC_CLICKS_TO_DEG)        # obtain motor angle in deg
                 
-                spline_current = exo_left.assistance_generator.current_generator_MAIN(current_time_in_stride, stride_period, peak_current, False)
+                spline_current = exo.assistance_generator.current_generator_MAIN(current_time_in_stride, stride_period, peak_current, False)
                 # print("commanded current: ", spline_current)    # current in terms of mA
 
                 # Check whether commanded current is above the maximum current threshold
-                vetted_current = int( max(min(int(spline_current), exo_left.CURRENT_THRESHOLD), exo_left.bias_current) )
+                vetted_current = int( max(min(int(spline_current), exo.CURRENT_THRESHOLD), exo.bias_current) )
                 # Current control vetted current:
-                exo_left.device.command_motor_current(exo_left.exo_left_or_right_sideMultiplier * vetted_current)
+                exo.device.command_motor_current(exo.exo_left_or_right_sideMultiplier * vetted_current)
                     
                 # determine actual case temperature & motor current
                 actpack_current = act_pack['mot_cur']
@@ -206,26 +214,25 @@ if __name__ == "__main__":
                 # print("actpack_current", actpack_current)
                 
                 # determine modeled case & winding temp
-                exo_left.thermalModel.T_c = act_T_case
-                exo_left.thermalModel.update(dt=loop_dt, motor_current=actpack_current)
-                exo_left.winding_temperature = exo_left.thermalModel.T_w
+                exo.thermalModel.T_c = act_T_case
+                exo.thermalModel.update(dt=loop_dt, motor_current=actpack_current)
+                exo.winding_temperature = exo.thermalModel.T_w
 
                 # Shut off exo if thermal limits breached
                 if act_T_case >= 75:#exo_left.max_case_temperature
                     exo_safety_shutoff_flag = True 
                     print("Case Temperature has exceed 75°C soft limit. Exiting Gracefully")
-                if exo_left.winding_temperature >= 110: #exo_left.max_winding_temperature:
+                if exo.winding_temperature >= 110: #exo_left.max_winding_temperature:
                     exo_safety_shutoff_flag = True 
                     print("Winding Temperature has exceed 115°C soft limit. Exiting Gracefully")
 
                 # Shut off the exo motors and exit out of loop gracefully
                 if exo_safety_shutoff_flag == True:
                     print("Exiting thermal loop procedure")
-                    exo_left.device.command_motor_current(0)
+                    exo.device.command_motor_current(0)
                     
                     # Stop the motors and close the device IDs before quitting
-                    exo_left.device.stop_motor() 
-                    exo_right.device.stop_motor()
+                    exo.device.stop_motor() 
                     """Exit the execution loop"""
                     inProcedure = False
 
@@ -236,7 +243,7 @@ if __name__ == "__main__":
                                 current_time_in_stride,
                                 vetted_current,
                                 act_T_case,
-                                exo_left.winding_temperature,
+                                exo.winding_temperature,
                                 actpack_current, 
                                 act_V,
                                 current_ank_angle,
@@ -251,12 +258,10 @@ if __name__ == "__main__":
                 
             except KeyboardInterrupt:
                 print('Ctrl-C detected, Exiting Gracefully')
-                exo_left.device.command_motor_current(0)
+                exo.device.command_motor_current(0)
                 
                 # Stop the motors and close the device IDs before quitting
-                exo_left.device.stop_motor() 
-                exo_right.device.stop_motor()
-                
+                exo.device.stop_motor() 
                 break
 
             except Exception as err:
