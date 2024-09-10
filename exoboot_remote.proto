@@ -64,10 +64,11 @@ message slider {
 }
 
 message presentation {
-    float trial = 1;
-    float pres_num = 2;
-    repeated float torques = 3;
-    repeated float pos = 4; 
+    float btn_option = 1;
+    float trial = 2;
+    float pres = 3;
+    repeated float torques = 4;
+    repeated float values = 5; 
 }
 
 // JND Messages
@@ -78,6 +79,12 @@ message comparison {
     float T_comp = 4;
     float truth = 5;
     float answer = 6;
+}
+
+// PREF Messages
+message preference {
+    float pres = 1;
+    float torque = 2;
 }
 
 // Logging Messages 
@@ -118,4 +125,7 @@ service exoboot_over_network {
 
     //JND Specific
     rpc comparison_result (comparison) returns (receipt) {};
+
+    // Pref Specific
+    rpc pref_result (preference) returns (receipt) {};
 }

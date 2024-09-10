@@ -100,6 +100,11 @@ class exoboot_over_networkStub(object):
                 request_serializer=exoboot__remote__pb2.comparison.SerializeToString,
                 response_deserializer=exoboot__remote__pb2.receipt.FromString,
                 _registered_method=True)
+        self.pref_result = channel.unary_unary(
+                '/exoboot_over_network/pref_result',
+                request_serializer=exoboot__remote__pb2.preference.SerializeToString,
+                response_deserializer=exoboot__remote__pb2.receipt.FromString,
+                _registered_method=True)
 
 
 class exoboot_over_networkServicer(object):
@@ -183,6 +188,13 @@ class exoboot_over_networkServicer(object):
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
+    def pref_result(self, request, context):
+        """Pref Specific
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
 
 def add_exoboot_over_networkServicer_to_server(servicer, server):
     rpc_method_handlers = {
@@ -244,6 +256,11 @@ def add_exoboot_over_networkServicer_to_server(servicer, server):
             'comparison_result': grpc.unary_unary_rpc_method_handler(
                     servicer.comparison_result,
                     request_deserializer=exoboot__remote__pb2.comparison.FromString,
+                    response_serializer=exoboot__remote__pb2.receipt.SerializeToString,
+            ),
+            'pref_result': grpc.unary_unary_rpc_method_handler(
+                    servicer.pref_result,
+                    request_deserializer=exoboot__remote__pb2.preference.FromString,
                     response_serializer=exoboot__remote__pb2.receipt.SerializeToString,
             ),
     }
@@ -571,6 +588,33 @@ class exoboot_over_network(object):
             target,
             '/exoboot_over_network/comparison_result',
             exoboot__remote__pb2.comparison.SerializeToString,
+            exoboot__remote__pb2.receipt.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def pref_result(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/exoboot_over_network/pref_result',
+            exoboot__remote__pb2.preference.SerializeToString,
             exoboot__remote__pb2.receipt.FromString,
             options,
             channel_credentials,
