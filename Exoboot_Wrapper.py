@@ -9,6 +9,7 @@
 import os, sys, csv, time, threading
 
 from flexsea.device import Device
+from rtplot import client 
 
 from LoggingClass import LoggingNexus
 from ExoClass_thread import ExobootThread
@@ -16,7 +17,7 @@ from GaitStateEstimator_thread import GaitStateEstimator
 from exoboot_remote_control import ExobootRemoteServerThread
 
 from SoftRTloop import FlexibleSleeper
-from constants import PI_IP, DEV_ID_TO_SIDE_DICT, DEFAULT_KP, DEFAULT_KI, DEFAULT_KD, DEFAULT_FF
+from constants import PI_IP, DEV_ID_TO_SIDE_DICT, DEFAULT_KP, DEFAULT_KI, DEFAULT_KD, DEFAULT_FF, RTPLOT_IP
 
 thisdir = os.path.dirname(os.path.abspath(__file__))
 sys.path.append(thisdir)
@@ -40,6 +41,7 @@ class MainControllerWrapper:
         valid_trial_typeconds = {'VICKREY': [''],
                              'VAS': [''],
                              'JND': ['SPLITLEG', 'SAMELEG'],
+                             'PREF': ['SLIDER', 'BTN'],
                              'THERMAL': ['']}
         
         if not self.trial_type in valid_trial_typeconds.keys():
@@ -47,8 +49,6 @@ class MainControllerWrapper:
 
         if not self.trial_cond in valid_trial_typeconds[self.trial_type]:
             Exception("Invalid trial cond: {} not in {}".format(self.trial_cond, valid_trial_typeconds))
-
-        self.description = input("Additional Information: ")
 
         self.file_prefix = "{}_{}_{}_{}".format(self.subjectID, self.trial_type, self.trial_cond, self.description)
 
@@ -104,6 +104,39 @@ class MainControllerWrapper:
             self.pause_event.clear() # Start with threads paused
             self.quit_event.set()
             self.startstamp = time.perf_counter()
+            
+            
+            # Initialize RT Plotter
+            plot_1_config = {'names': ['Current Left', 'Current Right'],
+                'title': "Currents",
+                'ylabel': "Current (mA)",
+                'xlabel': 'sample', 
+                'yrange': [0, 30],
+                "colors":['red','blue'],
+                "line_width":[8,8]
+                }
+            
+            plot_2_config = {'names': ['Batt Volt Left', 'Batt Volt Right'],
+                'title': "Battery Voltages",
+                'ylabel': "Batt Volt (V)",
+                'xlabel': 'sample',
+                'yrange': [0, 50],
+                "colors":['red','blue'],
+                "line_width":[8,8]
+                }
+            
+            plot_3_config = {'names': ['Case Temp Left', 'Case Temp Right'],
+                'title': "Case Voltages",
+                'ylabel': "Batt Volt (V)",
+                'xlabel': 'sample',
+                'yrange': [0, 50],
+                "colors":['red','blue'],
+                "line_width":[8,8]
+                }
+            
+            plot_config = [plot_1_config,plot_2_config,plot_3_config]
+            client.configure_ip(RTPLOT_IP)
+            client.initialize_plots(plot_config)
 
             # Thread 1/2: Left and right exoboots
             self.exothread_left = ExobootThread(side_left, device_left, self.startstamp, name='exothread_left', daemon=True, pause_event=self.pause_event, quit_event=self.quit_event)

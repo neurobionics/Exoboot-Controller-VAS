@@ -2,10 +2,11 @@
 
 ######### PARAMS TO MODIFY PRIOR TO EACH VAS SESSION ######### 
 # gRPC ip addresses (run in the following order: rtplot, then GUI client, then VAS_MAIN() script)
-PI_IP = f"{'35.3.163.152'}:" f"{'50051'}"   # IP address of the Controller (rPi)
+# TODO pull ip from PI
+PI_IP = f"{'35.3.216.132'}:" f"{'50051'}"   # IP address of the Controller (rPi)
 
 # CLIENT_IP = f"{'0.0.0.0'}:" f"{'50051'}"         # IP address of Tablet (or my laptop if debugging) running the GUI
-# CLIENT_IP = f"{'35.3.147.189'}:" f"{'50051'}"         # IP address of Tablet (or my laptop if debugging) running the GUI
+# CLIENT_IP = f"{'35.3.147.189'}:" f"{'50051'}"    # IP address of Tablet (or my laptop if debugging) running the GUI
 
 RTPLOT_IP = '35.3.80.31'    # ip address of server for real time ploting (monitor)
 VICON_IP='141.212.77.30'    # Vicon ip to connect to Bertec Forceplates for streaming
@@ -23,6 +24,7 @@ GAIT_ESTIMATE_FIELDS = ['HS', 'current_time', 'stride_period', 'peak_torque', 'i
 SENSOR_FIELDS = ['state_time', 'temperature', 'winding_temp', 'accel_x', 'accel_y', 'accel_z', 'gyro_x', 'gyro_y' ,'gyro_z',
             'ankle_angle', 'ankle_velocity', 'motor_angle', 'motor_velocity', 'motor_current', 'motor_voltage', 'battery_voltage', 'battery_current', 'act_ank_torque', 'forceplate']
 BERTEC_FIELDS = ['forceplate_left', 'forceplate_right']
+RTPLOT_FIELDS = ['pitime_left', 'pitime_right', 'motor_current_left', 'motor_current_right', 'batt_volt_left', 'batt_volt_right', 'case_temp_left', 'case_temp_right']
 
 EXOTHREAD_FIELDS = GENERAL_FIELDS + GAIT_ESTIMATE_FIELDS + SENSOR_FIELDS
 GSETHREAD_FIELDS = GENERAL_FIELDS + BERTEC_FIELDS

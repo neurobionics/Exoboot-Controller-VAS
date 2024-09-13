@@ -48,11 +48,11 @@ class ExobootThread(BaseThread):
         self.assistance_generator = AssistanceGenerator()
         
         # Instantiate Thermal Model and specify thermal limits
-        self.thermalModel = ThermalModel(temp_limit_windings=100,soft_border_C_windings=10,temp_limit_case=70,soft_border_C_case=10)
+        self.thermalModel = ThermalModel(temp_limit_windings=100,soft_border_C_windings=10,temp_limit_case=75,soft_border_C_case=5)
         self.case_temperature = 0
         self.winding_temperature = 0
-        self.max_case_temperature = 80
-        self.max_winding_temperature = 115
+        self.max_case_temperature = 75
+        self.max_winding_temperature = 110
         self.exo_safety_shutoff_flag = False
 
         # Peak torque set over exoboot remote
@@ -273,7 +273,7 @@ class ExobootThread(BaseThread):
         # Soft real time loop
         loop_freq = 500 # Hz
         self.softRTloop = FlexibleSleeper(period=1/loop_freq)
-
+        
     def on_pre_pause(self):
         """
         Runs once when paused

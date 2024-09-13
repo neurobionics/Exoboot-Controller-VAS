@@ -1,6 +1,8 @@
 import os, csv, copy, threading
 from typing import Type
 from collections import deque
+from rtplot import client 
+from constants import RTPLOT_FIELDS
 
 class ImposterThread:
     """
@@ -12,6 +14,7 @@ class ImposterThread:
         self.fields = fields
 
         self.data_dict = dict.fromkeys(self.fields)
+        self.rtplot_data_dict = dict.fromkeys(RTPLOT_FIELDS)
 
     def log_to_nexus(self):
         self.loggingnexus.append(self.name, self.data_dict)
@@ -56,6 +59,26 @@ class LoggingNexus:
         """
         data = copy.deepcopy(data_dict)
         self.thread_stashes[threadname].append(data)
+        
+        # send client
+        if 'exothread_' in threadname:
+            if 'left' in threadname:
+                # pull data from dictionary
+                self.rtplot_data_dict['pitime_left'] = data['pitime']
+                self.rtplot_data_dict['motor_current_left'] = data['motor_current']
+                self.rtplot_data_dict['batt_volt_left'] = data['battery_voltage']
+                self.rtplot_data_dict['case_temp_left'] = data['temperature']
+                
+                plot_data_array = [self.rtplot_data_dict.values()]
+            else:
+                self.rtplot_data_dict['pitime_right'] = data['pitime']
+                self.rtplot_data_dict['motor_current_right'] = data['motor_current']
+                self.rtplot_data_dict['batt_volt_right'] = data['battery_voltage']
+                self.rtplot_data_dict['case_temp_right'] = data['temperature']
+                
+                plot_data_array = [self.rtplot_data_dict.values()]
+            
+            client.send_array(plot_data_array)
 
     def log(self):
         """
