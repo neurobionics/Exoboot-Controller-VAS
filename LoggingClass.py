@@ -7,6 +7,7 @@ from constants import RTPLOT_FIELDS
 class ImposterThread:
     """
     Entry point to LoggingNexus
+    # TODO DETERMINE REMOVAL
     """
     def __init__(self, name='imposterthread', fields=['pitime']):
         self.loggingnexus = None
@@ -14,7 +15,6 @@ class ImposterThread:
         self.fields = fields
 
         self.data_dict = dict.fromkeys(self.fields)
-        self.rtplot_data_dict = dict.fromkeys(RTPLOT_FIELDS)
 
     def log_to_nexus(self):
         self.loggingnexus.append(self.name, self.data_dict)
@@ -43,6 +43,8 @@ class LoggingNexus:
             self.thread_fields[threadname] = thread.fields
             self.thread_stashes[threadname] = deque()
             self.filenames[threadname] = self.file_prefix + threadname + '.csv'
+        
+        self.rtplot_data_dict = {key: 0 for key in RTPLOT_FIELDS}
 
         # Write Headers to temp name
         for thread in self.thread_names:
@@ -61,23 +63,22 @@ class LoggingNexus:
         self.thread_stashes[threadname].append(data)
         
         # send client
-        if 'exothread_' in threadname:
+        if 'exothread' in threadname:
+            # Get side
             if 'left' in threadname:
-                # pull data from dictionary
-                self.rtplot_data_dict['pitime_left'] = data['pitime']
-                self.rtplot_data_dict['motor_current_left'] = data['motor_current']
-                self.rtplot_data_dict['batt_volt_left'] = data['battery_voltage']
-                self.rtplot_data_dict['case_temp_left'] = data['temperature']
+                side = '_left'
+            elif 'right' in threadname:
+                side = '_right'
                 
-                plot_data_array = [self.rtplot_data_dict.values()]
-            else:
-                self.rtplot_data_dict['pitime_right'] = data['pitime']
-                self.rtplot_data_dict['motor_current_right'] = data['motor_current']
-                self.rtplot_data_dict['batt_volt_right'] = data['battery_voltage']
-                self.rtplot_data_dict['case_temp_right'] = data['temperature']
+            #  Assign data from thread dict to rtplot data dict
+            self.rtplot_data_dict['pitime'+side] = data['pitime']
+            self.rtplot_data_dict['motor_current'+side] = data['motor_current']/1000
+            self.rtplot_data_dict['batt_volt'+side] = data['battery_voltage']/1000
+            self.rtplot_data_dict['case_temp'+side] = data['temperature']
+            self.rtplot_data_dict['ankle_angle'+side] = data['ankle_angle']
                 
-                plot_data_array = [self.rtplot_data_dict.values()]
-            
+            # Get data and send to rtplot client
+            plot_data_array = [*self.rtplot_data_dict.values()]
             client.send_array(plot_data_array)
 
     def log(self):

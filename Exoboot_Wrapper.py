@@ -17,7 +17,8 @@ from GaitStateEstimator_thread import GaitStateEstimator
 from exoboot_remote_control import ExobootRemoteServerThread
 
 from SoftRTloop import FlexibleSleeper
-from constants import PI_IP, DEV_ID_TO_SIDE_DICT, DEFAULT_KP, DEFAULT_KI, DEFAULT_KD, DEFAULT_FF, RTPLOT_IP
+from constants import PI_IP, NDNI_IP, RTPLOT_IP
+from constants import DEV_ID_TO_SIDE_DICT, DEFAULT_KP, DEFAULT_KI, DEFAULT_KD, DEFAULT_FF
 
 thisdir = os.path.dirname(os.path.abspath(__file__))
 sys.path.append(thisdir)
@@ -42,7 +43,7 @@ class MainControllerWrapper:
                              'VAS': [''],
                              'JND': ['SPLITLEG', 'SAMELEG'],
                              'PREF': ['SLIDER', 'BTN'],
-                             'THERMAL': ['']}
+                             'ACCLIMATION': ['']}
         
         if not self.trial_type in valid_trial_typeconds.keys():
             Exception("Invalid trial type: {} not in {}".format(self.trial_type, valid_trial_typeconds.keys()))
@@ -106,37 +107,54 @@ class MainControllerWrapper:
             self.startstamp = time.perf_counter()
             
             
-            # Initialize RT Plotter
-            plot_1_config = {'names': ['Current Left', 'Current Right'],
-                'title': "Currents",
-                'ylabel': "Current (mA)",
-                'xlabel': 'sample', 
-                'yrange': [0, 30],
-                "colors":['red','blue'],
-                "line_width":[8,8]
-                }
+            # # Initialize RT Plotter
+            # plot_1_config = {'names': ['pitime_left', 'pitime_right'],
+            #     'title': "pitime",
+            #     'ylabel': "Current (mA)",
+            #     'xlabel': 'sample', 
+            #     'yrange': [0, 30],
+            #     "colors":['red','blue'],
+            #     "line_width":[8,8]
+            #     }
             
-            plot_2_config = {'names': ['Batt Volt Left', 'Batt Volt Right'],
-                'title': "Battery Voltages",
-                'ylabel': "Batt Volt (V)",
-                'xlabel': 'sample',
-                'yrange': [0, 50],
-                "colors":['red','blue'],
-                "line_width":[8,8]
-                }
+            # plot_2_config = {'names': ['motor_current_left', 'motor_current_right'],
+            #     'title': "motor_current",
+            #     'ylabel': "Current (mA)",
+            #     'xlabel': 'sample', 
+            #     'yrange': [0, 30],
+            #     "colors":['red','blue'],
+            #     "line_width":[8,8]
+            #     }
             
-            plot_3_config = {'names': ['Case Temp Left', 'Case Temp Right'],
-                'title': "Case Voltages",
-                'ylabel': "Batt Volt (V)",
-                'xlabel': 'sample',
-                'yrange': [0, 50],
-                "colors":['red','blue'],
-                "line_width":[8,8]
-                }
+            # plot_3_config = {'names': ['battery_voltage_left', 'battery_voltage_right'],
+            #     'title': "battery_voltage",
+            #     'ylabel': "Batt Volt (V)",
+            #     'xlabel': 'sample',
+            #     'yrange': [0, 50],
+            #     "colors":['red','blue'],
+            #     "line_width":[8,8]
+            #     }
             
-            plot_config = [plot_1_config,plot_2_config,plot_3_config]
-            client.configure_ip(RTPLOT_IP)
-            client.initialize_plots(plot_config)
+            # plot_4_config = {'names': ['case_temp_left', 'case_temp_right'],
+            #     'title': "case_temp",
+            #     'ylabel': "Degrees C",
+            #     'xlabel': 'sample',
+            #     'yrange': [0, 50],
+            #     "colors":['red','blue'],
+            #     "line_width":[8,8]
+            #     }
+            
+            # plot_5_config = {'names': ['ankle_angle_left', 'ankle_angle_right'],
+            #     'title': "ankle angle",
+            #     'ylabel': "angle(deg)",
+            #     'xlabel': 'sample',
+            #     'yrange': [0, 180],
+            #     "colors":['red','blue'],
+            #     "line_width":[8,8]
+            #     }
+            
+            # client.configure_ip(NDNI_IP)
+            # client.initialize_plots([plot_1_config, plot_2_config, plot_3_config, plot_4_config])
 
             # Thread 1/2: Left and right exoboots
             self.exothread_left = ExobootThread(side_left, device_left, self.startstamp, name='exothread_left', daemon=True, pause_event=self.pause_event, quit_event=self.quit_event)
