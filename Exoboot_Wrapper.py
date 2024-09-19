@@ -42,7 +42,7 @@ class MainControllerWrapper:
                              'VAS': [''],
                              'JND': ['SPLITLEG', 'SAMELEG'],
                              'PREF': ['SLIDER', 'BTN'],
-                             'THERMAL': ['']}
+                             'ACCLIMATION': ['']}
         
         if not self.trial_type in valid_trial_typeconds.keys():
             Exception("Invalid trial type: {} not in {}".format(self.trial_type, valid_trial_typeconds.keys()))
@@ -104,39 +104,6 @@ class MainControllerWrapper:
             self.pause_event.clear() # Start with threads paused
             self.quit_event.set()
             self.startstamp = time.perf_counter()
-            
-            
-            # Initialize RT Plotter
-            plot_1_config = {'names': ['Current Left', 'Current Right'],
-                'title': "Currents",
-                'ylabel': "Current (mA)",
-                'xlabel': 'sample', 
-                'yrange': [0, 30],
-                "colors":['red','blue'],
-                "line_width":[8,8]
-                }
-            
-            plot_2_config = {'names': ['Batt Volt Left', 'Batt Volt Right'],
-                'title': "Battery Voltages",
-                'ylabel': "Batt Volt (V)",
-                'xlabel': 'sample',
-                'yrange': [0, 50],
-                "colors":['red','blue'],
-                "line_width":[8,8]
-                }
-            
-            plot_3_config = {'names': ['Case Temp Left', 'Case Temp Right'],
-                'title': "Case Voltages",
-                'ylabel': "Batt Volt (V)",
-                'xlabel': 'sample',
-                'yrange': [0, 50],
-                "colors":['red','blue'],
-                "line_width":[8,8]
-                }
-            
-            plot_config = [plot_1_config,plot_2_config,plot_3_config]
-            client.configure_ip(RTPLOT_IP)
-            client.initialize_plots(plot_config)
 
             # Thread 1/2: Left and right exoboots
             self.exothread_left = ExobootThread(side_left, device_left, self.startstamp, name='exothread_left', daemon=True, pause_event=self.pause_event, quit_event=self.quit_event)

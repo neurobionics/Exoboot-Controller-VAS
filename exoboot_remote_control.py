@@ -139,16 +139,16 @@ class ExobootCommServicer(pb2_grpc.exoboot_over_networkServicer):
         match self.mainwrapper.trial_type.upper():
             case 'VICKREY':
                 self.auction_filename = self.file_prefix + '_auction.csv'
-                with open(self.auction_filename, 'w', newline='') as f:
+                with open(self.auction_filename, 'a', newline='') as f:
                     csv.writer(f).writerow(['t', 'subject_bid', 'user_win_flag', 'current_payout', 'total_winnings'])
 
                 self.surveyfilename = self.file_prefix + '_survey.csv'
-                with open(self.surveyfilename, 'w', newline='') as f:
+                with open(self.surveyfilename, 'a', newline='') as f:
                     csv.writer(f).writerow(['t', 'enjoyment', 'rpe'])
 
             case 'VAS':
                 self.vasefilename = self.file_prefix + '_vas_results.csv'
-                with open(self.vasefilename, 'w', newline='') as f:
+                with open(self.vasefilename, 'a', newline='') as f:
                     header = ['btn_option', 'trial', 'pres']
                     for i in range(12):
                         header.append('torque{}'.format(i))
@@ -158,12 +158,12 @@ class ExobootCommServicer(pb2_grpc.exoboot_over_networkServicer):
 
             case 'JND':
                 self.comparisonfilename = self.file_prefix + '_comparison.csv'
-                with open(self.comparisonfilename, 'w', newline='') as f:
+                with open(self.comparisonfilename, 'a', newline='') as f:
                     csv.writer(f).writerow(['pres', 'prop', 'T_ref', 'T_comp', 'truth', 'higher'])
             
             case 'PREF':
                 self.preffilename = self.file_prefix + '_pref.csv'
-                with open(self.preffilename, 'w', newline='') as f:
+                with open(self.preffilename, 'a', newline='') as f:
                     csv.writer(f).writerow(['pres', 'torque'])
 
             case 'THERMAL':

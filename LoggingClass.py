@@ -60,25 +60,25 @@ class LoggingNexus:
         data = copy.deepcopy(data_dict)
         self.thread_stashes[threadname].append(data)
         
-        # send client
-        if 'exothread_' in threadname:
-            if 'left' in threadname:
-                # pull data from dictionary
-                self.rtplot_data_dict['pitime_left'] = data['pitime']
-                self.rtplot_data_dict['motor_current_left'] = data['motor_current']
-                self.rtplot_data_dict['batt_volt_left'] = data['battery_voltage']
-                self.rtplot_data_dict['case_temp_left'] = data['temperature']
+        # # send client
+        # if 'exothread_' in threadname:
+        #     if 'left' in threadname:
+        #         # pull data from dictionary
+        #         self.rtplot_data_dict['pitime_left'] = data['pitime']
+        #         self.rtplot_data_dict['motor_current_left'] = data['motor_current']
+        #         self.rtplot_data_dict['batt_volt_left'] = data['battery_voltage']
+        #         self.rtplot_data_dict['case_temp_left'] = data['temperature']
                 
-                plot_data_array = [self.rtplot_data_dict.values()]
-            else:
-                self.rtplot_data_dict['pitime_right'] = data['pitime']
-                self.rtplot_data_dict['motor_current_right'] = data['motor_current']
-                self.rtplot_data_dict['batt_volt_right'] = data['battery_voltage']
-                self.rtplot_data_dict['case_temp_right'] = data['temperature']
+        #         plot_data_array = [self.rtplot_data_dict.values()]
+        #     else:
+        #         self.rtplot_data_dict['pitime_right'] = data['pitime']
+        #         self.rtplot_data_dict['motor_current_right'] = data['motor_current']
+        #         self.rtplot_data_dict['batt_volt_right'] = data['battery_voltage']
+        #         self.rtplot_data_dict['case_temp_right'] = data['temperature']
                 
-                plot_data_array = [self.rtplot_data_dict.values()]
+        #         plot_data_array = [self.rtplot_data_dict.values()]
             
-            client.send_array(plot_data_array)
+        #     client.send_array(plot_data_array)
 
     def log(self):
         """
