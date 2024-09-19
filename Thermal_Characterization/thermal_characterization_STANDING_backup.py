@@ -205,7 +205,7 @@ if __name__ == "__main__":
                 if len(act_T_case_buffer) > 2:
                     act_T_case_buffer.pop() 
                     
-                if ( act_T_case > 1000 ) or ( abs(act_T_case_buffer[1] - act_T_case_buffer[0]) ) > 5:
+                if ( abs(act_T_case) > 100 ) or (act_T_case == 0) or ( abs(act_T_case_buffer[1] - act_T_case_buffer[0]) ) > 5:
                     act_T_case = act_T_case_buffer[0]   # set it to the previous recorded value
                     print(f"HAD TO RESET THE TEMP to: {act_T_case}")
                  
