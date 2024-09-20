@@ -60,6 +60,9 @@ SPINE_TIMING_PARAMS_DICT = {'P_RISE': P_RISE, 'P_PEAK': P_PEAK, 'P_FALL': P_FALL
                             'HOLDING_TORQUE': HOLDING_TORQUE, 'BIAS_CURRENT': BIAS_CURRENT}
 
 
+"""Temp Antispike"""
+TEMPANTISPIKE = 200 # Degree C
+
 """Device Identifiers"""
 # Exo Device IDS
 RIGHT_EXO_DEV_IDS = [77, 17584]  # for EB-51

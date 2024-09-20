@@ -48,7 +48,7 @@ class LoggingNexus:
         for thread in self.thread_names:
             filename = self.filenames[thread]
             fields = self.thread_fields[thread]
-            with open(filename, 'w') as f:
+            with open(filename, 'a') as f:
                 writer = csv.writer(f, lineterminator='\n',quotechar='|')
                 writer.writerow(fields)
 

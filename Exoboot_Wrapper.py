@@ -38,18 +38,19 @@ class MainControllerWrapper:
         self.clockspeed = clockspeed
 
         # Trial type and cond validation
-        valid_trial_typeconds = {'VICKREY': [''],
-                             'VAS': [''],
+        self.valid_trial_typeconds = {'VICKREY': ["WNE", "EPO", "NPO"],
+                             'VAS': [],
                              'JND': ['SPLITLEG', 'SAMELEG'],
                              'PREF': ['SLIDER', 'BTN'],
-                             'THERMAL': ['']}
+                             'THERMAL': []}
         
-        if not self.trial_type in valid_trial_typeconds.keys():
-            Exception("Invalid trial type: {} not in {}".format(self.trial_type, valid_trial_typeconds.keys()))
-
-        if not self.trial_cond in valid_trial_typeconds[self.trial_type]:
-            Exception("Invalid trial cond: {} not in {}".format(self.trial_cond, valid_trial_typeconds))
-
+        if not self.trial_type in self.valid_trial_typeconds.keys():
+            raise Exception("Invalid trial type: {} not in {}".format(self.trial_type, self.valid_trial_typeconds.keys()))
+    
+        valid_conds = self.valid_trial_typeconds[trial_type]
+        if valid_conds and self.trial_cond not in valid_conds:
+            raise Exception("Invalid trial cond: {} not in {}".format(trial_cond, valid_conds))
+        
         self.file_prefix = "{}_{}_{}_{}".format(self.subjectID, self.trial_type, self.trial_cond, self.description)
 
     @staticmethod

@@ -11,7 +11,7 @@ import numpy as np
 from typing import Type, Tuple
 
 from constants import DEV_ID_TO_ANK_ENC_SIGN_DICT, DEV_ID_TO_MOTOR_SIGN_DICT, TR_COEFS_PREFIX, EXOTHREAD_FIELDS
-from constants import MAX_ALLOWABLE_CURRENT, BIAS_CURRENT, EFFICIENCY, Kt, ENC_CLICKS_TO_DEG, SPINE_TIMING_PARAMS_DICT, GYRO_GAIN, ACCEL_GAIN
+from constants import MAX_ALLOWABLE_CURRENT, BIAS_CURRENT, EFFICIENCY, Kt, ENC_CLICKS_TO_DEG, SPINE_TIMING_PARAMS_DICT, GYRO_GAIN, ACCEL_GAIN, TEMPANTISPIKE
 
 from thermal import ThermalModel
 from BaseExoThread import BaseThread
@@ -67,6 +67,9 @@ class ExobootThread(BaseThread):
         # Logging fields
         self.fields = EXOTHREAD_FIELDS
         self.data_dict = dict.fromkeys(self.fields)
+
+        # Temp Antisplike
+        self.prev_temp = 0
 
         # LoggingNexus
         self.startstamp = startstamp
@@ -152,9 +155,14 @@ class ExobootThread(BaseThread):
     def read_sensors(self):
         data = self.flexdevice.read() #(allData=True)
 
-        # Temp and Time
+        # Exoboot Time
         self.data_dict['state_time'] = data['state_time'] / 1000 #converting to seconds
-        self.data_dict['temperature'] = data['temperature']
+
+        # Temp antispike
+        new_temp = data['temperature']
+        if abs(new_temp) < TEMPANTISPIKE:
+            self.data_dict['temperature'] = new_temp
+            self.prev_temp = new_temp
 
         # Accelerometer
         # Note based on the MPU reading script it says the accel = raw_accel/accel_sace * 9.80605 -- so if the value of accel returned is multiplyed  by the gravity term then the accel_scale for 4g is 8192
