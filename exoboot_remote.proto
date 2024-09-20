@@ -59,8 +59,8 @@ message survey {
 
 // VAS Messages
 message slider {
-    float torque = 1;
-    float pos = 2;
+    repeated float torques = 1;
+    repeated float mvs = 2;
 }
 
 message presentation {

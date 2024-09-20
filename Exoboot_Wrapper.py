@@ -39,10 +39,11 @@ class MainControllerWrapper:
 
         # Trial type and cond validation
         self.valid_trial_typeconds = {'VICKREY': ["WNE", "EPO", "NPO"],
-                             'VAS': [],
-                             'JND': ['SPLITLEG', 'SAMELEG'],
-                             'PREF': ['SLIDER', 'BTN'],
-                             'THERMAL': []}
+                                      'VAS': [],
+                                      'JND': ['SPLITLEG', 'SAMELEG'],
+                                      'PREF': ['SLIDER', 'BTN'],
+                                      'ACCLIMATION': []
+                             }
         
         if not self.trial_type in self.valid_trial_typeconds.keys():
             raise Exception("Invalid trial type: {} not in {}".format(self.trial_type, self.valid_trial_typeconds.keys()))
@@ -132,9 +133,8 @@ class MainControllerWrapper:
                     # TODO add curses fancy terminal
                     print("Peak Torques L/R: ", self.gse_thread.peak_torque_left, '/', self.gse_thread.peak_torque_right)
 
-                    # Data logging
-                    if self.pause_event.is_set():
-                        self.loggingnexus.log()
+                    # Log data. Obeys pause_event
+                    self.loggingnexus.log()
 
                     # SoftRT pause
                     self.softrtloop.pause()
@@ -164,8 +164,17 @@ class MainControllerWrapper:
             print("Goodbye")
 
 if __name__ == "__main__":
-    subjectID = sys.argv[1]
-    trial_type = sys.argv[2]
-    trial_cond = sys.argv[3]
-    description = sys.argv[4]
-    MainControllerWrapper(subjectID, trial_type, trial_cond, description, streamingfrequency=1000).run()
+    try:
+        assert len(sys.argv) == 4
+        subjectID = sys.argv[1]
+        trial_type = sys.argv[2]
+        trial_cond = sys.argv[3]
+        description = sys.argv[4]
+        MainControllerWrapper(subjectID, trial_type, trial_cond, description, streamingfrequency=1000).run()
+    except:
+        print("\nINCORRECT ARGUMENTS\n")
+        print("How to run: python Exoboot_Wrapper.py subjectID trial_type trial_cond description")
+        print("\tsubjectID: name of subject")
+        print("\ttrial_type: [trial_conds]: pick from VICKREY: [WNE, EPO, NPO], JND: [SPLITLEG, SAMELEG], PREF: [SLIDER, BTN]")
+        print("\t\tother trial_types can have arbitrary trial_cond")
+        print("\tdescription: any additional notes")

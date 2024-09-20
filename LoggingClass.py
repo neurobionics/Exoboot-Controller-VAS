@@ -23,6 +23,8 @@ class ImposterThread:
 class LoggingNexus:
     def __init__(self, file_prefix, *threads, pause_event=Type[threading.Event], ):
         self.file_prefix = file_prefix
+        self.pause_event = pause_event
+
         self.thread_names = []
         self.thread_fields = {}
         self.thread_stashes = {}
@@ -84,11 +86,12 @@ class LoggingNexus:
         """
         Empty data from thread_stashes and write to corresponding file
         """
-        for threadname in self.thread_names:
-            fields = self.thread_fields[threadname]
-            stash = self.thread_stashes[threadname]
-            stash_size = len(stash)
-            with open(self.filenames[threadname], 'a') as f:
-                writer = csv.DictWriter(f, fieldnames=fields, lineterminator='\n',quotechar='|')
-                for _ in range(stash_size):
-                    writer.writerow(stash.popleft())
+        if self.pause_event.is_set():
+            for threadname in self.thread_names:
+                fields = self.thread_fields[threadname]
+                stash = self.thread_stashes[threadname]
+                stash_size = len(stash)
+                with open(self.filenames[threadname], 'a') as f:
+                    writer = csv.DictWriter(f, fieldnames=fields, lineterminator='\n',quotechar='|')
+                    for _ in range(stash_size):
+                        writer.writerow(stash.popleft())

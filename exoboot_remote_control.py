@@ -153,7 +153,6 @@ class ExobootCommServicer(pb2_grpc.exoboot_over_networkServicer):
                     for i in range(12):
                         header.append('torque{}'.format(i))
                         header.append('mv{}'.format(i))
-                        
                     csv.writer(f).writerow(header)
 
             case 'JND':
