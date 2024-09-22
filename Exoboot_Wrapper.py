@@ -6,10 +6,10 @@
 # Modified for VAS Vickrey protocol by: Nundini Rawal, John Hutchinson
 # Date: 06/13/2024
 
-import os, sys, csv, time, threading
+import os, sys, csv, time, socket, threading
 
 from flexsea.device import Device
-from rtplot import client 
+from rtplot import client
 
 from LoggingClass import LoggingNexus
 from ExoClass_thread import ExobootThread
@@ -17,7 +17,7 @@ from GaitStateEstimator_thread import GaitStateEstimator
 from exoboot_remote_control import ExobootRemoteServerThread
 
 from SoftRTloop import FlexibleSleeper
-from constants import PI_IP, DEV_ID_TO_SIDE_DICT, DEFAULT_KP, DEFAULT_KI, DEFAULT_KD, DEFAULT_FF, RTPLOT_IP
+from constants import PI_IP, DEV_ID_TO_SIDE_DICT, DEFAULT_KP, DEFAULT_KI, DEFAULT_KD, DEFAULT_FF, RTPLOT_IP, TRIAL_CONDS_DICT
 
 thisdir = os.path.dirname(os.path.abspath(__file__))
 sys.path.append(thisdir)
@@ -33,26 +33,23 @@ class MainControllerWrapper:
         self.trial_type = trial_type.upper()
         self.trial_cond = trial_cond.upper()
         self.description = description
-
         self.streamingfrequency = streamingfrequency
         self.clockspeed = clockspeed
 
-        # Trial type and cond validation
-        self.valid_trial_typeconds = {'VICKREY': ["WNE", "EPO", "NPO"],
-                                      'VAS': [],
-                                      'JND': ['SPLITLEG', 'SAMELEG'],
-                                      'PREF': ['SLIDER', 'BTN'],
-                                      'ACCLIMATION': []
-                             }
-        
+        # Validate trial_type and trial_cond
+        self.valid_trial_typeconds = TRIAL_CONDS_DICT
         if not self.trial_type in self.valid_trial_typeconds.keys():
             raise Exception("Invalid trial type: {} not in {}".format(self.trial_type, self.valid_trial_typeconds.keys()))
-    
+
         valid_conds = self.valid_trial_typeconds[trial_type]
         if valid_conds and self.trial_cond not in valid_conds:
             raise Exception("Invalid trial cond: {} not in {}".format(trial_cond, valid_conds))
         
         self.file_prefix = "{}_{}_{}_{}".format(self.subjectID, self.trial_type, self.trial_cond, self.description)
+
+        # Get own IP address for GRPC
+        self.myIP = socket.gethostbyname(socket.gethostname())
+        print("myIP: {}".format(self.myIP))
 
     @staticmethod
     def get_active_ports():
@@ -105,7 +102,7 @@ class MainControllerWrapper:
             self.quit_event = threading.Event()
             self.pause_event.clear() # Start with threads paused
             self.quit_event.set()
-            self.startstamp = time.perf_counter()
+            self.startstamp = time.perf_counter()   # Timesync logging between all threads and GUI
 
             # Thread 1/2: Left and right exoboots
             self.exothread_left = ExobootThread(side_left, device_left, self.startstamp, name='exothread_left', daemon=True, pause_event=self.pause_event, quit_event=self.quit_event)
@@ -119,7 +116,7 @@ class MainControllerWrapper:
 
             # Thread 4: Exoboot Remote Control
             self.remote_thread = ExobootRemoteServerThread(self, self.startstamp, self.trial_type, pause_event=self.pause_event, quit_event=self.quit_event)
-            self.remote_thread.set_target_IP(PI_IP)
+            self.remote_thread.set_target_IP(self.myIP)
             self.remote_thread.start()
 
             # LoggingNexus
@@ -163,13 +160,11 @@ class MainControllerWrapper:
             self.exothread_right.flexdevice.close()
             print("Goodbye")
 
+
 if __name__ == "__main__":
     try:
-        assert len(sys.argv) == 4
-        subjectID = sys.argv[1]
-        trial_type = sys.argv[2]
-        trial_cond = sys.argv[3]
-        description = sys.argv[4]
+        assert len(sys.argv) == 4 + 1
+        _, subjectID, trial_type, trial_cond, description = sys.argv
         MainControllerWrapper(subjectID, trial_type, trial_cond, description, streamingfrequency=1000).run()
     except:
         print("\nINCORRECT ARGUMENTS\n")

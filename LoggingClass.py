@@ -1,23 +1,7 @@
 import os, csv, copy, threading
 from typing import Type
 from collections import deque
-from rtplot import client 
-from constants import RTPLOT_FIELDS
-
-class ImposterThread:
-    """
-    Entry point to LoggingNexus
-    """
-    def __init__(self, name='imposterthread', fields=['pitime']):
-        self.loggingnexus = None
-        self.name = name
-        self.fields = fields
-
-        self.data_dict = dict.fromkeys(self.fields)
-        self.rtplot_data_dict = dict.fromkeys(RTPLOT_FIELDS)
-
-    def log_to_nexus(self):
-        self.loggingnexus.append(self.name, self.data_dict)
+from rtplot import client
 
 
 class LoggingNexus:

@@ -11,7 +11,8 @@ import numpy as np
 from typing import Type, Tuple
 
 from constants import DEV_ID_TO_ANK_ENC_SIGN_DICT, DEV_ID_TO_MOTOR_SIGN_DICT, TR_COEFS_PREFIX, EXOTHREAD_FIELDS
-from constants import MAX_ALLOWABLE_CURRENT, BIAS_CURRENT, EFFICIENCY, Kt, ENC_CLICKS_TO_DEG, SPINE_TIMING_PARAMS_DICT, GYRO_GAIN, ACCEL_GAIN, TEMPANTISPIKE
+from constants import MAX_ALLOWABLE_CURRENT, BIAS_CURRENT, EFFICIENCY, Kt, ENC_CLICKS_TO_DEG, SPINE_TIMING_PARAMS_DICT, GYRO_GAIN, ACCEL_GAIN, TEMPANTISPIKE, MAX_CASE_TEMP, MAX_WINDING_TEMP
+from constants import EXOTHREAD_MAIN_FREQ, EXOTHREAD_LOGGING_FREQ
 
 from thermal import ThermalModel
 from BaseExoThread import BaseThread
@@ -51,9 +52,10 @@ class ExobootThread(BaseThread):
         self.thermalModel = ThermalModel(temp_limit_windings=100,soft_border_C_windings=10,temp_limit_case=75,soft_border_C_case=5)
         self.case_temperature = 0
         self.winding_temperature = 0
-        self.max_case_temperature = 75
-        self.max_winding_temperature = 110
+        self.max_case_temperature = MAX_CASE_TEMP
+        self.max_winding_temperature = MAX_WINDING_TEMP
         self.exo_safety_shutoff_flag = False
+        self.prev_temp = 0
 
         # Peak torque set over exoboot remote
         self.peak_torque:float = 0
@@ -64,15 +66,11 @@ class ExobootThread(BaseThread):
         self.stride_period = 1.0
         self.in_swing = False
 
-        # Logging fields
+        # Logging Nexus
         self.fields = EXOTHREAD_FIELDS
         self.data_dict = dict.fromkeys(self.fields)
-
-        # Temp Antisplike
-        self.prev_temp = 0
-
-        # LoggingNexus
         self.startstamp = startstamp
+        self.lastlogstamp = time.perf_counter()
         self.loggingnexus = None
 
     def getval(self, what):
@@ -83,7 +81,6 @@ class ExobootThread(BaseThread):
 
     def spool_belt(self):
         self.flexdevice.command_motor_current(self.motor_sign * BIAS_CURRENT)
-        # self.fxs.send_motor_command(self.flexdevice, self.motor_sign*BIAS_CURRENT)
         time.sleep(0.5)
         print("Belt spooled for: ", self.flexdevice.id)
         
@@ -158,7 +155,7 @@ class ExobootThread(BaseThread):
         # Exoboot Time
         self.data_dict['state_time'] = data['state_time'] / 1000 #converting to seconds
 
-        # Temp antispike
+        # Temp with antispike
         new_temp = data['temperature']
         if abs(new_temp) < TEMPANTISPIKE:
             self.data_dict['temperature'] = new_temp
@@ -232,10 +229,10 @@ class ExobootThread(BaseThread):
 
         # Shut off exo if thermal limits breached
         if measured_temp >= self.max_case_temperature:
-            # self.exo_safety_shutoff_flag = True
+            self.exo_safety_shutoff_flag = True
             print("Case Temperature has exceed 75°C soft limit. Exiting Gracefully")
         if winding_temperature >= self.max_winding_temperature:
-            # self.exo_safety_shutoff_flag = True
+            self.exo_safety_shutoff_flag = True
             print("Winding Temperature has exceed 115°C soft limit. Exiting Gracefully")
 
         # using Jianping's thermal model to project winding & case temperature
@@ -247,7 +244,7 @@ class ExobootThread(BaseThread):
         """
         Sets gait estimate to track stride
 
-        Called by GSE periodically when it has new estimate/ HS/inswing event
+        Called by GSE periodically when it has new estate estimate
         """
         self.HS = HS
         self.stride_period = stride_period
@@ -255,6 +252,9 @@ class ExobootThread(BaseThread):
         self.in_swing = in_swing
 
     def log_state_estimate(self):
+        """
+        Add state estimate to data_dict
+        """
         self.data_dict['HS'] = self.HS
         self.data_dict['current_time'] = self.current_time
         self.data_dict['stride_period'] = self.stride_period
@@ -274,17 +274,16 @@ class ExobootThread(BaseThread):
         self.assistance_generator.load_timings(SPINE_TIMING_PARAMS_DICT)
         self.assistance_generator.set_my_generic_profile(granularity=10000)
 
-        # Period Tracker setup
+        # Track thread performance
         self.period_tracker = MovingAverageFilter(size=500)
         self.prev_end_time = time.perf_counter()
 
         # Soft real time loop
-        loop_freq = 500 # Hz
-        self.softRTloop = FlexibleSleeper(period=1/loop_freq)
+        self.softRTloop = FlexibleSleeper(period=1/EXOTHREAD_MAIN_FREQ)
         
     def on_pre_pause(self):
         """
-        Runs once when paused
+        Runs once before pausing threads
         """
         # Send bias current
         self.flexdevice.command_motor_current(self.motor_sign * BIAS_CURRENT)
@@ -310,7 +309,7 @@ class ExobootThread(BaseThread):
         """
         self.current_time = time.perf_counter() - self.HS
 
-        # Acquire Torque command based on gait estimate
+        # Acquire torque command based on gait estimate
         torque_command = self.assistance_generator.generic_torque_generator(self.current_time, self.stride_period, self.peak_torque, self.in_swing)
         self.data_dict['torque_command'] = torque_command
 
@@ -323,9 +322,9 @@ class ExobootThread(BaseThread):
         
         # Shut off exo if thermal limits breached
         if self.exo_safety_shutoff_flag:
-            print("Safety shutoff flag: quit_event cleared")
+            print("Safety shutoff flag: pausing_threads")
             self.flexdevice.command_motor_current(0)
-            self.quit_event.clear()
+            self.pause_event.clear()
         else:
             self.flexdevice.command_motor_current(self.motor_sign * vetted_current)
 
@@ -341,11 +340,12 @@ class ExobootThread(BaseThread):
         self.data_dict['thread_freq'] = my_freq
 
         # Perform thermal safety check on actpack
-        # self.thermal_safety_checker()
+        self.thermal_safety_checker()
 
         # Send GSE data for logging
-        if self.loggingnexus and self.pause_event.is_set():
+        if self.loggingnexus and self.pause_event.is_set() and end_time - self.lastlogstamp > 1/EXOTHREAD_LOGGING_FREQ:
             self.loggingnexus.append(self.name, self.data_dict)
+            self.lastlogstamp = end_time
 
-        # soft real-time loop
+        # Soft real-time loop
         self.softRTloop.pause()
