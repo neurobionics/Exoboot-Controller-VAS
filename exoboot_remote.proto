@@ -27,19 +27,16 @@ message torques {
 // Logging Messages
 message beaver {}
 
-message startstamp {
-    float time = 1;
-}
-
 message testmsg {
     string msg = 1;
 }
 
 message subject_info {
-    string subjectID = 1;
-    string trial_type = 2;
-    string trial_cond = 3;
-    string description = 4;
+    float startstamp = 1;
+    string subjectID = 2;
+    string trial_type = 3;
+    string trial_cond = 4;
+    string description = 5;
 }
 
 // Vickrey Auction Messages
@@ -58,9 +55,16 @@ message survey {
 }
 
 // VAS Messages
+message vas_info {
+    float btn_num = 1;
+    float trial = 2;
+    float pres = 3;
+}
+
 message slider {
-    repeated float torques = 1;
-    repeated float mvs = 2;
+    float pitime = 1;
+    repeated float torques = 2;
+    repeated float mvs = 3;
 }
 
 message presentation {
@@ -106,7 +110,6 @@ message datastream {
 service exoboot_over_network {
     // General Methods
     rpc testconnection (testmsg) returns (receipt) {};
-    rpc get_startstamp (null) returns (startstamp) {};
     rpc get_subject_info(null) returns (subject_info);
     rpc chop (beaver) returns (receipt) {}; // LoggingServer kill message
 
@@ -120,6 +123,7 @@ service exoboot_over_network {
     rpc question (survey) returns (receipt) {};
 
     //VAS Specific
+    rpc update_vas_info (vas_info) returns (receipt) {};
     rpc slider_update (slider) returns (receipt) {};
     rpc presentation_result (presentation) returns (receipt) {};
 
