@@ -2,8 +2,6 @@ import os, sys, threading
 import time
 from typing import Type
 
-from constants import REMOTE_FIELDS
-
 class BaseThread(threading.Thread):
     """
     Base Thread class for any Exoboot threads. 
@@ -76,6 +74,7 @@ class BaseThread(threading.Thread):
             fname = os.path.split(exc_tb.tb_frame.f_code.co_filename)[1]
             print(exc_type, fname, exc_tb.tb_lineno)
 
+
 if __name__ == "__main__":
     class DemoThread(BaseThread):
         """
@@ -134,24 +133,3 @@ if __name__ == "__main__":
         # Let threads finish their sleep() methods for proper exit (not needed if no sleep())
         time.sleep(1.0)
         print("Demo Finished")
-
-
-class ImposterThread:
-    """
-    For interfacing with logging nexus for non-threads (GUIS)
-    IS NOT A THREAD
-    """
-    def __init__(self, startstamp, trial_type, subfield, pause_event=Type[threading.Event], quit_event=Type[threading.Event]):
-        self.pause_event = pause_event
-        self.quit_event = quit_event
-
-        self.trial_type = trial_type
-        self.subfield = subfield
-        self.name = trial_type + '_' + subfield
-
-        self.fields = REMOTE_FIELDS[self.trial_type][self.subfield]
-        self.data_dict = dict.fromkeys(self.fields)
-
-        # LoggingNexus
-        self.startstamp = startstamp
-        self.loggingnexus = None

@@ -6,7 +6,7 @@ import exoboot_remote_pb2_grpc as pb2_grpc
 from typing import Type
 
 from utils import MovingAverageFilter
-from constants import PI_IP
+from constants import PI_IP, BTN_NUM_TOTAL
 
 from BaseExoThread import BaseThread
 
@@ -46,7 +46,7 @@ class ExobootRemoteClient:
         Sends null message to LoggingServer to get subject details
         """
         subject_info = self.stub.get_subject_info(pb2.null())
-        return subject_info.subjectID, subject_info.trial_type, subject_info.trial_cond, subject_info.description
+        return subject_info.startstamp, subject_info.subjectID, subject_info.trial_type, subject_info.trial_cond, subject_info.description
 
     def chop(self):
         """
@@ -89,13 +89,26 @@ class ExobootRemoteClient:
         response = self.stub.question(surveymsg)
         return response
 
-# VAS Specific   
-    def slider_update(self, torque, pos):
+# VAS Specific
+    def update_vas_info(self, btn_num, trial, pres):
+        """
+        Update overtime logging
+        """
+        msg = pb2.vas_info(btn_num=btn_num, trial=trial, pres=pres)
+        response = self.stub.update_vas_info(msg)
+        return None
+
+    def slider_update(self, pitime, overtime_dict):
         """
         Send updated slider info
         """
-        # TODO add pitime to slider message
-        msg = pb2.slider(torque=torque, pos = pos)
+        torques = []
+        mvs = []
+        for torque, mv in overtime_dict.items():
+            torques.append(torque)
+            mvs.append(mv)
+
+        msg = pb2.slider(pitime=pitime, torques=torques, mvs=mvs)
         response = self.stub.slider_update(msg)
         return response
 
@@ -139,30 +152,33 @@ class ExobootCommServicer(pb2_grpc.exoboot_over_networkServicer):
         match self.mainwrapper.trial_type.upper():
             case 'VICKREY':
                 self.auction_filename = self.file_prefix + '_auction.csv'
-                with open(self.auction_filename, 'a', newline='') as f:
+                with open(self.auction_filename, 'w', newline='') as f:
                     csv.writer(f).writerow(['t', 'subject_bid', 'user_win_flag', 'current_payout', 'total_winnings'])
 
                 self.surveyfilename = self.file_prefix + '_survey.csv'
-                with open(self.surveyfilename, 'a', newline='') as f:
+                with open(self.surveyfilename, 'w', newline='') as f:
                     csv.writer(f).writerow(['t', 'enjoyment', 'rpe'])
 
             case 'VAS':
-                self.vasefilename = self.file_prefix + '_vas_results.csv'
-                with open(self.vasefilename, 'a', newline='') as f:
+                self.vasovertimefilename = ''
+
+                self.vasfilename = self.file_prefix + '_vas_results.csv'
+                with open(self.vasfilename, 'w', newline='') as f:
                     header = ['btn_option', 'trial', 'pres']
-                    for i in range(12):
+                    for i in range(BTN_NUM_TOTAL):
                         header.append('torque{}'.format(i))
                         header.append('mv{}'.format(i))
+                        
                     csv.writer(f).writerow(header)
 
             case 'JND':
                 self.comparisonfilename = self.file_prefix + '_comparison.csv'
-                with open(self.comparisonfilename, 'a', newline='') as f:
+                with open(self.comparisonfilename, 'w', newline='') as f:
                     csv.writer(f).writerow(['pres', 'prop', 'T_ref', 'T_comp', 'truth', 'higher'])
             
             case 'PREF':
                 self.preffilename = self.file_prefix + '_pref.csv'
-                with open(self.preffilename, 'a', newline='') as f:
+                with open(self.preffilename, 'w', newline='') as f:
                     csv.writer(f).writerow(['pres', 'torque'])
 
             case 'THERMAL':
@@ -174,11 +190,8 @@ class ExobootCommServicer(pb2_grpc.exoboot_over_networkServicer):
         self.subject_name = request.msg
         return pb2.receipt(received=True)
     
-    def get_startstamp(self, nullmsg, context):
-        return pb2.startstamp(time=self.startstamp)
-    
     def get_subject_info(self, nullmsg, context):
-        return pb2.subject_info(subjectID=self.mainwrapper.subjectID,
+        return pb2.subject_info(startstamp=self.mainwrapper.startstamp, subjectID=self.mainwrapper.subjectID,
                                 trial_type=self.mainwrapper.trial_type,
                                 trial_cond=self.mainwrapper.trial_cond,
                                 description=self.mainwrapper.description)
@@ -260,15 +273,42 @@ class ExobootCommServicer(pb2_grpc.exoboot_over_networkServicer):
         return pb2.receipt(received=True)
 
 # VAS Specific
+    def update_vas_info(self, vasinfomsg, context):
+        """
+        Start overtime logging in a new file
+        """
+        btn_num = int(vasinfomsg.btn_num)
+        trial = int(vasinfomsg.trial)
+        pres = int(vasinfomsg.pres)
+
+        print("Received updated vas info: ", btn_num, trial, pres)
+        self.vasovertimefilename = self.file_prefix + "_T{}_P{}".format(trial, pres) + '_vas_overtime.csv'
+
+        header = ['pitime']
+        for i in range(btn_num):
+            header.append("Torque{}".format(i))
+            header.append("MV{}".format(i))
+
+        with open(self.vasovertimefilename, 'a', newline='') as f:
+            csv.writer(f).writerow(header)
+
+        return pb2.receipt(received=True)
+
     def slider_update(self, slidermsg, context):
         """
         Send updated slider info
         """
-        torque = slidermsg.torque
-        pos = slidermsg.pos
-        print("Torque: {} to {}".format(torque, pos))
+        pitime = slidermsg.pitime
+        torques = slidermsg.torques
+        mvs = slidermsg.mvs
 
-        # TODO include overtime logging
+        datalist = [pitime]
+        for torque, mv in zip(torques, mvs):
+            datalist.append(torque)
+            datalist.append(mv)
+
+        with open(self.vasovertimefilename, 'a', newline='') as f:
+            csv.writer(f).writerow(datalist)
 
         return pb2.receipt(received=True)
     
@@ -288,8 +328,7 @@ class ExobootCommServicer(pb2_grpc.exoboot_over_networkServicer):
             datalist.append(t)
             datalist.append(mv)
 
-        vasfilename = self.file_prefix + '_vas_results.csv'
-        with open(vasfilename, 'a', newline='') as f:
+        with open(self.vasfilename, 'a', newline='') as f:
             csv.writer(f).writerow(datalist)
         return pb2.receipt(received=True)
 

@@ -1,12 +1,18 @@
 # Constants file for CONSTANTS
 
+"""TRIAL TYPES AND CONDITIONS"""
+TRIAL_CONDS_DICT = {'VICKREY': ["WNE", "EPO", "NPO"],
+                    'VAS': [],
+                    'JND': ['SPLITLEG', 'SAMELEG'],
+                    'PREF': ['SLIDER', 'BTN'],
+                    'ACCLIMATION': []
+                    }
+
+
+
 ######### PARAMS TO MODIFY PRIOR TO EACH VAS SESSION ######### 
 # gRPC ip addresses (run in the following order: rtplot, then GUI client, then VAS_MAIN() script)
-# TODO pull ip from PI
 PI_IP = f"{'35.3.87.217'}:" f"{'50051'}"   # IP address of the Controller (rPi)
-
-# CLIENT_IP = f"{'0.0.0.0'}:" f"{'50051'}"         # IP address of Tablet (or my laptop if debugging) running the GUI
-# CLIENT_IP = f"{'35.3.147.189'}:" f"{'50051'}"    # IP address of Tablet (or my laptop if debugging) running the GUI
 
 RTPLOT_IP = '35.3.80.31'    # ip address of server for real time ploting (monitor)
 VICON_IP='141.212.77.30'    # Vicon ip to connect to Bertec Forceplates for streaming
@@ -29,12 +35,12 @@ RTPLOT_FIELDS = ['pitime_left', 'pitime_right', 'motor_current_left', 'motor_cur
 EXOTHREAD_FIELDS = GENERAL_FIELDS + GAIT_ESTIMATE_FIELDS + SENSOR_FIELDS
 GSETHREAD_FIELDS = GENERAL_FIELDS + BERTEC_FIELDS
 
-REMOTE_FIELDS = {'VICKREY': {'AUCTION': ['t', 'subject_bid', 'user_win_flag', 'current_payout', 'total_winnings'],
-                             'SURVEY': ['enjoyment', 'rpe']},
-                 'VAS': {'PRESENTATION': [],
-                         'OVERTIME': []},
-                 'JND': {'RESULT': ['i', 'torque_left', 'torque_right', 'higher']},
-                 'THERMAL': {'TBD': ['tbd']}}
+# REMOTE_FIELDS = {'VICKREY': {'AUCTION': ['t', 'subject_bid', 'user_win_flag', 'current_payout', 'total_winnings'],
+#                              'SURVEY': ['enjoyment', 'rpe']},
+#                  'VAS': {'PRESENTATION': [],
+#                          'OVERTIME': []},
+#                  'JND': {'RESULT': ['i', 'torque_left', 'torque_right', 'higher']},
+#                  'THERMAL': {'TBD': ['tbd']}}
 
 """Assistance Profile Constants"""
 # Timing Parameters for the 4-Point Spline (CURRENTLY HAVE VARUN'S PREF STUDY PARAMS LOADED FOR FLAT WALKING AT 1.20m/s)
@@ -55,13 +61,20 @@ END_OF_STANCE = P_TOE_OFF
 END_OF_STRIDE = 100
 
 HOLDING_TORQUE = 2	# Nm
-BIAS_CURRENT:int = 750 # mA
+BIAS_CURRENT = 500 # mA
 SPINE_TIMING_PARAMS_DICT = {'P_RISE': P_RISE, 'P_PEAK': P_PEAK, 'P_FALL': P_FALL, 'P_TOE_OFF': P_TOE_OFF, 
                             'HOLDING_TORQUE': HOLDING_TORQUE, 'BIAS_CURRENT': BIAS_CURRENT}
 
 
-"""Temp Antispike"""
+"""Thermal Modelling Parameters"""
+MAX_CASE_TEMP = 75 # Degree C
+MAX_WINDING_TEMP = 110 # Degree C
 TEMPANTISPIKE = 200 # Degree C
+
+"""Exothread loop frequencies"""
+EXOTHREAD_MAIN_FREQ = 500 # Hz
+EXOTHREAD_LOGGING_FREQ = 250 # Hz
+
 
 """Device Identifiers"""
 # Exo Device IDS

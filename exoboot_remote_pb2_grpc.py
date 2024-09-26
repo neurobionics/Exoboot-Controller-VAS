@@ -45,11 +45,6 @@ class exoboot_over_networkStub(object):
                 request_serializer=exoboot__remote__pb2.testmsg.SerializeToString,
                 response_deserializer=exoboot__remote__pb2.receipt.FromString,
                 _registered_method=True)
-        self.get_startstamp = channel.unary_unary(
-                '/exoboot_over_network/get_startstamp',
-                request_serializer=exoboot__remote__pb2.null.SerializeToString,
-                response_deserializer=exoboot__remote__pb2.startstamp.FromString,
-                _registered_method=True)
         self.get_subject_info = channel.unary_unary(
                 '/exoboot_over_network/get_subject_info',
                 request_serializer=exoboot__remote__pb2.null.SerializeToString,
@@ -85,6 +80,11 @@ class exoboot_over_networkStub(object):
                 request_serializer=exoboot__remote__pb2.survey.SerializeToString,
                 response_deserializer=exoboot__remote__pb2.receipt.FromString,
                 _registered_method=True)
+        self.update_vas_info = channel.unary_unary(
+                '/exoboot_over_network/update_vas_info',
+                request_serializer=exoboot__remote__pb2.vas_info.SerializeToString,
+                response_deserializer=exoboot__remote__pb2.receipt.FromString,
+                _registered_method=True)
         self.slider_update = channel.unary_unary(
                 '/exoboot_over_network/slider_update',
                 request_serializer=exoboot__remote__pb2.slider.SerializeToString,
@@ -114,12 +114,6 @@ class exoboot_over_networkServicer(object):
     def testconnection(self, request, context):
         """General Methods
         """
-        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
-        context.set_details('Method not implemented!')
-        raise NotImplementedError('Method not implemented!')
-
-    def get_startstamp(self, request, context):
-        """Missing associated documentation comment in .proto file."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
@@ -168,9 +162,15 @@ class exoboot_over_networkServicer(object):
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
-    def slider_update(self, request, context):
+    def update_vas_info(self, request, context):
         """VAS Specific
         """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def slider_update(self, request, context):
+        """Missing associated documentation comment in .proto file."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
@@ -202,11 +202,6 @@ def add_exoboot_over_networkServicer_to_server(servicer, server):
                     servicer.testconnection,
                     request_deserializer=exoboot__remote__pb2.testmsg.FromString,
                     response_serializer=exoboot__remote__pb2.receipt.SerializeToString,
-            ),
-            'get_startstamp': grpc.unary_unary_rpc_method_handler(
-                    servicer.get_startstamp,
-                    request_deserializer=exoboot__remote__pb2.null.FromString,
-                    response_serializer=exoboot__remote__pb2.startstamp.SerializeToString,
             ),
             'get_subject_info': grpc.unary_unary_rpc_method_handler(
                     servicer.get_subject_info,
@@ -241,6 +236,11 @@ def add_exoboot_over_networkServicer_to_server(servicer, server):
             'question': grpc.unary_unary_rpc_method_handler(
                     servicer.question,
                     request_deserializer=exoboot__remote__pb2.survey.FromString,
+                    response_serializer=exoboot__remote__pb2.receipt.SerializeToString,
+            ),
+            'update_vas_info': grpc.unary_unary_rpc_method_handler(
+                    servicer.update_vas_info,
+                    request_deserializer=exoboot__remote__pb2.vas_info.FromString,
                     response_serializer=exoboot__remote__pb2.receipt.SerializeToString,
             ),
             'slider_update': grpc.unary_unary_rpc_method_handler(
@@ -292,33 +292,6 @@ class exoboot_over_network(object):
             '/exoboot_over_network/testconnection',
             exoboot__remote__pb2.testmsg.SerializeToString,
             exoboot__remote__pb2.receipt.FromString,
-            options,
-            channel_credentials,
-            insecure,
-            call_credentials,
-            compression,
-            wait_for_ready,
-            timeout,
-            metadata,
-            _registered_method=True)
-
-    @staticmethod
-    def get_startstamp(request,
-            target,
-            options=(),
-            channel_credentials=None,
-            call_credentials=None,
-            insecure=False,
-            compression=None,
-            wait_for_ready=None,
-            timeout=None,
-            metadata=None):
-        return grpc.experimental.unary_unary(
-            request,
-            target,
-            '/exoboot_over_network/get_startstamp',
-            exoboot__remote__pb2.null.SerializeToString,
-            exoboot__remote__pb2.startstamp.FromString,
             options,
             channel_credentials,
             insecure,
@@ -507,6 +480,33 @@ class exoboot_over_network(object):
             target,
             '/exoboot_over_network/question',
             exoboot__remote__pb2.survey.SerializeToString,
+            exoboot__remote__pb2.receipt.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def update_vas_info(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/exoboot_over_network/update_vas_info',
+            exoboot__remote__pb2.vas_info.SerializeToString,
             exoboot__remote__pb2.receipt.FromString,
             options,
             channel_credentials,
