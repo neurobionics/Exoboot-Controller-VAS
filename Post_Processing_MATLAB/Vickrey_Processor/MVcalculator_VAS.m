@@ -1,13 +1,28 @@
-%% Vickrey VAS Study - Computing MVs
-% 
-% Author: Nundini Rawal
+%% 2024-25 Vickrey VAS Study - Computing Marginal Vaue EndPoints
+% This code determines the Marginal Value of performing an incline activity 
+% when (a) walking with the weight of an exoskeleton and (b) walking with 
+% the preferred assistance of the exoskeleton. The exoskeletons used are 
+% the Dephy Ankle Exoskeletons and a Research Prototype Knee Exoskeleton.
 %
+% Script should be run from the Exoboot-Controller-VAS/Post_Processing_MATLAB/Vickrey Processor directory
+% Author: Nundini Rawal
 % Date: 8/4/2023
 
-clc; close; clear;clear
+clc; close; clear;
 
-% macos: add path to Neurobionics Lab Drive from Vickrey-Modeling > MATLAB scripts folder
-addpath(genpath('/Volumes/me-neurobionics/Lab Members/Students/Nundini Rawal/SUBJECT DATA/Vickrey_Data_Analysis'))
+% ask for path to Vickrey subject file tree
+fprintf("Select Location of the Vickrey File Tree\n");
+title = 'Select Location of the Vickrey File Tree (i.e. all Vickrey subject folders should be viewable';
+path = '/Volumes/me-neurobionics/Lab Members/Students/Nundini Rawal/SUBJECT DATA/Vickrey_Data_Analysis/VAS_Protocol_Data/';
+VA_directory_path = uigetdir(path,title);
+
+% ask for path to subject dictionary file tree
+fprintf("Select Location of the subject dictionary file\n");
+[~,sub_dictionary_file_location] = uigetfile;
+
+% add Vickrey directory & subject dictionary to path
+addpath(genpath(VA_directory_path))
+addpath(genpath(sub_dictionary_file_location))
 
 % loading in subject info from dictionary
 [subject, subject_list] = subject_dictionary_VAS;

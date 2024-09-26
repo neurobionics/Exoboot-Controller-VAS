@@ -1,21 +1,39 @@
+%% Torque JND Post-Processing Script 
 % This code determines the Just Noticeable Difference Threshold of 
 % preferred ankle torque and knee torque for an incline activity when using 
 % the Dephy Ankle Exoskeletons and a Research Prototype Knee Exoskeleton.
 % for the 2024-25 Vickrey VAS study. 
 
-% Should be run from the Exoboot-Controller-VAS/Post_Processing_MATLAB/JND Processor directory
+% Script should be run from the Exoboot-Controller-VAS/Post_Processing_MATLAB/JND Processor directory
 % Lab drive contains the Palamedes Library.
 % Nundini Rawal, Fall 2024
 
-% add Palamedes folder & subdirectories to path
-addpath(genpath('/Volumes/me-neurobionics/Lab Members/Students/Nundini Rawal/SUBJECT DATA/Vickrey_Data_Analysis/VAS_Protocol_Data/JND Pilot/Palamedes'))
-addpath(genpath('/Volumes/me-neurobionics/Lab Members/Students/Nundini Rawal/SUBJECT DATA/Vickrey_Data_Analysis'))
+% ask for path to Palamedes Library
+fprintf("Select Location of the Palamedes Library Folder\n");
+path = '/Volumes/me-neurobionics/Lab Members/Students/Nundini Rawal/SUBJECT DATA/Vickrey_Data_Analysis/VAS_Protocol_Data/';
+palamedes_path = uigetdir(path,'Select Location of Palamedes Library Folder');
+
+% ask for path to JND subject file tree
+fprintf("Select Location of the JND File Tree\n");
+title = 'Select Location of JND File Tree (i.e. all JND subject folders should be viewable';
+JND_directory_path = uigetdir(path,title);
+
+% ask for path to subject dictionary file tree
+fprintf("Select Location of the subject dictionary file\n");
+[file,sub_dictionary_file_location] = uigetfile;
+
+% add Palamedes directory & JND directory & subject dictionary to path
+addpath(genpath(palamedes_path))
+addpath(genpath(JND_directory_path))
+addpath(genpath(sub_dictionary_file_location))
 
 % loading in subject info from dictionary
-[subject, subject_list] = TESTING_sub_dict_VAS;
+[subject, subject_list] = subject_dictionary_VAS;
 
 % specify subj numbers (remove subjects due to any criteria)
-subj_num = [4];
+subj_num = [4 5 6 7 8];
+
+clc
 
 %% load JND data & create struct with proportions for all subjects
 % output struct: 
@@ -28,19 +46,23 @@ subj_num = [4];
 % PS: 1st value is ref for ankle exo, 2nd value is ref for knee exo
 
 num_of_exo_JNDs = 1;
-tol = 1e-2;
 
 for sub_num = subj_num
 
     % combine csvs into a single csv
     xls_sheet = subject(sub_num).JNDfilenames;
     output_fname = "ALL_" + subject_list(sub_num) + "_data.csv";    % name of file containing combined data
-    input_path = xls_sheet; % location of .csv files
-    csv_combiner(xls_sheet, output_fname)
+    lab_path = '/Volumes/me-neurobionics/Lab Members/Students/Nundini Rawal/SUBJECT DATA/Vickrey_Data_Analysis/VAS_Protocol_Data/JND Data/';
+    input_path = JND_directory_path + xls_sheet; % location of .csv files
+    csv_combiner(input_path, output_fname)
    
     exp_data_sheet = readmatrix(output_fname);
+
+    % delete combined file from current directory (cannot be exposed)
+    delete(output_fname)
     
     props = exp_data_sheet(:,2);
+    props = props(props ~=1 );      % remove '1' from props
     AvsB = exp_data_sheet(:,3:4);   % extract data
     responses = exp_data_sheet(:,5:6);
 
@@ -50,6 +72,9 @@ for sub_num = subj_num
 
     % find the unique props
     unique_props = unique(props);
+
+    % remove '1' from unique props
+    unique_props = unique_props(unique_props ~= 1);
 
     % identify repetitions of each proportion
     edges = [unique_props; max(unique_props)+1];
@@ -64,14 +89,23 @@ for sub_num = subj_num
         if props(comparison) > 1
             whichishigher = 'comparison';
             whichishigherIDX = responses(comparison,1);
+
+            if whichishigherIDX == responses(comparison,2)
+                % tally to NumPos of current torque setting
+                NumPos(repetitions(comparison),1) = NumPos(repetitions(comparison),1) + 1;
+            end
+
         elseif props(comparison) < 1
             whichishigher = 'reference';
             whichishigherIDX = responses(comparison,1);
-        end
-        
-        if whichishigherIDX == responses(comparison,2)
-            % tally to NumPos of current torque setting
-            NumPos(repetitions(comparison),1) = NumPos(repetitions(comparison),1) + 1;
+
+            if whichishigherIDX ~= responses(comparison,2)
+                % tally to NumPos of current torque setting
+                NumPos(repetitions(comparison),1) = NumPos(repetitions(comparison),1) + 1;
+            end
+
+        elseif props(comparison) == 1
+            continue
         end
 
     end
@@ -119,8 +153,8 @@ for subs = 1:size(fieldnames(sub_JND_proportion_data),1)
         ProportionForcefulSub = NumPos./OutofNum;
 
         % estimate the slope of the curve & set the searching region about this value
-        slope_est = ( ProportionForcefulSub(6) - ProportionForcefulSub(3) )/( Props(6) - Props(3) );
-        searchGrid.beta = logspace(0,10*slope_est,1000);
+        slope_est = ( ProportionForcefulSub(14) - ProportionForcefulSub(8) )/( Props(14) - Props(8) );
+        searchGrid.beta = 0.5;%logspace(0,10*abs(slope_est),1000);
 
         % Perform fits using fminsearch (unconstrained, nonlinear multivar 
         % optimizer; doesn't use gradients, but uses slack vars/simplex method
@@ -136,8 +170,8 @@ for subs = 1:size(fieldnames(sub_JND_proportion_data),1)
         CompTorquesFineGrain = 0.3:max(Props)/1000:2;
         ProportionForcefulModel = PF(paramsValues,CompTorquesFineGrain);
 
-        % interpolate to find the comparison stiffness value at which the model 
-        % predicts 0.25 & 75% of the reference were judged stiffer 
+        % interpolate to find the comparison torque value at which the model 
+        % predicts 0.25 & 75% of the reference were judged more forceful 
         x25 = interp1(ProportionForcefulModel, CompTorquesFineGrain, 0.25);
         x75 = interp1(ProportionForcefulModel, CompTorquesFineGrain, 0.75);
         JND = (x75-x25)/2;
@@ -149,17 +183,11 @@ for subs = 1:size(fieldnames(sub_JND_proportion_data),1)
             set(gca, 'fontsize',16);
             set(gca, 'Xtick',Props);
             axis([min(Props) max(Props) 0 1]);
-            xlabel('Fraction of Preferred Stiffness');
-            ylabel('\psi'); % Proportion of Trials judged Stiffer than Reference 
+            xlabel('Fraction of Reference');
+            ylabel('Proportion(\psi)'); % Proportion of Trials judged higher than Reference 
             hold on
             
             plot(CompTorquesFineGrain,ProportionForcefulModel,'-','color',[0 .7 0],'linewidth',4);
-            
-            if cond == 1
-                title( sprintf('Subject %d Incline', subj_num(subs)), 'Interpreter','none' );
-            elseif cond == 2
-                title( sprintf('Subject %d Decline', subj_num(subs)), 'Interpreter','none' );
-            end
             box off
             hold on
 
