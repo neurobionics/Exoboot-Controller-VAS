@@ -144,7 +144,7 @@ class MainControllerWrapper:
                     exostate_text = "Running" if self.pause_event.is_set() else "Paused"
                     self.hud.getwidget("ls").settextline(0, exostate_text)
                     self.hud.getwidget("rs").settextline(0, exostate_text)
-                    self.hud.getwidget("lpt").settextline(0, self.loggingnexus.get(self.exothread_left.name, "peak_torque"))
+                    self.hud.getwidget("lpt").settextline(0, self.loggingnexus.get(self.exothread_left.name, "peak_torque")) # TODO test logginnexus get function
                     self.hud.getwidget("rpt").settextline(0, self.loggingnexus.get(self.exothread_right.name, "peak_torque"))
                     self.hud.getwidget("lct").settextline(0, self.loggingnexus.get(self.exothread_left.name, "temperature"))
                     self.hud.getwidget("rct").settextline(0, self.loggingnexus.get(self.exothread_right.name, "temperature"))
