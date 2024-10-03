@@ -1,0 +1,269 @@
+{
+    "settings": {"debugmode": true},
+
+    "HUD": {
+        "widgettype": "HUD",
+        "nlines": 30,
+        "ncols": 62,
+        "l": 0,
+        "c": 0,
+        "signature": "h",
+        "kwargs": {"bgchar": " ", "bordertype": "box"},
+        "parent": ""
+    },
+
+    "widgets": {
+        "hudtitle": {
+            "widgettype": "TextBox",
+            "nlines": 1,
+            "ncols": 15,
+            "l": 1,
+            "c": 3,
+            "kwargs": {"bgchar": " ", "textlines": ["Exoboot HUD"]},
+            "signature": "ht",
+            "parent": "h"
+        },
+
+        "subjinfo": {
+            "widgettype": "TextBox",
+            "nlines": 2,
+            "ncols": 20,
+            "l": 5,
+            "c": 4,
+            "signature": "si",
+            "kwargs": {"bgchar": "x"},
+            "parent": "h"
+        },
+
+        "subjinfo1": {
+            "widgettype": "TextBox",
+            "nlines": 2,
+            "ncols": 10,
+            "l": 30,
+            "c": 4,
+            "signature": "si1",
+            "kwargs": {"bgchar": "x"},
+            "parent": "h"
+        },
+
+        "pausebtn": {
+            "widgettype": "ToggleButton",
+            "nlines": 2,
+            "ncols": 8,
+            "l": 5,
+            "c": 40,
+            "signature": "pb",
+            "kwargs": {"bgchar": "P", "textlines": ["pausebtn", "pausebtn"], "onpressfunc": "setpauseevent", "togglestate": false},
+            "parent": "h"
+        },
+
+        "quitbtn": {
+            "widgettype": "ToggleButton",
+            "nlines": 2,
+            "ncols": 7,
+            "l": 5,
+            "c": 50,
+            "signature": "qb",
+            "kwargs": {"bgchar": "Q", "textlines": ["quitbtn", "quitbtn"], "onpressfunc": "setquitevent", "togglestate": false},
+            "parent": "h"
+        },
+
+        "exol_status_window": {
+            "widgettype": "Window",
+            "nlines": 19,
+            "ncols": 20,
+            "l": 10,
+            "c": 1,
+            "signature": "elsw",
+            "kwargs": {"bgchar": " ", "bordertype": "box", "isdragable": false, "isresizeable": false, "keepbottomborder": true},
+            "parent": "h"
+        },
+
+        "exol_title": {
+            "widgettype": "TextBox",
+            "nlines": 1,
+            "ncols": 18,
+            "l": 1,
+            "c": 1,
+            "signature": "lt",
+            "kwargs": {"bgchar": "\u2500", "textlines": ["ExoLeft"]},
+            "parent": "elsw"
+        },
+
+        "exol_state": {
+            "widgettype": "TextBox",
+            "nlines": 1,
+            "ncols": 10,
+            "l": 4,
+            "c": 1,
+            "signature": "ls",
+            "kwargs": {"useprefix": true, "lineprefix": ["Status: "]},
+            "parent": "elsw"
+        },
+
+        "exol_peakt": {
+            "widgettype": "TextBox",
+            "nlines": 1,
+            "ncols": 10,
+            "l": 6,
+            "c": 1,
+            "signature": "lpt",
+            "kwargs": {"useprefix": true, "lineprefix": ["Peak T: "]},
+            "parent": "elsw"
+        },
+
+        "exol_caset": {
+            "widgettype": "TextBox",
+            "nlines": 1,
+            "ncols": 10,
+            "l": 8,
+            "c": 1,
+            "signature": "lct",
+            "kwargs": {"useprefix": true, "lineprefix": ["Case T: "]},
+            "parent": "elsw"
+        },
+
+        "exol_clockspeed": {
+            "widgettype": "TextBox",
+            "nlines": 1,
+            "ncols": 15,
+            "l": 10,
+            "c": 1,
+            "signature": "lcs",
+            "kwargs": {"useprefix": true, "lineprefix": ["Freq: "]},
+            "parent": "elsw"
+        },
+
+        "exor_status_window": {
+            "widgettype": "Window",
+            "nlines": 19,
+            "ncols": 20,
+            "l": 10,
+            "c": 21,
+            "signature": "ersw",
+            "kwargs": {"bgchar": " ", "bordertype": "box", "isdragable": false, "isresizeable": false, "keepbottomborder": true},
+            "parent": "h"
+        },
+
+        "exor_title": {
+            "widgettype": "TextBox",
+            "nlines": 1,
+            "ncols": 18,
+            "l": 1,
+            "c": 1,
+            "signature": "rt",
+            "kwargs": {"bgchar": "\u2500", "textlines": ["ExoRight"]},
+            "parent": "ersw"
+        },
+
+        "exor_state": {
+            "widgettype": "TextBox",
+            "nlines": 1,
+            "ncols": 10,
+            "l": 4,
+            "c": 1,
+            "signature": "rs",
+            "kwargs": {"useprefix": true, "lineprefix": ["Status: "]},
+            "parent": "ersw"
+        },
+
+        "exor_peakt": {
+            "widgettype": "TextBox",
+            "nlines": 1,
+            "ncols": 10,
+            "l": 6,
+            "c": 1,
+            "signature": "rpt",
+            "kwargs": {"useprefix": true, "lineprefix": ["Peak T: "]},
+            "parent": "ersw"
+        },
+
+        "exor_caset": {
+            "widgettype": "TextBox",
+            "nlines": 1,
+            "ncols": 10,
+            "l": 8,
+            "c": 1,
+            "signature": "rct",
+            "kwargs": {"useprefix": true, "lineprefix": ["Case T: "]},
+            "parent": "ersw"
+        },
+
+        "exor_clockspeed": {
+            "widgettype": "TextBox",
+            "nlines": 1,
+            "ncols": 15,
+            "l": 10,
+            "c": 1,
+            "signature": "rcs",
+            "kwargs": {"useprefix": true, "lineprefix": ["Freq: "]},
+            "parent": "ersw"
+        },
+
+        "general_status_window": {
+            "widgettype": "Window",
+            "nlines": 19,
+            "ncols": 20,
+            "l": 10,
+            "c": 41,
+            "signature": "gsw",
+            "kwargs": {"bgchar": " ", "bordertype": "box", "isdragable": false, "isresizeable": false, "keepbottomborder": true},
+            "parent": "h"
+        },
+
+        "general_title": {
+            "widgettype": "TextBox",
+            "nlines": 1,
+            "ncols": 18,
+            "l": 1,
+            "c": 1,
+            "signature": "gt",
+            "kwargs": {"bgchar": "\u2500", "textlines": ["General Status"]},
+            "parent": "gsw"
+        },
+
+        "batt_voltage": {
+            "widgettype": "TextBox",
+            "nlines": 1,
+            "ncols": 15,
+            "l": 4,
+            "c": 1,
+            "signature": "batv",
+            "kwargs": {"useprefix": true, "lineprefix": ["Batt V: "], "textlines": ["0"]},
+            "parent": "gsw"
+        },
+
+        "batt_current": {
+            "widgettype": "TextBox",
+            "nlines": 1,
+            "ncols": 15,
+            "l": 6,
+            "c": 1,
+            "signature": "bati",
+            "kwargs": {"useprefix": true, "lineprefix": ["Batt I: "], "textlines": ["0"]},
+            "parent": "gsw"
+        },
+
+        "bertec_status": {
+            "widgettype": "TextBox",
+            "nlines": 1,
+            "ncols": 15,
+            "l": 8,
+            "c": 1,
+            "signature": "bert",
+            "kwargs": {"useprefix": true, "lineprefix": ["Bertec: "], "textlines": ["None"]},
+            "parent": "gsw"
+        },
+
+        "vicon_status": {
+            "widgettype": "TextBox",
+            "nlines": 1,
+            "ncols": 15,
+            "l": 10,
+            "c": 1,
+            "signature": "vicon",
+            "kwargs": {"useprefix": true, "lineprefix": ["Vicon: "], "textlines": ["OFF"]},
+            "parent": "gsw"
+        }
+    }
+}

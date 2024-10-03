@@ -15,9 +15,13 @@ from LoggingClass import LoggingNexus
 from ExoClass_thread import ExobootThread
 from GaitStateEstimator_thread import GaitStateEstimator
 from exoboot_remote_control import ExobootRemoteServerThread
+from curses_HUD.hud_thread import HUDThread
 
 from SoftRTloop import FlexibleSleeper
 from constants import PI_IP, DEV_ID_TO_SIDE_DICT, DEFAULT_KP, DEFAULT_KI, DEFAULT_KD, DEFAULT_FF, RTPLOT_IP, TRIAL_CONDS_DICT
+
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), "curses_HUD"))
+from curses_HUD import hud_thread
 
 thisdir = os.path.dirname(os.path.abspath(__file__))
 sys.path.append(thisdir)
@@ -119,19 +123,39 @@ class MainControllerWrapper:
             self.remote_thread.set_target_IP(self.myIP)
             self.remote_thread.start()
 
+            # Thread 5: Curses HUD
+            self.hud = HUDThread(self, "exohud_layout.json", pause_event=self.pause_event, quit_event=self.quit_event)
+
             # LoggingNexus
             self.loggingnexus = LoggingNexus(self.file_prefix, self.exothread_left, self.exothread_right, self.gse_thread, pause_event=self.pause_event)
+
+            # HUD and logging fields
+            self.hud_log_dict = {}
 
             # ~~~Main Loop~~~
             self.softrtloop = FlexibleSleeper(period=1/self.clockspeed)
             self.pause_event.set()
             while self.quit_event.is_set():
                 try:
-                    # TODO add curses fancy terminal
-                    print("Peak Torques L/R: ", self.gse_thread.peak_torque_left, '/', self.gse_thread.peak_torque_right)
-
                     # Log data. Obeys pause_event
                     self.loggingnexus.log()
+
+                    # Update HUD
+                    exostate_text = "Running" if self.pause_event.is_set() else "Paused"
+                    self.hud.getwidget("ls").settextline(0, exostate_text)
+                    self.hud.getwidget("rs").settextline(0, exostate_text)
+                    self.hud.getwidget("lpt").settextline(0, self.loggingnexus.get(self.exothread_left.name, "peak_torque"))
+                    self.hud.getwidget("rpt").settextline(0, self.loggingnexus.get(self.exothread_right.name, "peak_torque"))
+                    self.hud.getwidget("lct").settextline(0, self.loggingnexus.get(self.exothread_left.name, "temperature"))
+                    self.hud.getwidget("rct").settextline(0, self.loggingnexus.get(self.exothread_right.name, "temperature"))
+                    self.hud.getwidget("lcs").settextline(0, self.loggingnexus.get(self.exothread_left.name, "thread_freq"))
+                    self.hud.getwidget("rcs").settextline(0, self.loggingnexus.get(self.exothread_right.name, "thread_freq"))
+
+                    self.hud.getwidget("batv").settextline(0, self.loggingnexus.get(self.exothread_right.name, "battery_voltage"))
+                    self.hud.getwidget("bati").settextline(0, self.loggingnexus.get(self.exothread_right.name, "battery_current"))
+
+                    self.hud.getwidget("bert").settextline(0, "IDK")
+                    self.hud.getwidget("vicon").settextline(0, "TBI")
 
                     # SoftRT pause
                     self.softrtloop.pause()
