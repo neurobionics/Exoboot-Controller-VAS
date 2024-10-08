@@ -1,6 +1,11 @@
 {
     "settings": {"debugmode": true},
 
+    "stylesheet": {
+        "colors": {},
+        "pairs": {}
+    },
+
     "HUD": {
         "widgettype": "HUD",
         "nlines": 30,
@@ -26,23 +31,23 @@
 
         "subjinfo": {
             "widgettype": "TextBox",
-            "nlines": 2,
-            "ncols": 20,
-            "l": 5,
+            "nlines": 1,
+            "ncols": 40,
+            "l": 3,
             "c": 4,
             "signature": "si",
-            "kwargs": {"bgchar": "x"},
+            "kwargs": {"useprefix": true, "lineprefix": ["Info: "]},
             "parent": "h"
         },
 
-        "subjinfo1": {
+        "ipinfo": {
             "widgettype": "TextBox",
-            "nlines": 2,
-            "ncols": 10,
-            "l": 30,
+            "nlines": 1,
+            "ncols": 20,
+            "l": 4,
             "c": 4,
-            "signature": "si1",
-            "kwargs": {"bgchar": "x"},
+            "signature": "ii",
+            "kwargs": {"useprefix": true, "lineprefix": ["IP: "]},
             "parent": "h"
         },
 
@@ -53,7 +58,7 @@
             "l": 5,
             "c": 40,
             "signature": "pb",
-            "kwargs": {"bgchar": "P", "textlines": ["pausebtn", "pausebtn"], "onpressfunc": "setpauseevent", "togglestate": false},
+            "kwargs": {"bgchar": "P", "textlines": ["pausebtn", "pausebtn"], "onpressfunc": "setpauseevent", "requires_top": false, "togglestate": false},
             "parent": "h"
         },
 
@@ -64,15 +69,15 @@
             "l": 5,
             "c": 50,
             "signature": "qb",
-            "kwargs": {"bgchar": "Q", "textlines": ["quitbtn", "quitbtn"], "onpressfunc": "setquitevent", "togglestate": false},
+            "kwargs": {"bgchar": "Q", "textlines": ["quitbtn", "quitbtn"], "onpressfunc": "setquitevent", "requires_top": false, "togglestate": false},
             "parent": "h"
         },
 
         "exol_status_window": {
             "widgettype": "Window",
-            "nlines": 19,
+            "nlines": 13,
             "ncols": 20,
-            "l": 10,
+            "l": 16,
             "c": 1,
             "signature": "elsw",
             "kwargs": {"bgchar": " ", "bordertype": "box", "isdragable": false, "isresizeable": false, "keepbottomborder": true},
@@ -93,7 +98,7 @@
         "exol_state": {
             "widgettype": "TextBox",
             "nlines": 1,
-            "ncols": 10,
+            "ncols": 18,
             "l": 4,
             "c": 1,
             "signature": "ls",
@@ -104,7 +109,7 @@
         "exol_peakt": {
             "widgettype": "TextBox",
             "nlines": 1,
-            "ncols": 10,
+            "ncols": 18,
             "l": 6,
             "c": 1,
             "signature": "lpt",
@@ -115,7 +120,7 @@
         "exol_caset": {
             "widgettype": "TextBox",
             "nlines": 1,
-            "ncols": 10,
+            "ncols": 18,
             "l": 8,
             "c": 1,
             "signature": "lct",
@@ -126,7 +131,7 @@
         "exol_clockspeed": {
             "widgettype": "TextBox",
             "nlines": 1,
-            "ncols": 15,
+            "ncols": 18,
             "l": 10,
             "c": 1,
             "signature": "lcs",
@@ -136,9 +141,9 @@
 
         "exor_status_window": {
             "widgettype": "Window",
-            "nlines": 19,
+            "nlines": 13,
             "ncols": 20,
-            "l": 10,
+            "l": 16,
             "c": 21,
             "signature": "ersw",
             "kwargs": {"bgchar": " ", "bordertype": "box", "isdragable": false, "isresizeable": false, "keepbottomborder": true},
@@ -159,7 +164,7 @@
         "exor_state": {
             "widgettype": "TextBox",
             "nlines": 1,
-            "ncols": 10,
+            "ncols": 18,
             "l": 4,
             "c": 1,
             "signature": "rs",
@@ -170,7 +175,7 @@
         "exor_peakt": {
             "widgettype": "TextBox",
             "nlines": 1,
-            "ncols": 10,
+            "ncols": 18,
             "l": 6,
             "c": 1,
             "signature": "rpt",
@@ -181,7 +186,7 @@
         "exor_caset": {
             "widgettype": "TextBox",
             "nlines": 1,
-            "ncols": 10,
+            "ncols": 18,
             "l": 8,
             "c": 1,
             "signature": "rct",
@@ -192,7 +197,7 @@
         "exor_clockspeed": {
             "widgettype": "TextBox",
             "nlines": 1,
-            "ncols": 15,
+            "ncols": 18,
             "l": 10,
             "c": 1,
             "signature": "rcs",
@@ -202,9 +207,9 @@
 
         "general_status_window": {
             "widgettype": "Window",
-            "nlines": 19,
+            "nlines": 13,
             "ncols": 20,
-            "l": 10,
+            "l": 16,
             "c": 41,
             "signature": "gsw",
             "kwargs": {"bgchar": " ", "bordertype": "box", "isdragable": false, "isresizeable": false, "keepbottomborder": true},
@@ -225,7 +230,7 @@
         "batt_voltage": {
             "widgettype": "TextBox",
             "nlines": 1,
-            "ncols": 15,
+            "ncols": 18,
             "l": 4,
             "c": 1,
             "signature": "batv",
@@ -236,7 +241,7 @@
         "batt_current": {
             "widgettype": "TextBox",
             "nlines": 1,
-            "ncols": 15,
+            "ncols": 18,
             "l": 6,
             "c": 1,
             "signature": "bati",
@@ -247,7 +252,7 @@
         "bertec_status": {
             "widgettype": "TextBox",
             "nlines": 1,
-            "ncols": 15,
+            "ncols": 18,
             "l": 8,
             "c": 1,
             "signature": "bert",
@@ -258,7 +263,7 @@
         "vicon_status": {
             "widgettype": "TextBox",
             "nlines": 1,
-            "ncols": 15,
+            "ncols": 18,
             "l": 10,
             "c": 1,
             "signature": "vicon",

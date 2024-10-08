@@ -6,7 +6,7 @@ import exoboot_remote_pb2_grpc as pb2_grpc
 from typing import Type
 
 from utils import MovingAverageFilter
-from constants import PI_IP, BTN_NUM_TOTAL
+from constants import PI_IP
 
 from BaseExoThread import BaseThread
 
@@ -165,7 +165,7 @@ class ExobootCommServicer(pb2_grpc.exoboot_over_networkServicer):
                 self.vasfilename = self.file_prefix + '_vas_results.csv'
                 with open(self.vasfilename, 'w', newline='') as f:
                     header = ['btn_option', 'trial', 'pres']
-                    for i in range(BTN_NUM_TOTAL):
+                    for i in range(20): # TODO remove constant 20
                         header.append('torque{}'.format(i))
                         header.append('mv{}'.format(i))
                         

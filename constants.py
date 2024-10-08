@@ -12,7 +12,7 @@ TRIAL_CONDS_DICT = {'VICKREY': ["WNE", "EPO", "NPO"],
 
 ######### PARAMS TO MODIFY PRIOR TO EACH VAS SESSION ######### 
 # gRPC ip addresses (run in the following order: rtplot, then GUI client, then VAS_MAIN() script)
-PI_IP = f"{'35.3.87.217'}:" f"{'50051'}"   # IP address of the Controller (rPi)
+PI_IP = f"{'35.3.184.0'}:" f"{'50051'}"   # IP address of the Controller (rPi)
 
 RTPLOT_IP = '35.3.80.31'    # ip address of server for real time ploting (monitor)
 VICON_IP='141.212.77.30'    # Vicon ip to connect to Bertec Forceplates for streaming

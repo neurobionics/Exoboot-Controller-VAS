@@ -40,19 +40,36 @@ class MainControllerWrapper:
         self.streamingfrequency = streamingfrequency
         self.clockspeed = clockspeed
 
+        # Dummy mode check TODO implement dummymode
+        if self.subjectID == "DUMMY":
+            self.dummymode = True
+        else:
+            self.dummymode = False
+
         # Validate trial_type and trial_cond
         self.valid_trial_typeconds = TRIAL_CONDS_DICT
-        if not self.trial_type in self.valid_trial_typeconds.keys():
-            raise Exception("Invalid trial type: {} not in {}".format(self.trial_type, self.valid_trial_typeconds.keys()))
+        try:
+            if not self.trial_type in self.valid_trial_typeconds.keys():
+                raise Exception("Invalid trial type: {} not in {}".format(self.trial_type, self.valid_trial_typeconds.keys()))
 
-        valid_conds = self.valid_trial_typeconds[trial_type]
-        if valid_conds and self.trial_cond not in valid_conds:
-            raise Exception("Invalid trial cond: {} not in {}".format(trial_cond, valid_conds))
+            valid_conds = self.valid_trial_typeconds[self.trial_type]
+            if valid_conds and self.trial_cond not in valid_conds:
+                raise Exception("Invalid trial cond: {} not in {}".format(trial_cond, valid_conds))
+        except:
+            # TODO only run this section if arguments are incorrect
+            print("\nINCORRECT ARGUMENTS\n")
+            print("How to run: python Exoboot_Wrapper.py subjectID trial_type trial_cond description")
+            print("\tsubjectID: name of subject")
+            print("\ttrial_type: [trial_conds]: pick from VICKREY: [WNE, EPO, NPO], JND: [SPLITLEG, SAMELEG], PREF: [SLIDER, BTN]")
+            print("\t\tother trial_types can have arbitrary trial_cond")
+            print("\tdescription: any additional notes")
         
         self.file_prefix = "{}_{}_{}_{}".format(self.subjectID, self.trial_type, self.trial_cond, self.description)
 
         # Get own IP address for GRPC
-        self.myIP = socket.gethostbyname(socket.gethostname())
+        s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        s.connect(('10.255.255.255', 1))
+        self.myIP = s.getsockname()[0] + ":50051"
         print("myIP: {}".format(self.myIP))
 
     @staticmethod
@@ -82,19 +99,18 @@ class MainControllerWrapper:
         elif side_1 == 'right':
             return side_2, device_2, side_1, device_1
         else:
-            raise Exception("Invalid sides for devices: Probably not possible?")
+            raise Exception("Invalid sides for devices: Check DEV_ID_TO_SIDE_DICT!")
     
     def run(self):
         """
         Initialize trial information
         Start All Threads
-        TODO Print good info
         """
         try:
-            # Initializing the Exo
+            # # Initializing the Exo
             side_left, device_left, side_right, device_right = self.get_active_ports()
             
-            # Start device streaming and set gains:
+            # # Start device streaming and set gains:
             device_left.start_streaming(self.streamingfrequency)
             device_right.start_streaming(self.streamingfrequency)
             device_left.set_gains(DEFAULT_KP, DEFAULT_KI, DEFAULT_KD, 0, 0, DEFAULT_FF)
@@ -106,7 +122,7 @@ class MainControllerWrapper:
             self.quit_event = threading.Event()
             self.pause_event.clear() # Start with threads paused
             self.quit_event.set()
-            self.startstamp = time.perf_counter()   # Timesync logging between all threads and GUI
+            self.startstamp = time.perf_counter() # Timesync logging between all threads
 
             # Thread 1/2: Left and right exoboots
             self.exothread_left = ExobootThread(side_left, device_left, self.startstamp, name='exothread_left', daemon=True, pause_event=self.pause_event, quit_event=self.quit_event)
@@ -125,12 +141,14 @@ class MainControllerWrapper:
 
             # Thread 5: Curses HUD
             self.hud = HUDThread(self, "exohud_layout.json", pause_event=self.pause_event, quit_event=self.quit_event)
+            self.hud.start()
+
+            # Set hud info
+            self.hud.getwidget("si").settextline(0, "{}, {}, {}, {}".format(self.subjectID, self.trial_type, self.trial_cond, self.description))
+            self.hud.getwidget("ii").settextline(0, str(self.myIP))
 
             # LoggingNexus
             self.loggingnexus = LoggingNexus(self.file_prefix, self.exothread_left, self.exothread_right, self.gse_thread, pause_event=self.pause_event)
-
-            # HUD and logging fields
-            self.hud_log_dict = {}
 
             # ~~~Main Loop~~~
             self.softrtloop = FlexibleSleeper(period=1/self.clockspeed)
@@ -140,22 +158,31 @@ class MainControllerWrapper:
                     # Log data. Obeys pause_event
                     self.loggingnexus.log()
 
+                    # try:
+                    #     print("Peak Torque Left: {}\nPeak Torque Right: {}".format(self.loggingnexus.get(self.exothread_left.name, "peak_torque"), self.loggingnexus.get(self.exothread_right.name, "peak_torque")))
+                    #     print("Case Temp Left: {}\nCase Temp Right: {}\n".format(self.loggingnexus.get(self.exothread_left.name, "temperature"), self.loggingnexus.get(self.exothread_right.name, "temperature")))
+                    # except:
+                    #     pass
+
                     # Update HUD
-                    exostate_text = "Running" if self.pause_event.is_set() else "Paused"
-                    self.hud.getwidget("ls").settextline(0, exostate_text)
-                    self.hud.getwidget("rs").settextline(0, exostate_text)
-                    self.hud.getwidget("lpt").settextline(0, self.loggingnexus.get(self.exothread_left.name, "peak_torque")) # TODO test logginnexus get function
-                    self.hud.getwidget("rpt").settextline(0, self.loggingnexus.get(self.exothread_right.name, "peak_torque"))
-                    self.hud.getwidget("lct").settextline(0, self.loggingnexus.get(self.exothread_left.name, "temperature"))
-                    self.hud.getwidget("rct").settextline(0, self.loggingnexus.get(self.exothread_right.name, "temperature"))
-                    self.hud.getwidget("lcs").settextline(0, self.loggingnexus.get(self.exothread_left.name, "thread_freq"))
-                    self.hud.getwidget("rcs").settextline(0, self.loggingnexus.get(self.exothread_right.name, "thread_freq"))
+                    try:
+                        exostate_text = "Running" if self.pause_event.is_set() else "Paused"
+                        self.hud.getwidget("ls").settextline(0, exostate_text)
+                        self.hud.getwidget("rs").settextline(0, exostate_text)
+                        self.hud.getwidget("lpt").settextline(0, self.loggingnexus.get(self.exothread_left.name, "peak_torque")) # TODO test logginnexus get function
+                        self.hud.getwidget("rpt").settextline(0, self.loggingnexus.get(self.exothread_right.name, "peak_torque"))
+                        self.hud.getwidget("lct").settextline(0, self.loggingnexus.get(self.exothread_left.name, "temperature"))
+                        self.hud.getwidget("rct").settextline(0, self.loggingnexus.get(self.exothread_right.name, "temperature"))
+                        self.hud.getwidget("lcs").settextline(0, self.loggingnexus.get(self.exothread_left.name, "thread_freq"))
+                        self.hud.getwidget("rcs").settextline(0, self.loggingnexus.get(self.exothread_right.name, "thread_freq"))
 
-                    self.hud.getwidget("batv").settextline(0, self.loggingnexus.get(self.exothread_right.name, "battery_voltage"))
-                    self.hud.getwidget("bati").settextline(0, self.loggingnexus.get(self.exothread_right.name, "battery_current"))
+                        self.hud.getwidget("batv").settextline(0, self.loggingnexus.get(self.exothread_right.name, "battery_voltage"))
+                        self.hud.getwidget("bati").settextline(0, self.loggingnexus.get(self.exothread_right.name, "battery_current"))
 
-                    self.hud.getwidget("bert").settextline(0, "IDK")
-                    self.hud.getwidget("vicon").settextline(0, "TBI")
+                        self.hud.getwidget("bert").settextline(0, "IDK")
+                        self.hud.getwidget("vicon").settextline(0, "TBI")
+                    except:
+                        pass
 
                     # SoftRT pause
                     self.softrtloop.pause()
@@ -186,14 +213,6 @@ class MainControllerWrapper:
 
 
 if __name__ == "__main__":
-    try:
-        assert len(sys.argv) == 4 + 1
-        _, subjectID, trial_type, trial_cond, description = sys.argv
-        MainControllerWrapper(subjectID, trial_type, trial_cond, description, streamingfrequency=1000).run()
-    except:
-        print("\nINCORRECT ARGUMENTS\n")
-        print("How to run: python Exoboot_Wrapper.py subjectID trial_type trial_cond description")
-        print("\tsubjectID: name of subject")
-        print("\ttrial_type: [trial_conds]: pick from VICKREY: [WNE, EPO, NPO], JND: [SPLITLEG, SAMELEG], PREF: [SLIDER, BTN]")
-        print("\t\tother trial_types can have arbitrary trial_cond")
-        print("\tdescription: any additional notes")
+    assert len(sys.argv) == 4 + 1
+    _, subjectID, trial_type, trial_cond, description = sys.argv
+    MainControllerWrapper(subjectID, trial_type, trial_cond, description, streamingfrequency=1000).run()

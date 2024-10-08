@@ -2,9 +2,10 @@ import os, sys, json, time, inspect, threading
 from typing import Type
 import curses, curses.panel
 
+sys.path.insert(0, os.path.dirname(__file__))
+
 import widget_base, button_funcs
 from widget_base import HUD
-
 
 class HUDWrapper:
     def __init__(self, mainwrapper, stdscr, mouseinterval=10):
@@ -93,10 +94,21 @@ class HUDThread(threading.Thread):
         self.stdscr = curses.initscr()
         curses.noecho()
         curses.cbreak()
-        try:
-            curses.start_color()
-        except:
-            pass
+
+        # Setup for inputs
+        curses.curs_set(0)
+        curses.mousemask(curses.ALL_MOUSE_EVENTS|curses.REPORT_MOUSE_POSITION) # Must include REPORT_MOUSE_POSITION
+        print('\033[?1002h') # https://stackoverflow.com/questions/56300134/how-to-enable-mouse-movement-events-in-curses/64809709#64809709
+
+        curses.start_color()
+        curses.use_default_colors()
+
+        # TODO color numbers -1 to 15 are reserved
+        i = 16
+        curses.init_color(i, 1000, 0, 0)
+        curses.init_color(i+1, 0, 1000, 0)
+        curses.init_pair(1, 5, 18)
+        # curses.init_pair(1, i, i+1)
 
         self.hudwrapper = HUDWrapper(self.mainwrapper, self.stdscr, mouseinterval=10)
         self.hudwrapper.loadHUD(self.layoutfile)
@@ -156,6 +168,27 @@ if __name__ == "__main__":
             try:
                 hudthread.getwidget("t0").settextline(0, "{}".format(somenum))
                 hudthread.getwidget("t0").cleanslate()
+            except:
+                pass
+
+            try:
+                hudthread.getwidget("si").settextline(0, "dummy, foo, bar, qwert")
+
+                exostate_text = "Running" if dumbmainwrapper.pause_event.is_set() else "Paused"
+                hudthread.getwidget("ls").settextline(0, exostate_text)
+                hudthread.getwidget("rs").settextline(0, exostate_text)
+                hudthread.getwidget("lpt").settextline(0, "b")
+                hudthread.getwidget("rpt").settextline(0, "b")
+                hudthread.getwidget("lct").settextline(0, "b")
+                hudthread.getwidget("rct").settextline(0, "b")
+                hudthread.getwidget("lcs").settextline(0, "b")
+                hudthread.getwidget("rcs").settextline(0, "c")
+
+                hudthread.getwidget("batv").settextline(0, "b")
+                hudthread.getwidget("bati").settextline(0, "b")
+
+                hudthread.getwidget("bert").settextline(0, "IDK")
+                hudthread.getwidget("vicon").settextline(0, "TBI")
             except:
                 pass
         
