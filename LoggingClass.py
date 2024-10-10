@@ -66,6 +66,9 @@ class LoggingNexus:
             
         #     client.send_array(plot_data_array)
 
+    def get(self, threadname, field):
+        return self.thread_stashes[threadname][-1][field]
+
     def log(self):
         """
         Empty data from thread_stashes and write to corresponding file

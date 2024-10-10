@@ -22,6 +22,54 @@ from AssistanceGenerator_new import AssistanceGenerator
 from TransmissionRatioGenerator import TransmissionRatioGenerator
 
 
+# class DumbExobootThread(BaseThread):
+#     """
+#     Testing purposes only!
+#     """
+#     def __init__(self, side, flexdevice, startstamp, name='dumbexobootthread', daemon=True, pause_event=Type[threading.Event], quit_event=Type[threading.Event]):
+#         pass
+
+#     def getval(self, what):
+#         pass
+
+#     def spool_belt(self):
+#         pass
+        
+#     def zeroProcedure(self):
+#         pass
+
+#     def read_sensors(self):
+#         pass
+
+#     def torque_2_current(self, torque, N) -> int:
+#         pass
+    
+#     def thermal_safety_checker(self):
+#         pass
+    
+#     def set_state_estimate(self, HS, stride_period, peak_torque, in_swing):
+#         pass
+
+#     def log_state_estimate(self):
+#         pass
+
+#     # Threading run() functions
+#     def on_pre_run(self):
+#         pass
+        
+#     def on_pre_pause(self):
+#         pass
+
+#     def pre_iterate(self):
+#         pass
+
+#     def iterate(self):
+#         pass
+
+#     def post_iterate(self):
+#         pass
+
+
 class ExobootThread(BaseThread):
     def __init__(self, side, flexdevice, startstamp, name='exobootthread', daemon=True, pause_event=Type[threading.Event], quit_event=Type[threading.Event]):
         """
@@ -30,7 +78,7 @@ class ExobootThread(BaseThread):
         super().__init__(name=name, daemon=daemon, pause_event=pause_event, quit_event=quit_event)
         # Necessary Inputs for Exo Class
         self.side = side
-        self.flexdevice = flexdevice # In ref to flexsea Device
+        self.flexdevice = flexdevice # In ref to flexsea Device class
         
         # Motor and ankle signs
         """TEST TO ENSURE CORRECT DIRECTIONS BEFORE RUNNING IN FULL"""
@@ -340,7 +388,7 @@ class ExobootThread(BaseThread):
         self.data_dict['thread_freq'] = my_freq
 
         # Perform thermal safety check on actpack
-        self.thermal_safety_checker()
+        # self.thermal_safety_checker()
 
         # Send GSE data for logging
         if self.loggingnexus and self.pause_event.is_set() and end_time - self.lastlogstamp > 1/EXOTHREAD_LOGGING_FREQ:
