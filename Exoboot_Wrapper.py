@@ -141,11 +141,9 @@ class MainControllerWrapper:
 
             # Thread 5: Curses HUD
             self.hud = HUDThread(self, "exohud_layout.json", pause_event=self.pause_event, quit_event=self.quit_event)
-            self.hud.start()
-
-            # Set hud info
             self.hud.getwidget("si").settextline(0, "{}, {}, {}, {}".format(self.subjectID, self.trial_type, self.trial_cond, self.description))
             self.hud.getwidget("ii").settextline(0, str(self.myIP))
+            self.hud.start()
 
             # LoggingNexus
             self.loggingnexus = LoggingNexus(self.file_prefix, self.exothread_left, self.exothread_right, self.gse_thread, pause_event=self.pause_event)
@@ -158,11 +156,11 @@ class MainControllerWrapper:
                     # Log data. Obeys pause_event
                     self.loggingnexus.log()
 
-                    # try:
-                    #     print("Peak Torque Left: {}\nPeak Torque Right: {}".format(self.loggingnexus.get(self.exothread_left.name, "peak_torque"), self.loggingnexus.get(self.exothread_right.name, "peak_torque")))
-                    #     print("Case Temp Left: {}\nCase Temp Right: {}\n".format(self.loggingnexus.get(self.exothread_left.name, "temperature"), self.loggingnexus.get(self.exothread_right.name, "temperature")))
-                    # except:
-                    #     pass
+                    try:
+                        print("Peak Torque Left: {}\nPeak Torque Right: {}".format(self.loggingnexus.get(self.exothread_left.name, "peak_torque"), self.loggingnexus.get(self.exothread_right.name, "peak_torque")))
+                        print("Case Temp Left: {}\nCase Temp Right: {}\n".format(self.loggingnexus.get(self.exothread_left.name, "temperature"), self.loggingnexus.get(self.exothread_right.name, "temperature")))
+                    except:
+                        pass
 
                     # Update HUD
                     try:

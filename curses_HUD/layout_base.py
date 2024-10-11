@@ -31,7 +31,10 @@ class OccupancyMap:
 
     def getsignature(self, l, c):
         l = self.clampl(l)
-        return self.layout[l][min(max(c, 0), self.ncols - 1)]
+        if c == -1:
+            return self.layout[l]
+        else:
+            return self.layout[l][min(max(c, 0), self.ncols - 1)]
 
     def occupancies(self, l, c, n):
         l = self.clampl(l)
