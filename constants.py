@@ -9,7 +9,6 @@ TRIAL_CONDS_DICT = {'VICKREY': ["WNE", "EPO", "NPO"],
                     }
 
 
-
 ######### PARAMS TO MODIFY PRIOR TO EACH VAS SESSION ######### 
 # gRPC ip addresses (run in the following order: rtplot, then GUI client, then VAS_MAIN() script)
 PI_IP = f"{'35.3.184.0'}:" f"{'50051'}"   # IP address of the Controller (rPi)

@@ -140,7 +140,7 @@ class MainControllerWrapper:
             self.remote_thread.start()
 
             # Thread 5: Curses HUD
-            self.hud = HUDThread(self, "exohud_layout.json", pause_event=self.pause_event, quit_event=self.quit_event)
+            self.hud = HUDThread(self, "exohud_layout.json", napms=10, pause_event=self.pause_event, quit_event=self.quit_event)
             self.hud.getwidget("si").settextline(0, "{}, {}, {}, {}".format(self.subjectID, self.trial_type, self.trial_cond, self.description))
             self.hud.getwidget("ii").settextline(0, str(self.myIP))
             self.hud.start()
@@ -153,12 +153,11 @@ class MainControllerWrapper:
             self.pause_event.set()
             while self.quit_event.is_set():
                 try:
-                    # Log data. Obeys pause_event
-                    self.loggingnexus.log()
-
                     try:
-                        print("Peak Torque Left: {}\nPeak Torque Right: {}".format(self.loggingnexus.get(self.exothread_left.name, "peak_torque"), self.loggingnexus.get(self.exothread_right.name, "peak_torque")))
-                        print("Case Temp Left: {}\nCase Temp Right: {}\n".format(self.loggingnexus.get(self.exothread_left.name, "temperature"), self.loggingnexus.get(self.exothread_right.name, "temperature")))
+                        if not self.hud.isrunning:
+                            print("Peak Torque Left: {}\nPeak Torque Right: {}".format(self.loggingnexus.get(self.exothread_left.name, "peak_torque"), self.loggingnexus.get(self.exothread_right.name, "peak_torque")))
+                            print("Case Temp Left: {}\nCase Temp Right: {}\n".format(self.loggingnexus.get(self.exothread_left.name, "temperature"), self.loggingnexus.get(self.exothread_right.name, "temperature")))
+                            print("Freq Left: {}\nFreq Right: {}\n".format(self.loggingnexus.get(self.exothread_left.name, "thread_freq"), self.loggingnexus.get(self.exothread_right.name, "thread_freq")))
                     except:
                         pass
 
@@ -167,20 +166,23 @@ class MainControllerWrapper:
                         exostate_text = "Running" if self.pause_event.is_set() else "Paused"
                         self.hud.getwidget("ls").settextline(0, exostate_text)
                         self.hud.getwidget("rs").settextline(0, exostate_text)
-                        self.hud.getwidget("lpt").settextline(0, self.loggingnexus.get(self.exothread_left.name, "peak_torque")) # TODO test logginnexus get function
-                        self.hud.getwidget("rpt").settextline(0, self.loggingnexus.get(self.exothread_right.name, "peak_torque"))
-                        self.hud.getwidget("lct").settextline(0, self.loggingnexus.get(self.exothread_left.name, "temperature"))
-                        self.hud.getwidget("rct").settextline(0, self.loggingnexus.get(self.exothread_right.name, "temperature"))
-                        self.hud.getwidget("lcs").settextline(0, self.loggingnexus.get(self.exothread_left.name, "thread_freq"))
-                        self.hud.getwidget("rcs").settextline(0, self.loggingnexus.get(self.exothread_right.name, "thread_freq"))
+                        self.hud.getwidget("lpt").settextline(0, str(self.loggingnexus.get(self.exothread_left.name, "peak_torque")))
+                        self.hud.getwidget("rpt").settextline(0, str(self.loggingnexus.get(self.exothread_right.name, "peak_torque")))
+                        self.hud.getwidget("lct").settextline(0, str(self.loggingnexus.get(self.exothread_left.name, "temperature")))
+                        self.hud.getwidget("rct").settextline(0, str(self.loggingnexus.get(self.exothread_right.name, "temperature")))
+                        self.hud.getwidget("lcs").settextline(0, "{:0.2f}".format(self.loggingnexus.get(self.exothread_left.name, "thread_freq")))
+                        self.hud.getwidget("rcs").settextline(0, "{:0.2f}".format(self.loggingnexus.get(self.exothread_right.name, "thread_freq")))
 
-                        self.hud.getwidget("batv").settextline(0, self.loggingnexus.get(self.exothread_right.name, "battery_voltage"))
-                        self.hud.getwidget("bati").settextline(0, self.loggingnexus.get(self.exothread_right.name, "battery_current"))
+                        self.hud.getwidget("batv").settextline(0, str(self.loggingnexus.get(self.exothread_right.name, "battery_voltage")))
+                        self.hud.getwidget("bati").settextline(0, str(self.loggingnexus.get(self.exothread_right.name, "battery_current")))
 
                         self.hud.getwidget("bert").settextline(0, "IDK")
                         self.hud.getwidget("vicon").settextline(0, "TBI")
-                    except:
-                        pass
+                    except Exception as e:
+                        print("Exception: ", e)
+
+                    # Log data. Obeys pause_event
+                    self.loggingnexus.log()
 
                     # SoftRT pause
                     self.softrtloop.pause()
