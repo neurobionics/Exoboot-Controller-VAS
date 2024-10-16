@@ -118,10 +118,12 @@ class HUDWrapper:
 
 
 class HUDThread(threading.Thread):
-    def __init__(self, mainwrapper, layoutfile, name='hud', daemon=True, pause_event=Type[threading.Event], quit_event=Type[threading.Event]):
+    def __init__(self, mainwrapper, layoutfile, name='hud', napms=10, mouseinterval=10, daemon=True, pause_event=Type[threading.Event], quit_event=Type[threading.Event]):
         super().__init__(name=name)
         self.mainwrapper = mainwrapper
         self.layoutfile = layoutfile
+        self.napms = napms
+        self.mouseinterval = mouseinterval
         self.pause_event = pause_event
         self.quit_event = quit_event
         self.daemon = daemon
@@ -130,6 +132,7 @@ class HUDThread(threading.Thread):
         self.stdscr = curses.initscr()
         curses.noecho()
         curses.cbreak()
+        curses.mouseinterval(self.mouseinterval)
 
         # Setup for inputs
         curses.curs_set(0)
@@ -139,7 +142,7 @@ class HUDThread(threading.Thread):
         curses.start_color()
         curses.use_default_colors()
 
-        self.hudwrapper = HUDWrapper(self.mainwrapper, self.stdscr, mouseinterval=10)
+        self.hudwrapper = HUDWrapper(self.mainwrapper, self.stdscr)
         self.hudwrapper.loadHUD(self.layoutfile)
 
     @property
@@ -156,7 +159,9 @@ class HUDThread(threading.Thread):
                 self.hudwrapper.draw()
                 self.hudwrapper.get_input()
                 self.hudwrapper.refresh()
-                curses.napms(10)
+
+                # Don't use curses.napms <- hogs all processing time :(
+                time.sleep(self.napms/1000)
         except Exception as e:
             print("Exception: ", e)
         finally:
@@ -182,7 +187,7 @@ if __name__ == "__main__":
     try:
         dumbmainwrapper = DumbMainWrapper()
 
-        hudthread = HUDThread(dumbmainwrapper, "exohud_layout.json", pause_event=dumbmainwrapper.pause_event, quit_event=dumbmainwrapper.quit_event)
+        hudthread = HUDThread(dumbmainwrapper, "testlayout.json", napms=10, pause_event=dumbmainwrapper.pause_event, quit_event=dumbmainwrapper.quit_event)
         hudthread.start()
 
         somenum = 0
@@ -232,3 +237,4 @@ if __name__ == "__main__":
 # TODO
 #   1) add animation/sequence class for defining time series of frames for a textbox
 #   2) create better button
+#   3) redirect prints to special box?

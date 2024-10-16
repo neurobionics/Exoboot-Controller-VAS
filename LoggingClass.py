@@ -67,7 +67,11 @@ class LoggingNexus:
         #     client.send_array(plot_data_array)
 
     def get(self, threadname, field):
-        return self.thread_stashes[threadname][-1][field]
+        try:
+            data = self.thread_stashes[threadname][-1][field]
+            return data
+        except:
+            return -1
 
     def log(self):
         """

@@ -130,7 +130,6 @@ class ExobootThread(BaseThread):
     def spool_belt(self):
         self.flexdevice.command_motor_current(self.motor_sign * BIAS_CURRENT)
         time.sleep(0.5)
-        print("Belt spooled for: ", self.flexdevice.id)
         
     def zeroProcedure(self):
         """
@@ -335,8 +334,6 @@ class ExobootThread(BaseThread):
         """
         # Send bias current
         self.flexdevice.command_motor_current(self.motor_sign * BIAS_CURRENT)
-        
-        print("{} is paused".format(self.name))
 
     def pre_iterate(self):
         """
