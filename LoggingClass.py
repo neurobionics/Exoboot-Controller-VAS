@@ -3,9 +3,11 @@ from typing import Type
 from collections import deque
 from rtplot import client
 
+from utils import subject_data_filing_cabinet
 
 class LoggingNexus:
-    def __init__(self, file_prefix, *threads, pause_event=Type[threading.Event], ):
+    def __init__(self, subjectID, file_prefix, *threads, pause_event=Type[threading.Event]):
+        self.subjectID = subjectID
         self.file_prefix = file_prefix
         self.pause_event = pause_event
 
@@ -14,6 +16,8 @@ class LoggingNexus:
         self.thread_stashes = {}
         self.filenames = {}
         
+        self.filingcabinet = subject_data_filing_cabinet(self.subjectID)
+
         self.setup(threads)
 
     def setup(self, threads):
@@ -34,7 +38,7 @@ class LoggingNexus:
         for thread in self.thread_names:
             filename = self.filenames[thread]
             fields = self.thread_fields[thread]
-            with open(filename, 'a') as f:
+            with open(os.path.join(self.filingcabinet.getpath(), filename), 'a') as f:
                 writer = csv.writer(f, lineterminator='\n',quotechar='|')
                 writer.writerow(fields)
 
@@ -78,11 +82,12 @@ class LoggingNexus:
         Empty data from thread_stashes and write to corresponding file
         """
         if self.pause_event.is_set():
-            for threadname in self.thread_names:
-                fields = self.thread_fields[threadname]
-                stash = self.thread_stashes[threadname]
+            for thread in self.thread_names:
+                fields = self.thread_fields[thread]
+                stash = self.thread_stashes[thread]
                 stash_size = len(stash)
-                with open(self.filenames[threadname], 'a') as f:
+                filepath = os.path.join(self.filingcabinet.getpath(), self.filenames[thread])
+                with open(filepath, 'a') as f:
                     writer = csv.DictWriter(f, fieldnames=fields, lineterminator='\n',quotechar='|')
                     for _ in range(stash_size):
                         writer.writerow(stash.popleft())

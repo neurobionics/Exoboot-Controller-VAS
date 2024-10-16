@@ -18,7 +18,7 @@ from exoboot_remote_control import ExobootRemoteServerThread
 from curses_HUD.hud_thread import HUDThread
 
 from SoftRTloop import FlexibleSleeper
-from constants import PI_IP, DEV_ID_TO_SIDE_DICT, DEFAULT_KP, DEFAULT_KI, DEFAULT_KD, DEFAULT_FF, RTPLOT_IP, TRIAL_CONDS_DICT
+from constants import DEV_ID_TO_SIDE_DICT, DEFAULT_KP, DEFAULT_KI, DEFAULT_KD, DEFAULT_FF, RTPLOT_IP, TRIAL_CONDS_DICT
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "curses_HUD"))
 from curses_HUD import hud_thread
@@ -56,7 +56,6 @@ class MainControllerWrapper:
             if valid_conds and self.trial_cond not in valid_conds:
                 raise Exception("Invalid trial cond: {} not in {}".format(trial_cond, valid_conds))
         except:
-            # TODO only run this section if arguments are incorrect
             print("\nINCORRECT ARGUMENTS\n")
             print("How to run: python Exoboot_Wrapper.py subjectID trial_type trial_cond description")
             print("\tsubjectID: name of subject")
@@ -146,13 +145,14 @@ class MainControllerWrapper:
             self.hud.start()
 
             # LoggingNexus
-            self.loggingnexus = LoggingNexus(self.file_prefix, self.exothread_left, self.exothread_right, self.gse_thread, pause_event=self.pause_event)
+            self.loggingnexus = LoggingNexus(self.subjectID, self.file_prefix, self.exothread_left, self.exothread_right, self.gse_thread, pause_event=self.pause_event)
 
             # ~~~Main Loop~~~
             self.softrtloop = FlexibleSleeper(period=1/self.clockspeed)
             self.pause_event.set()
             while self.quit_event.is_set():
                 try:
+                    # Print if no hud
                     try:
                         if not self.hud.isrunning:
                             print("Peak Torque Left: {}\nPeak Torque Right: {}".format(self.loggingnexus.get(self.exothread_left.name, "peak_torque"), self.loggingnexus.get(self.exothread_right.name, "peak_torque")))
@@ -200,7 +200,7 @@ class MainControllerWrapper:
         finally:            
             # Routine to close threads safely
             self.pause_event.set()
-            time.sleep(0.5)
+            time.sleep(0.25)
             self.quit_event.clear()
 
             # Stop motors and close device streams
@@ -213,6 +213,6 @@ class MainControllerWrapper:
 
 
 if __name__ == "__main__":
-    assert len(sys.argv) == 4 + 1
+    assert len(sys.argv) - 1 == 4
     _, subjectID, trial_type, trial_cond, description = sys.argv
     MainControllerWrapper(subjectID, trial_type, trial_cond, description, streamingfrequency=1000).run()
