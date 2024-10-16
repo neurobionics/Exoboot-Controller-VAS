@@ -1,25 +1,3 @@
-import os
-
-class subject_data_filing_cabinet:
-    """
-    Class to create subject_data folder and subject subfolders
-    """
-    def __init__(self, subject):
-        self.subject = subject
-        self.subject_path = ""
-
-        if not os.path.isdir("subject_data"):
-            os.mkdir("subject_data")
-        self.subject_path = os.path.join(self.subject_path, "subject_data")
-        
-        if not os.path.isdir(os.path.join(self.subject_path, self.subject)):
-            os.mkdir(os.path.join(self.subject_path, self.subject))
-        self.subject_path = os.path.join(self.subject_path, self.subject)
-
-    def getpath(self):
-        return self.subject_path
-
-
 class MovingAverageFilter:
     """
     Use to track averages of some numerical quantity

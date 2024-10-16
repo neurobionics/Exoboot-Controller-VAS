@@ -3,7 +3,25 @@ from typing import Type
 from collections import deque
 from rtplot import client
 
-from utils import subject_data_filing_cabinet
+
+class subject_data_filing_cabinet:
+    """
+    Class to create subject_data folder and subject subfolders
+    """
+    def __init__(self, subject):
+        self.subject = subject
+        self.subject_path = ""
+
+        if not os.path.isdir("subject_data"):
+            os.mkdir("subject_data")
+        self.subject_path = os.path.join(self.subject_path, "subject_data")
+        
+        if not os.path.isdir(os.path.join(self.subject_path, self.subject)):
+            os.mkdir(os.path.join(self.subject_path, self.subject))
+        self.subject_path = os.path.join(self.subject_path, self.subject)
+
+    def getpath(self):
+        return self.subject_path
 
 class LoggingNexus:
     def __init__(self, subjectID, file_prefix, *threads, pause_event=Type[threading.Event]):
@@ -37,8 +55,11 @@ class LoggingNexus:
         # Write Headers to temp name
         for thread in self.thread_names:
             filename = self.filenames[thread]
+            filepath = os.path.join(self.filingcabinet.getpath(), filename)
+
             fields = self.thread_fields[thread]
-            with open(os.path.join(self.filingcabinet.getpath(), filename), 'a') as f:
+
+            with open(filepath, 'a') as f:
                 writer = csv.writer(f, lineterminator='\n',quotechar='|')
                 writer.writerow(fields)
 
@@ -83,10 +104,13 @@ class LoggingNexus:
         """
         if self.pause_event.is_set():
             for thread in self.thread_names:
+                filename = self.thread_names[thread]
+                filepath = os.path.join(self.filingcabinet.getpath(), filename)
+
                 fields = self.thread_fields[thread]
                 stash = self.thread_stashes[thread]
                 stash_size = len(stash)
-                filepath = os.path.join(self.filingcabinet.getpath(), self.filenames[thread])
+
                 with open(filepath, 'a') as f:
                     writer = csv.DictWriter(f, fieldnames=fields, lineterminator='\n',quotechar='|')
                     for _ in range(stash_size):
