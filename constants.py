@@ -4,7 +4,7 @@
 TRIAL_CONDS_DICT = {'VICKREY': ["WNE", "EPO", "NPO"],
                     'VAS': [],
                     'JND': ['SPLITLEG', 'SAMELEG'],
-                    'PREF': ['SLIDER', 'BTN'],
+                    'PREF': ['SLIDER', 'BUTTON'],
                     'ACCLIMATION': []
                     }
 
