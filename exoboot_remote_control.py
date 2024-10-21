@@ -6,7 +6,6 @@ import exoboot_remote_pb2_grpc as pb2_grpc
 from typing import Type
 
 from utils import MovingAverageFilter
-from constants import PI_IP
 
 from BaseExoThread import BaseThread
 

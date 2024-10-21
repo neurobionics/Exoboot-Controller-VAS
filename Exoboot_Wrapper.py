@@ -149,7 +149,7 @@ class MainControllerWrapper:
 
             # ~~~Main Loop~~~
             self.softrtloop = FlexibleSleeper(period=1/self.clockspeed)
-            self.pause_event.set()
+            # self.pause_event.set()
             while self.quit_event.is_set():
                 try:
                     # Print if no hud
@@ -183,6 +183,7 @@ class MainControllerWrapper:
 
                     # Log data. Obeys pause_event
                     self.loggingnexus.log()
+
 
                     # SoftRT pause
                     self.softrtloop.pause()

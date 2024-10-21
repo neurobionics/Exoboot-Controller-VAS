@@ -50,12 +50,13 @@ class LoggingNexus:
             self.thread_names.append(threadname)
             self.thread_fields[threadname] = thread.fields
             self.thread_stashes[threadname] = deque()
-            self.filenames[threadname] = self.file_prefix + threadname + '.csv'
+            self.filenames[threadname] = "{}_{}.csv".format(self.file_prefix, threadname)
 
         # Write Headers to temp name
+        pathname = self.filingcabinet.getpath()
         for thread in self.thread_names:
             filename = self.filenames[thread]
-            filepath = os.path.join(self.filingcabinet.getpath(), filename)
+            filepath = os.path.join(pathname, filename)
 
             fields = self.thread_fields[thread]
 
@@ -102,16 +103,20 @@ class LoggingNexus:
         """
         Empty data from thread_stashes and write to corresponding file
         """
-        if self.pause_event.is_set():
-            for thread in self.thread_names:
-                filename = self.thread_names[thread]
-                filepath = os.path.join(self.filingcabinet.getpath(), filename)
+        try:
+            if self.pause_event.is_set():
+                pathname = self.filingcabinet.getpath()
+                for thread in self.thread_names:
+                    filename = self.filenames[thread]
+                    fullfilename = os.path.join(pathname, filename)
 
-                fields = self.thread_fields[thread]
-                stash = self.thread_stashes[thread]
-                stash_size = len(stash)
+                    fields = self.thread_fields[thread]
+                    stash = self.thread_stashes[thread]
+                    stash_size = len(stash)
 
-                with open(filepath, 'a') as f:
-                    writer = csv.DictWriter(f, fieldnames=fields, lineterminator='\n',quotechar='|')
-                    for _ in range(stash_size):
-                        writer.writerow(stash.popleft())
+                    with open(fullfilename, 'a') as f:
+                        writer = csv.DictWriter(f, fieldnames=fields, lineterminator='\n',quotechar='|')
+                        for _ in range(stash_size):
+                            writer.writerow(stash.popleft())
+        except Exception as e:
+            print("wqer", e)
