@@ -4,7 +4,7 @@ from collections import deque
 from rtplot import client
 
 
-class subject_data_filing_cabinet:
+class FilingCabinet:
     """
     Class to create subject_data folder and subject subfolders
     """
@@ -34,7 +34,7 @@ class LoggingNexus:
         self.thread_stashes = {}
         self.filenames = {}
         
-        self.filingcabinet = subject_data_filing_cabinet(self.subjectID)
+        self.filingcabinet = FilingCabinet(self.subjectID)
 
         self.setup(threads)
 
