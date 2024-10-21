@@ -217,3 +217,4 @@ if __name__ == "__main__":
     assert len(sys.argv) - 1 == 4
     _, subjectID, trial_type, trial_cond, description = sys.argv
     MainControllerWrapper(subjectID, trial_type, trial_cond, description, streamingfrequency=1000).run()
+    # TODO move gui file to subject_data folder tree
