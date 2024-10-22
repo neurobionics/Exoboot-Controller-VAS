@@ -24,7 +24,7 @@ class FilingCabinet:
         return self.subject_path
 
 class LoggingNexus:
-    def __init__(self, subjectID, file_prefix, *threads, pause_event=Type[threading.Event]):
+    def __init__(self, subjectID, file_prefix, filingcabinet, *threads, pause_event=Type[threading.Event]):
         self.subjectID = subjectID
         self.file_prefix = file_prefix
         self.pause_event = pause_event
@@ -34,7 +34,7 @@ class LoggingNexus:
         self.thread_stashes = {}
         self.filenames = {}
         
-        self.filingcabinet = FilingCabinet(self.subjectID)
+        self.filingcabinet = filingcabinet
 
         self.setup(threads)
 

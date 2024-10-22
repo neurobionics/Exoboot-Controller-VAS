@@ -1,4 +1,4 @@
-import csv, time, grpc, threading
+import os, csv, time, grpc, threading
 from concurrent import futures
 import exoboot_remote_pb2 as pb2
 import exoboot_remote_pb2_grpc as pb2_grpc
@@ -138,31 +138,38 @@ class ExobootCommServicer(pb2_grpc.exoboot_over_networkServicer):
 
     This class is rpi side
     """
-    def __init__(self, mainwrapper, startstamp, quit_event):
+    def __init__(self, mainwrapper, startstamp, filingcabinet, quit_event):
         super().__init__()
         self.mainwrapper = mainwrapper
         self.startstamp = startstamp
+        self.filingcabinet = filingcabinet
         self.quit_event = quit_event
     
         # file prefix from mainwrapper
         self.file_prefix = self.mainwrapper.file_prefix
 
+        # subject_data folder path from filingcabinet
+        self.subject_data_path = self.filingcabinet.getpath()
+
         # Write file headers depending on trial type
         match self.mainwrapper.trial_type.upper():
             case 'VICKREY':
-                self.auction_filename = self.file_prefix + '_auction.csv'
-                with open(self.auction_filename, 'w', newline='') as f:
+                auctionfilename = self.file_prefix + '_auction.csv'
+                self.auctionpath = os.path.join(self.subject_data_path, auctionfilename)
+                with open(self.auctionpath, 'w', newline='') as f:
                     csv.writer(f).writerow(['t', 'subject_bid', 'user_win_flag', 'current_payout', 'total_winnings'])
 
-                self.surveyfilename = self.file_prefix + '_survey.csv'
-                with open(self.surveyfilename, 'w', newline='') as f:
+                surveyfilename = self.file_prefix + '_survey.csv'
+                self.surveypath = os.path.join(self.subject_data_path, surveyfilename)
+                with open(self.surveypath, 'w', newline='') as f:
                     csv.writer(f).writerow(['t', 'enjoyment', 'rpe'])
 
             case 'VAS':
-                self.vasovertimefilename = ''
+                self.overtimepath = ""
 
-                self.vasfilename = self.file_prefix + '_vas_results.csv'
-                with open(self.vasfilename, 'w', newline='') as f:
+                vasresultsfilename = self.file_prefix + '_vas_results.csv'
+                self.vaspath = os.path.join(self.subject_data_path, vasresultsfilename)
+                with open(self.vaspath, 'w', newline='') as f:
                     header = ['btn_option', 'trial', 'pres']
                     for i in range(20): # TODO remove constant 20
                         header.append('torque{}'.format(i))
@@ -171,13 +178,15 @@ class ExobootCommServicer(pb2_grpc.exoboot_over_networkServicer):
                     csv.writer(f).writerow(header)
 
             case 'JND':
-                self.comparisonfilename = self.file_prefix + '_comparison.csv'
-                with open(self.comparisonfilename, 'w', newline='') as f:
+                comparisonfilename = self.file_prefix + '_comparison.csv'
+                self.jndpath = os.path.join(self.subject_data_path, comparisonfilename)
+                with open(self.jndpath, 'w', newline='') as f:
                     csv.writer(f).writerow(['pres', 'prop', 'T_ref', 'T_comp', 'truth', 'higher'])
             
             case 'PREF':
-                self.preffilename = self.file_prefix + '_pref.csv'
-                with open(self.preffilename, 'w', newline='') as f:
+                preffilename = self.file_prefix + '_pref.csv'
+                self.prefpath = os.path.join(self.subject_data_path, preffilename)
+                with open(self.prefpath, 'w', newline='') as f:
                     csv.writer(f).writerow(['pres', 'torque'])
 
             case 'THERMAL':
@@ -253,7 +262,7 @@ class ExobootCommServicer(pb2_grpc.exoboot_over_networkServicer):
         print("Received auction results: {}, {}, {}, {}, {}".format(t, subject_bid, user_win_flag, current_payout, total_winnings))
         datalist = [t, subject_bid, user_win_flag, current_payout, total_winnings]
 
-        with open(self.auction_filename, 'a', newline='') as f:
+        with open(self.auctionpath, 'a', newline='') as f:
             csv.writer(f).writerow(datalist)
 
         return pb2.receipt(received=True)
@@ -266,7 +275,7 @@ class ExobootCommServicer(pb2_grpc.exoboot_over_networkServicer):
         print("Received survey results: {}, {}, {}".format(t, enjoyment, rpe))
         datalist = [t, enjoyment, rpe]
 
-        with open(self.surveyfilename, 'a', newline='') as f:
+        with open(self.surveypath, 'a', newline='') as f:
             csv.writer(f).writerow(datalist)
 
         return pb2.receipt(received=True)
@@ -281,14 +290,15 @@ class ExobootCommServicer(pb2_grpc.exoboot_over_networkServicer):
         pres = int(vasinfomsg.pres)
 
         print("Received updated vas info: ", btn_num, trial, pres)
-        self.vasovertimefilename = self.file_prefix + "_T{}_P{}".format(trial, pres) + '_vas_overtime.csv'
+        vasovertimefilename = self.file_prefix + "_T{}_P{}".format(trial, pres) + '_vas_overtime.csv'
+        self.overtimepath = os.path.join(self.subject_data_path, vasovertimefilename)
 
         header = ['pitime']
         for i in range(btn_num):
             header.append("Torque{}".format(i))
             header.append("MV{}".format(i))
 
-        with open(self.vasovertimefilename, 'a', newline='') as f:
+        with open(self.overtimepath, 'a', newline='') as f:
             csv.writer(f).writerow(header)
 
         return pb2.receipt(received=True)
@@ -306,7 +316,7 @@ class ExobootCommServicer(pb2_grpc.exoboot_over_networkServicer):
             datalist.append(torque)
             datalist.append(mv)
 
-        with open(self.vasovertimefilename, 'a', newline='') as f:
+        with open(self.overtimepath, 'a', newline='') as f:
             csv.writer(f).writerow(datalist)
 
         return pb2.receipt(received=True)
@@ -327,7 +337,7 @@ class ExobootCommServicer(pb2_grpc.exoboot_over_networkServicer):
             datalist.append(t)
             datalist.append(mv)
 
-        with open(self.vasfilename, 'a', newline='') as f:
+        with open(self.vaspath, 'a', newline='') as f:
             csv.writer(f).writerow(datalist)
         return pb2.receipt(received=True)
 
@@ -342,7 +352,7 @@ class ExobootCommServicer(pb2_grpc.exoboot_over_networkServicer):
 
         print("Received comparison results: {}, {}, {}, {}, {}, {}".format(pres, prop, T_ref, T_comp, truth, answer))
         datalist = [pres, prop, T_ref, T_comp, truth, answer]
-        with open(self.comparisonfilename, 'a', newline='') as f:
+        with open(self.jndpath, 'a', newline='') as f:
             csv.writer(f).writerow(datalist)
         return pb2.receipt(received=True)
     
@@ -353,7 +363,7 @@ class ExobootCommServicer(pb2_grpc.exoboot_over_networkServicer):
 
         print("Received preference results: {}, {}".format(pres, torque))
         datalist = [pres, torque]
-        with open(self.preffilename, 'a', newline='') as f:
+        with open(self.prefpath, 'a', newline='') as f:
             csv.writer(f).writerow(datalist)
         return pb2.receipt(received=True)
 
@@ -366,10 +376,10 @@ class ExobootRemoteServerThread(BaseThread):
 
     Does not pause
     """
-    def __init__(self, mainwrapper, startstamp, name='exoboot_remote_thread', daemon=True, pause_event=Type[threading.Event], quit_event=Type[threading.Event]):
+    def __init__(self, mainwrapper, startstamp, filingcabinet, name='exoboot_remote_thread', daemon=True, pause_event=Type[threading.Event], quit_event=Type[threading.Event]):
         super().__init__(name=name, daemon=daemon, pause_event=pause_event, quit_event=quit_event)
         self.mainwrapper = mainwrapper
-        self.exoboot_remote_servicer = ExobootCommServicer(self.mainwrapper, startstamp, quit_event=self.quit_event)
+        self.exoboot_remote_servicer = ExobootCommServicer(self.mainwrapper, startstamp, filingcabinet, quit_event=self.quit_event)
         self.target_IP = ''
     
     def set_target_IP(self, target_IP):

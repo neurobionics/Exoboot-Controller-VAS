@@ -11,8 +11,8 @@ import os, sys, csv, time, socket, threading
 from flexsea.device import Device
 from rtplot import client
 
-from LoggingClass import LoggingNexus
 from ExoClass_thread import ExobootThread
+from LoggingClass import LoggingNexus, FilingCabinet
 from GaitStateEstimator_thread import GaitStateEstimator
 from exoboot_remote_control import ExobootRemoteServerThread
 from curses_HUD.hud_thread import HUDThread
@@ -115,6 +115,9 @@ class MainControllerWrapper:
             device_left.set_gains(DEFAULT_KP, DEFAULT_KI, DEFAULT_KD, 0, 0, DEFAULT_FF)
             device_right.set_gains(DEFAULT_KP, DEFAULT_KI, DEFAULT_KD, 0, 0, DEFAULT_FF)
 
+            # Filing Cabinet
+            self.filingcabinet = FilingCabinet(self.subjectID)
+
             """Initialize Threads"""
             # Thread events
             self.pause_event = threading.Event()
@@ -145,7 +148,7 @@ class MainControllerWrapper:
             self.hud.start()
 
             # LoggingNexus
-            self.loggingnexus = LoggingNexus(self.subjectID, self.file_prefix, self.exothread_left, self.exothread_right, self.gse_thread, pause_event=self.pause_event)
+            self.loggingnexus = LoggingNexus(self.subjectID, self.file_prefix, self.filingcabinet, self.exothread_left, self.exothread_right, self.gse_thread, pause_event=self.pause_event)
 
             # ~~~Main Loop~~~
             self.softrtloop = FlexibleSleeper(period=1/self.clockspeed)
@@ -214,7 +217,13 @@ class MainControllerWrapper:
 
 
 if __name__ == "__main__":
-    assert len(sys.argv) - 1 == 4
+    try:
+        assert len(sys.argv) - 1 == 4
+    except:
+        print("\nNOT ENOUGH ARGUMENTS\n")
+        print("How to run: python Exoboot_Wrapper.py subjectID trial_type trial_cond description")
+        print("trial_type, trial_cond pairs in constants.py")
+        exit(1)
+
     _, subjectID, trial_type, trial_cond, description = sys.argv
     MainControllerWrapper(subjectID, trial_type, trial_cond, description, streamingfrequency=1000).run()
-    # TODO move gui file to subject_data folder tree
