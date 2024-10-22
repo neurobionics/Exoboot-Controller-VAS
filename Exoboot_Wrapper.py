@@ -58,10 +58,7 @@ class MainControllerWrapper:
         except:
             print("\nINCORRECT ARGUMENTS\n")
             print("How to run: python Exoboot_Wrapper.py subjectID trial_type trial_cond description")
-            print("\tsubjectID: name of subject")
-            print("\ttrial_type: [trial_conds]: pick from VICKREY: [WNE, EPO, NPO], JND: [SPLITLEG, SAMELEG], PREF: [SLIDER, BTN]")
-            print("\t\tother trial_types can have arbitrary trial_cond")
-            print("\tdescription: any additional notes")
+            print("See constants for all trial_type/trial_cond pairs")
         
         self.file_prefix = "{}_{}_{}_{}".format(self.subjectID, self.trial_type, self.trial_cond, self.description)
 
@@ -78,6 +75,7 @@ class MainControllerWrapper:
         These are defined in the ports.yaml file in the flexsea repo
         """
         # port_cfg_path = '/home/pi/VAS_exoboot_controller/ports.yaml'
+        # TODO remove explicit port references
         device_1 = Device(port="/dev/ttyACM0", firmwareVersion="7.2.0", baudRate=230400, logLevel=3)
         device_2 = Device(port="/dev/ttyACM1", firmwareVersion="7.2.0", baudRate=230400, logLevel=3)
         
@@ -152,7 +150,6 @@ class MainControllerWrapper:
 
             # ~~~Main Loop~~~
             self.softrtloop = FlexibleSleeper(period=1/self.clockspeed)
-            # self.pause_event.set()
             while self.quit_event.is_set():
                 try:
                     # Print if no hud
@@ -182,11 +179,11 @@ class MainControllerWrapper:
                         self.hud.getwidget("bert").settextline(0, "IDK")
                         self.hud.getwidget("vicon").settextline(0, "TBI")
                     except Exception as e:
-                        print("Exception: ", e)
+                        # print("Exception: ", e)
+                        pass
 
                     # Log data. Obeys pause_event
                     self.loggingnexus.log()
-
 
                     # SoftRT pause
                     self.softrtloop.pause()
@@ -201,7 +198,8 @@ class MainControllerWrapper:
             fname = os.path.split(exc_tb.tb_frame.f_code.co_filename)[1]
             print(exc_type, fname, exc_tb.tb_lineno)
 
-        finally:            
+        finally:
+            print("Closing Please Wait...")
             # Routine to close threads safely
             self.pause_event.set()
             time.sleep(0.25)
