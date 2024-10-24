@@ -135,7 +135,7 @@ class MainControllerWrapper:
             self.gse_thread.start()
 
             # Thread 4: Exoboot Remote Control
-            self.remote_thread = ExobootRemoteServerThread(self, self.startstamp, self.trial_type, pause_event=self.pause_event, quit_event=self.quit_event)
+            self.remote_thread = ExobootRemoteServerThread(self, self.startstamp, self.trial_type, self.filingcabinet, pause_event=self.pause_event, quit_event=self.quit_event)
             self.remote_thread.set_target_IP(self.myIP)
             self.remote_thread.start()
 
