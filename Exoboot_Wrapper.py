@@ -173,11 +173,10 @@ class MainControllerWrapper:
                         self.hud.getwidget("lcs").settextline(0, "{:0.2f}".format(self.loggingnexus.get(self.exothread_left.name, "thread_freq")))
                         self.hud.getwidget("rcs").settextline(0, "{:0.2f}".format(self.loggingnexus.get(self.exothread_right.name, "thread_freq")))
 
-                        self.hud.getwidget("batv").settextline(0, str(self.loggingnexus.get(self.exothread_right.name, "battery_voltage")))
-                        self.hud.getwidget("bati").settextline(0, str(self.loggingnexus.get(self.exothread_right.name, "battery_current")))
-
-                        self.hud.getwidget("bert").settextline(0, "IDK")
-                        self.hud.getwidget("vicon").settextline(0, "TBI")
+                        self.hud.getwidget("batvl").settextline(0, str(self.loggingnexus.get(self.exothread_left.name, "battery_voltage")))
+                        self.hud.getwidget("batvr").settextline(0, str(self.loggingnexus.get(self.exothread_right.name, "battery_voltage")))
+                        self.hud.getwidget("batil").settextline(0, str(self.loggingnexus.get(self.exothread_left.name, "battery_current")))
+                        self.hud.getwidget("batir").settextline(0, str(self.loggingnexus.get(self.exothread_right.name, "battery_current")))
                     except Exception as e:
                         # print("Exception: ", e)
                         pass

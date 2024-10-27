@@ -156,12 +156,12 @@ class ExobootCommServicer(pb2_grpc.exoboot_over_networkServicer):
             case 'VICKREY':
                 auctionfilename = self.file_prefix + '_auction.csv'
                 self.auctionpath = os.path.join(self.subject_data_path, auctionfilename)
-                with open(self.auctionpath, 'w', newline='') as f:
+                with open(self.auctionpath, 'a', newline='') as f:
                     csv.writer(f).writerow(['t', 'subject_bid', 'user_win_flag', 'current_payout', 'total_winnings'])
 
                 surveyfilename = self.file_prefix + '_survey.csv'
                 self.surveypath = os.path.join(self.subject_data_path, surveyfilename)
-                with open(self.surveypath, 'w', newline='') as f:
+                with open(self.surveypath, 'a', newline='') as f:
                     csv.writer(f).writerow(['t', 'enjoyment', 'rpe'])
 
             case 'VAS':
@@ -169,7 +169,7 @@ class ExobootCommServicer(pb2_grpc.exoboot_over_networkServicer):
 
                 vasresultsfilename = self.file_prefix + '_vas_results.csv'
                 self.vaspath = os.path.join(self.subject_data_path, vasresultsfilename)
-                with open(self.vaspath, 'w', newline='') as f:
+                with open(self.vaspath, 'a', newline='') as f:
                     header = ['btn_option', 'trial', 'pres']
                     for i in range(20): # TODO remove constant 20
                         header.append('torque{}'.format(i))
@@ -180,13 +180,13 @@ class ExobootCommServicer(pb2_grpc.exoboot_over_networkServicer):
             case 'JND':
                 comparisonfilename = self.file_prefix + '_comparison.csv'
                 self.jndpath = os.path.join(self.subject_data_path, comparisonfilename)
-                with open(self.jndpath, 'w', newline='') as f:
+                with open(self.jndpath, 'a', newline='') as f:
                     csv.writer(f).writerow(['pres', 'prop', 'T_ref', 'T_comp', 'truth', 'higher'])
             
             case 'PREF':
                 preffilename = self.file_prefix + '_pref.csv'
                 self.prefpath = os.path.join(self.subject_data_path, preffilename)
-                with open(self.prefpath, 'w', newline='') as f:
+                with open(self.prefpath, 'a', newline='') as f:
                     csv.writer(f).writerow(['pres', 'torque'])
 
             case 'THERMAL':
@@ -383,7 +383,7 @@ class ExobootRemoteServerThread(BaseThread):
         self.target_IP = ''
     
     def set_target_IP(self, target_IP):
-        self.target_IP = target_IP
+        self.target_IP = target_IP 
 
     def start_server(self):
         server = grpc.server(futures.ThreadPoolExecutor(max_workers=10))

@@ -187,7 +187,7 @@ if __name__ == "__main__":
     try:
         dumbmainwrapper = DumbMainWrapper()
 
-        hudthread = HUDThread(dumbmainwrapper, "testlayout.json", napms=10, pause_event=dumbmainwrapper.pause_event, quit_event=dumbmainwrapper.quit_event)
+        hudthread = HUDThread(dumbmainwrapper, "exohud_layout.json", napms=10, pause_event=dumbmainwrapper.pause_event, quit_event=dumbmainwrapper.quit_event)
         hudthread.start()
 
         somenum = 0

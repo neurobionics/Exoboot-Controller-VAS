@@ -242,47 +242,47 @@
                 "parent": "gsw"
             },
 
-            "batt_voltage": {
+            "batt_voltage_left": {
                 "widgettype": "TextBox",
                 "nlines": 1,
                 "ncols": 18,
                 "l": 4,
                 "c": 1,
-                "signature": "batv",
-                "kwargs": {"useprefix": true, "lineprefix": ["Batt V: "], "textlines": ["0"]},
+                "signature": "batvl",
+                "kwargs": {"useprefix": true, "lineprefix": ["Batt V L: "], "textlines": ["0"]},
                 "parent": "gsw"
             },
 
-            "batt_current": {
+            "batt_voltage_right": {
                 "widgettype": "TextBox",
                 "nlines": 1,
                 "ncols": 18,
                 "l": 6,
                 "c": 1,
-                "signature": "bati",
-                "kwargs": {"useprefix": true, "lineprefix": ["Batt I: "], "textlines": ["0"]},
+                "signature": "batvr",
+                "kwargs": {"useprefix": true, "lineprefix": ["Batt V R: "], "textlines": ["0"]},
                 "parent": "gsw"
             },
 
-            "bertec_status": {
+            "batt_current_left": {
                 "widgettype": "TextBox",
                 "nlines": 1,
                 "ncols": 18,
                 "l": 8,
                 "c": 1,
-                "signature": "bert",
-                "kwargs": {"useprefix": true, "lineprefix": ["Bertec: "], "textlines": ["None"]},
+                "signature": "batil",
+                "kwargs": {"useprefix": true, "lineprefix": ["Batt I L: "], "textlines": ["0"]},
                 "parent": "gsw"
             },
 
-            "vicon_status": {
+            "batt_current_right": {
                 "widgettype": "TextBox",
                 "nlines": 1,
                 "ncols": 18,
                 "l": 10,
                 "c": 1,
-                "signature": "vicon",
-                "kwargs": {"useprefix": true, "lineprefix": ["Vicon: "], "textlines": ["OFF"]},
+                "signature": "batir",
+                "kwargs": {"useprefix": true, "lineprefix": ["Batt I R: "], "textlines": ["0"]},
                 "parent": "gsw"
             }
         }
