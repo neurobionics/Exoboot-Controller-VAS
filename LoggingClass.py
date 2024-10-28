@@ -8,18 +8,24 @@ from collections import deque
 class FilingCabinet:
     """
     Class to create subject_data folder and subject subfolders
+
+    Keeps track of subject in subject_data
+    
+    Resolves conflicting file names
+
+    Return paths using filepaths_dict lookup
     """
     def __init__(self, subject):
         self.subject = subject
-        self.subject_path = ""
+        self.subject_data_path = ""
 
         if not os.path.isdir("subject_data"):
             os.mkdir("subject_data")
-        self.subject_path = os.path.join(self.subject_path, "subject_data")
+        self.subject_data_path = os.path.join(self.subject_data_path, "subject_data")
         
-        if not os.path.isdir(os.path.join(self.subject_path, self.subject)):
-            os.mkdir(os.path.join(self.subject_path, self.subject))
-        self.subject_path = os.path.join(self.subject_path, self.subject)
+        if not os.path.isdir(os.path.join(self.subject_data_path, self.subject)):
+            os.mkdir(os.path.join(self.subject_data_path, self.subject))
+        self.subject_data_path = os.path.join(self.subject_data_path, self.subject)
 
         self.filepaths_dict = {}
         self.validfiletypes = ["csv", "txt"]
@@ -27,10 +33,19 @@ class FilingCabinet:
         self.validbehaviors = ["new", "add"]
         self.defaultbehavior = "new"
 
-    def getpath(self):
-        return self.subject_path
+    def get_subject_data_path(self):
+        """
+        Return path to folder in subject_data
+        """
+        return self.subject_data_path
     
-    def newfile(self, name, type, behavior=None):
+    def newfile(self, name, type, behavior=None, dictkey=None):
+        """
+        Create path for new file in subject_data_path folder
+        Resolves conflicting names using behavior
+
+        Store paths under dictkey
+        """
         try:
             assert type in self.validfiletypes
         except:
@@ -41,6 +56,7 @@ class FilingCabinet:
 
         match behavior:
             case "new":
+                # Create new file
                 filename = "{}.{}".format(name, type)
 
                 isunique = False
@@ -50,11 +66,20 @@ class FilingCabinet:
                     else:
                         isunique = True
             case "add":
+                # Use existing file
                 filename = "{}.{}".format(name, type)
             case _:
                 Exception("FilingCabinet: not a valid behavior")
 
-        return os.path.join(self.subject_path, filename)
+        fullpath = os.path.join(self.subject_data_path, filename)
+
+        # If no specified dictkey, put path in filepaths_dict under fullpath
+        if not dictkey:
+            self.filepaths_dict[name] = fullpath
+        else:
+            self.filepaths_dict[dictkey] = fullpath
+
+        return fullpath
 
     def setnewfilebehavior(self, behavior):
         try:
@@ -62,6 +87,12 @@ class FilingCabinet:
             self.defaultbehavior = behavior
         except:
             print("FilingCabinet.setdefaultbehavior: not a valid behavior")
+
+    def getpath(self, name):
+        """
+        Returns path from filepaths_dict
+        """
+        return self.filepaths_dict[name]
 
 
 class LoggingNexus:
@@ -91,13 +122,14 @@ class LoggingNexus:
             self.thread_names.append(threadname)
             self.thread_fields[threadname] = thread.fields
             self.thread_stashes[threadname] = deque()
-            self.filenames[threadname] = "{}_{}.csv".format(self.file_prefix, threadname)
+            self.filenames[threadname] = "{}_{}".format(self.file_prefix, threadname)
 
         # Write Headers to temp name
         pathname = self.filingcabinet.getpath()
         for thread in self.thread_names:
             filename = self.filenames[thread]
-            filepath = os.path.join(pathname, filename)
+            filepath = self.filingcabinet.newfile(filename, "csv", behavior="new")
+            # filepath = os.path.join(pathname, filename)
 
             fields = self.thread_fields[thread]
 
@@ -149,7 +181,8 @@ class LoggingNexus:
                 pathname = self.filingcabinet.getpath()
                 for thread in self.thread_names:
                     filename = self.filenames[thread]
-                    fullfilename = os.path.join(pathname, filename)
+                    fullfilename = self.filingcabinet.newfile()
+                    # fullfilename = os.path.join(pathname, filename)
 
                     fields = self.thread_fields[thread]
                     stash = self.thread_stashes[thread]

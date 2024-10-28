@@ -155,24 +155,21 @@ class ExobootCommServicer(pb2_grpc.exoboot_over_networkServicer):
         match self.mainwrapper.trial_type.upper():
             case 'VICKREY':
                 auctionname = "{}_{}".format(self.file_prefix, "auction")
-
-                self.auctionpath = self.filingcabinet.newfile(auctionname, "csv")
-                with open(self.auctionpath, 'a', newline='') as f:
+                auctionpath = self.filingcabinet.newfile(auctionname, "csv", dictkey="auction")
+                with open(auctionpath, 'a', newline='') as f:
                     csv.writer(f).writerow(['t', 'subject_bid', 'user_win_flag', 'current_payout', 'total_winnings'])
 
                 surveyname = "{}_{}".format(self.file_prefix, "survey")
-
-                self.surveypath = self.filingcabinet.newfile(surveyname, "csv")
-                with open(self.surveypath, 'a', newline='') as f:
+                surveypath = self.filingcabinet.newfile(surveyname, "csv", dictkey="survey")
+                with open(surveypath, 'a', newline='') as f:
                     csv.writer(f).writerow(['t', 'enjoyment', 'rpe'])
 
             case 'VAS':
-                self.overtimepath = ""
+                overtimepath = "" # This exists btw
 
-                vasresultsname = "{}_{}".format(self.file_prefix, "vasresults")
-
-                self.vaspath = self.filingcabinet.newfile(vasresultsname, "csv")
-                with open(self.vaspath, 'a', newline='') as f:
+                vasresultsname = "{}_{}".format(self.file_prefix, "vasresults", dictkey="vasresults")
+                vasresultspath = self.filingcabinet.newfile(vasresultsname, "csv")
+                with open(vasresultspath, 'a', newline='') as f:
                     header = ['btn_option', 'trial', 'pres']
                     for i in range(20): # TODO remove constant 20
                         header.append('torque{}'.format(i))
@@ -182,16 +179,14 @@ class ExobootCommServicer(pb2_grpc.exoboot_over_networkServicer):
 
             case 'JND':
                 comparisonname = "{}_{}".format(self.file_prefix, "comparison")
-
-                self.jndpath = self.filingcabinet.newfile(comparisonname, "csv")
-                with open(self.jndpath, 'a', newline='') as f:
+                comparisonpath = self.filingcabinet.newfile(comparisonname, "csv", dictkey="comparison")
+                with open(comparisonpath, 'a', newline='') as f:
                     csv.writer(f).writerow(['pres', 'prop', 'T_ref', 'T_comp', 'truth', 'higher'])
             
             case 'PREF':
                 prefname = "{}_{}".format(self.file_prefix, "pref")
-
-                self.prefpath = self.filingcabinet.newfile(prefname, "csv")
-                with open(self.prefpath, 'a', newline='') as f:
+                prefpath = self.filingcabinet.newfile(prefname, "csv", dictkey="pref")
+                with open(prefpath, 'a', newline='') as f:
                     csv.writer(f).writerow(['pres', 'torque'])
 
             case 'THERMAL':
@@ -267,7 +262,8 @@ class ExobootCommServicer(pb2_grpc.exoboot_over_networkServicer):
         print("Received auction results: {}, {}, {}, {}, {}".format(t, subject_bid, user_win_flag, current_payout, total_winnings))
         datalist = [t, subject_bid, user_win_flag, current_payout, total_winnings]
 
-        with open(self.auctionpath, 'a', newline='') as f: 
+        auctionpath = self.filingcabinet.getpath("auction")
+        with open(auctionpath, 'a', newline='') as f: 
             csv.writer(f).writerow(datalist)
 
         return pb2.receipt(received=True)
@@ -280,7 +276,8 @@ class ExobootCommServicer(pb2_grpc.exoboot_over_networkServicer):
         print("Received survey results: {}, {}, {}".format(t, enjoyment, rpe))
         datalist = [t, enjoyment, rpe]
 
-        with open(self.surveypath, 'a', newline='') as f:
+        surveypath = self.filingcabinet.getpath("survey")
+        with open(surveypath, 'a', newline='') as f:
             csv.writer(f).writerow(datalist)
 
         return pb2.receipt(received=True)
@@ -296,14 +293,14 @@ class ExobootCommServicer(pb2_grpc.exoboot_over_networkServicer):
 
         print("Received updated vas info: ", btn_num, trial, pres)
         overtimename = "{}_T{}_P{}_vas_overtime".format(self.file_prefix, trial, pres)
-        self.overtimepath = self.filingcabinet.newfile(overtimename, "csv")
+        overtimepath = self.filingcabinet.newfile(overtimename, "csv", dictkey="overtime")
 
         header = ['pitime']
         for i in range(btn_num):
             header.append("Torque{}".format(i))
             header.append("MV{}".format(i))
 
-        with open(self.overtimepath, 'a', newline='') as f:
+        with open(overtimepath, 'a', newline='') as f:
             csv.writer(f).writerow(header)
 
         return pb2.receipt(received=True)
@@ -321,7 +318,8 @@ class ExobootCommServicer(pb2_grpc.exoboot_over_networkServicer):
             datalist.append(torque)
             datalist.append(mv)
 
-        with open(self.overtimepath, 'a', newline='') as f:
+        overtimepath = self.filingcabinet.getpath("overtime")
+        with open(overtimepath, 'a', newline='') as f:
             csv.writer(f).writerow(datalist)
 
         return pb2.receipt(received=True)
@@ -342,7 +340,8 @@ class ExobootCommServicer(pb2_grpc.exoboot_over_networkServicer):
             datalist.append(t)
             datalist.append(mv)
 
-        with open(self.vaspath, 'a', newline='') as f:
+        vasresultspath = self.filingcabinet.getpath("vasresults")
+        with open(vasresultspath, 'a', newline='') as f:
             csv.writer(f).writerow(datalist)
         return pb2.receipt(received=True)
 
@@ -357,7 +356,9 @@ class ExobootCommServicer(pb2_grpc.exoboot_over_networkServicer):
 
         print("Received comparison results: {}, {}, {}, {}, {}, {}".format(pres, prop, T_ref, T_comp, truth, answer))
         datalist = [pres, prop, T_ref, T_comp, truth, answer]
-        with open(self.jndpath, 'a', newline='') as f:
+
+        comparisonpath = self.filingcabinet.getpath("comparison")
+        with open(comparisonpath, 'a', newline='') as f:
             csv.writer(f).writerow(datalist)
         return pb2.receipt(received=True)
     
@@ -368,7 +369,9 @@ class ExobootCommServicer(pb2_grpc.exoboot_over_networkServicer):
 
         print("Received preference results: {}, {}".format(pres, torque))
         datalist = [pres, torque]
-        with open(self.prefpath, 'a', newline='') as f:
+
+        prefpath = self.filingcabinet.getpath("pref")
+        with open(prefpath, 'a', newline='') as f:
             csv.writer(f).writerow(datalist)
         return pb2.receipt(received=True)
 
