@@ -124,13 +124,9 @@ class LoggingNexus:
             self.thread_stashes[threadname] = deque()
             self.filenames[threadname] = "{}_{}".format(self.file_prefix, threadname)
 
-        # Write Headers to temp name
-        pathname = self.filingcabinet.getpath()
         for thread in self.thread_names:
             filename = self.filenames[thread]
-            filepath = self.filingcabinet.newfile(filename, "csv", behavior="new")
-            # filepath = os.path.join(pathname, filename)
-
+            filepath = self.filingcabinet.newfile(filename, "csv", behavior="new", dictkey=thread)
             fields = self.thread_fields[thread]
 
             with open(filepath, 'a') as f:
@@ -178,17 +174,13 @@ class LoggingNexus:
         """
         try:
             if self.pause_event.is_set():
-                pathname = self.filingcabinet.getpath()
                 for thread in self.thread_names:
-                    filename = self.filenames[thread]
-                    fullfilename = self.filingcabinet.newfile()
-                    # fullfilename = os.path.join(pathname, filename)
-
+                    filename = self.filingcabinet.getpath(thread)
                     fields = self.thread_fields[thread]
                     stash = self.thread_stashes[thread]
                     stash_size = len(stash)
 
-                    with open(fullfilename, 'a') as f:
+                    with open(filename, 'a') as f:
                         writer = csv.DictWriter(f, fieldnames=fields, lineterminator='\n',quotechar='|')
                         for _ in range(stash_size):
                             writer.writerow(stash.popleft())
