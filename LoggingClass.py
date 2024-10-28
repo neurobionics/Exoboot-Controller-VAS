@@ -1,7 +1,8 @@
 import os, csv, copy, threading
 from typing import Type
+from pathlib import Path
 from collections import deque
-from rtplot import client
+# from rtplot import client
 
 
 class FilingCabinet:
@@ -20,8 +21,48 @@ class FilingCabinet:
             os.mkdir(os.path.join(self.subject_path, self.subject))
         self.subject_path = os.path.join(self.subject_path, self.subject)
 
+        self.filepaths_dict = {}
+        self.validfiletypes = ["csv", "txt"]
+
+        self.validbehaviors = ["new", "add"]
+        self.defaultbehavior = "new"
+
     def getpath(self):
         return self.subject_path
+    
+    def newfile(self, name, type, behavior=None):
+        try:
+            assert type in self.validfiletypes
+        except:
+            print("{} not in validfiletypes")
+
+        if not behavior:
+            behavior = self.defaultbehavior
+
+        match behavior:
+            case "new":
+                filename = "{}.{}".format(name, type)
+
+                isunique = False
+                while not isunique:
+                    if os.path.isfile(os.path.join(self.getpath(), filename)):
+                        filename = "{}_new.{}".format(filename.split(sep=".")[0], type)
+                    else:
+                        isunique = True
+            case "add":
+                filename = "{}.{}".format(name, type)
+            case _:
+                Exception("FilingCabinet: not a valid behavior")
+
+        return os.path.join(self.subject_path, filename)
+
+    def setnewfilebehavior(self, behavior):
+        try:
+            assert behavior in ["new", "add"]
+            self.defaultbehavior = behavior
+        except:
+            print("FilingCabinet.setdefaultbehavior: not a valid behavior")
+
 
 class LoggingNexus:
     def __init__(self, subjectID, file_prefix, filingcabinet, *threads, pause_event=Type[threading.Event]):
@@ -119,4 +160,22 @@ class LoggingNexus:
                         for _ in range(stash_size):
                             writer.writerow(stash.popleft())
         except Exception as e:
-            print("wqer", e)
+            print("LoggingNexus.log() error: ", e)
+
+
+if __name__ == "__main__":
+    """FilingCabinet Demo"""
+    cabinet = FilingCabinet("dummy")
+
+    # Create txt files in subject_data and subject subfolder
+    Path(os.path.join("subject_data", "asdf.txt")).touch()
+    Path(os.path.join(cabinet.getpath(), "qwer.txt")).touch()
+
+    # Use FilingCabinet to create new file
+    # if qwer.txt exists, follow "new" behavior (add _new to filename)
+    qwer_file = cabinet.newfile("qwer", "txt", behavior="new")
+
+    # Create testcsv in subject subfolder
+    with open(qwer_file, 'a') as f:
+        writer = csv.writer(f, lineterminator='\n',quotechar='|')
+        writer.writerow(["foo", "bar"])

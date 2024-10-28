@@ -115,6 +115,7 @@ class MainControllerWrapper:
 
             # Filing Cabinet
             self.filingcabinet = FilingCabinet(self.subjectID)
+            self.filingcabinet.setnewfilebehavior(behavior="new")
 
             """Initialize Threads"""
             # Thread events
