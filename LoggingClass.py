@@ -61,7 +61,7 @@ class FilingCabinet:
 
                 isunique = False
                 while not isunique:
-                    if os.path.isfile(os.path.join(self.getpath(), filename)):
+                    if os.path.isfile(os.path.join(self.get_subject_data_path(), filename)):
                         filename = "{}_new.{}".format(filename.split(sep=".")[0], type)
                     else:
                         isunique = True
@@ -197,18 +197,30 @@ class LoggingNexus:
 
 
 if __name__ == "__main__":
-    """FilingCabinet Demo"""
+    """
+    FilingCabinet Demo
+    """
+
+    # Create FilingCabinet for subject "dummy"
     cabinet = FilingCabinet("dummy")
 
-    # Create txt files in subject_data and subject subfolder
+    # Create txt files in subject_data and subject subfolder to show they exist
     Path(os.path.join("subject_data", "asdf.txt")).touch()
-    Path(os.path.join(cabinet.getpath(), "qwer.txt")).touch()
+    Path(os.path.join(cabinet.get_subject_data_path(), "qwer.txt")).touch()
 
     # Use FilingCabinet to create new file
-    # if qwer.txt exists, follow "new" behavior (add _new to filename)
-    qwer_file = cabinet.newfile("qwer", "txt", behavior="new")
+    # Since qwer.txt exists, follow "new" behavior (add _new to filename)
+    qwer_path = cabinet.newfile("qwer", "txt", behavior="new", dictkey="special_identifier")
+    print("qwer filepath: {}".format(qwer_path))
+
+    # Get qwer_file path using getpath
+    # Should be same as qwer_path
+    iforgotpath = cabinet.getpath("special_identifier")
+    print("from getpath: {}".format(iforgotpath))
 
     # Create testcsv in subject subfolder
-    with open(qwer_file, 'a') as f:
+    with open(iforgotpath, 'a') as f:
         writer = csv.writer(f, lineterminator='\n',quotechar='|')
         writer.writerow(["foo", "bar"])
+
+    print("Demo Finished\n")
