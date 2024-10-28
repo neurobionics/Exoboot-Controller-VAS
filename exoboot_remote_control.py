@@ -148,9 +148,6 @@ class ExobootCommServicer(pb2_grpc.exoboot_over_networkServicer):
         # file prefix from mainwrapper
         self.file_prefix = self.mainwrapper.file_prefix
 
-        # subject_data folder path from filingcabinet
-        self.subject_data_path = self.filingcabinet.getpath()
-
         # Write file headers depending on trial type
         match self.mainwrapper.trial_type.upper():
             case 'VICKREY':
