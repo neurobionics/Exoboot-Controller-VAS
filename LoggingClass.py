@@ -15,17 +15,17 @@ class FilingCabinet:
 
     Return paths using filepaths_dict lookup
     """
-    def __init__(self, subject):
+    def __init__(self, pfolder, subject):
         self.subject = subject
-        self.subject_data_path = ""
+        self.pfolderpath = ""
 
-        if not os.path.isdir("subject_data"):
-            os.mkdir("subject_data")
-        self.subject_data_path = os.path.join(self.subject_data_path, "subject_data")
+        if not os.path.isdir(pfolder):
+            os.mkdir(pfolder)
+        self.pfolderpath = os.path.join(self.pfolderpath, pfolder)
         
-        if not os.path.isdir(os.path.join(self.subject_data_path, self.subject)):
-            os.mkdir(os.path.join(self.subject_data_path, self.subject))
-        self.subject_data_path = os.path.join(self.subject_data_path, self.subject)
+        if not os.path.isdir(os.path.join(self.pfolderpath, self.subject)):
+            os.mkdir(os.path.join(self.pfolderpath, self.subject))
+        self.pfolderpath = os.path.join(self.pfolderpath, self.subject)
 
         self.filepaths_dict = {}
         self.validfiletypes = ["csv", "txt"]
@@ -33,11 +33,11 @@ class FilingCabinet:
         self.validbehaviors = ["new", "add"]
         self.defaultbehavior = "new"
 
-    def get_subject_data_path(self):
+    def getpfolderpath(self):
         """
         Return path to folder in subject_data
         """
-        return self.subject_data_path
+        return self.pfolderpath
     
     def newfile(self, name, type, behavior=None, dictkey=None):
         """
@@ -61,7 +61,7 @@ class FilingCabinet:
 
                 isunique = False
                 while not isunique:
-                    if os.path.isfile(os.path.join(self.get_subject_data_path(), filename)):
+                    if os.path.isfile(os.path.join(self.getpfolderpath(), filename)):
                         filename = "{}_new.{}".format(filename.split(sep=".")[0], type)
                     else:
                         isunique = True
@@ -71,7 +71,7 @@ class FilingCabinet:
             case _:
                 Exception("FilingCabinet: not a valid behavior")
 
-        fullpath = os.path.join(self.subject_data_path, filename)
+        fullpath = os.path.join(self.pfolderpath, filename)
 
         # If no specified dictkey, put path in filepaths_dict under fullpath
         if not dictkey:
@@ -124,6 +124,7 @@ class LoggingNexus:
             self.thread_stashes[threadname] = deque()
             self.filenames[threadname] = "{}_{}".format(self.file_prefix, threadname)
 
+        # Write Headers to temp name
         for thread in self.thread_names:
             filename = self.filenames[thread]
             filepath = self.filingcabinet.newfile(filename, "csv", behavior="new", dictkey=thread)
@@ -194,11 +195,12 @@ if __name__ == "__main__":
     """
 
     # Create FilingCabinet for subject "dummy"
-    cabinet = FilingCabinet("dummy")
+    pfolder = "testfolder"
+    cabinet = FilingCabinet(pfolder, "dummy")
 
     # Create txt files in subject_data and subject subfolder to show they exist
-    Path(os.path.join("subject_data", "asdf.txt")).touch()
-    Path(os.path.join(cabinet.get_subject_data_path(), "qwer.txt")).touch()
+    Path(os.path.join(pfolder, "asdf.txt")).touch()
+    Path(os.path.join(cabinet.getpfolderpath(), "qwer.txt")).touch()
 
     # Use FilingCabinet to create new file
     # Since qwer.txt exists, follow "new" behavior (add _new to filename)
@@ -215,4 +217,4 @@ if __name__ == "__main__":
         writer = csv.writer(f, lineterminator='\n',quotechar='|')
         writer.writerow(["foo", "bar"])
 
-    print("Demo Finished\n")
+    print("Demo Finished")

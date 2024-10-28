@@ -114,7 +114,7 @@ class MainControllerWrapper:
             device_right.set_gains(DEFAULT_KP, DEFAULT_KI, DEFAULT_KD, 0, 0, DEFAULT_FF)
 
             # Filing Cabinet
-            self.filingcabinet = FilingCabinet(self.subjectID)
+            self.filingcabinet = FilingCabinet("subject_data", self.subjectID)
             self.filingcabinet.setnewfilebehavior(behavior="new")
 
             """Initialize Threads"""
