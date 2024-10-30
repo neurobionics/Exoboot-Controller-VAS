@@ -45,7 +45,7 @@ class ExobootRemoteClient:
         Sends null message to LoggingServer to get subject details
         """
         subject_info = self.stub.get_subject_info(pb2.null())
-        return subject_info.startstamp, subject_info.subjectID, subject_info.trial_type, subject_info.trial_cond, subject_info.description
+        return subject_info.startstamp, subject_info.subjectID, subject_info.trial_type, subject_info.trial_cond, subject_info.description, subject_info.usebackup
 
     def chop(self):
         """
@@ -138,56 +138,65 @@ class ExobootCommServicer(pb2_grpc.exoboot_over_networkServicer):
 
     This class is rpi side
     """
-    def __init__(self, mainwrapper, startstamp, filingcabinet, quit_event):
+    def __init__(self, mainwrapper, startstamp, filingcabinet, usebackup, quit_event):
         super().__init__()
         self.mainwrapper = mainwrapper
         self.startstamp = startstamp
         self.filingcabinet = filingcabinet
+        self.usebackup = usebackup
         self.quit_event = quit_event
     
         # file prefix from mainwrapper
         self.file_prefix = self.mainwrapper.file_prefix
 
-        # Write file headers depending on trial type
-        match self.mainwrapper.trial_type.upper():
-            case 'VICKREY':
-                auctionname = "{}_{}".format(self.file_prefix, "auction")
-                auctionpath = self.filingcabinet.newfile(auctionname, "csv", dictkey="auction")
-                with open(auctionpath, 'a', newline='') as f:
-                    csv.writer(f).writerow(['t', 'subject_bid', 'user_win_flag', 'current_payout', 'total_winnings'])
+        # Load backup or...
+        loadstatus = False
+        if self.usebackup:
+            loadstatus = self.filingcabinet.loadbackup(self.file_prefix, rule="newest")
 
-                surveyname = "{}_{}".format(self.file_prefix, "survey")
-                surveypath = self.filingcabinet.newfile(surveyname, "csv", dictkey="survey")
-                with open(surveypath, 'a', newline='') as f:
-                    csv.writer(f).writerow(['t', 'enjoyment', 'rpe'])
+        # ... create new files
+        if not loadstatus:
+            match self.mainwrapper.trial_type.upper():
+                case 'VICKREY':
+                    auctionname = "{}_{}".format(self.file_prefix, "auction")
+                    auctionpath = self.filingcabinet.newfile(auctionname, "csv", dictkey="auction")
+                    
+                    surveyname = "{}_{}".format(self.file_prefix, "survey")
+                    surveypath = self.filingcabinet.newfile(surveyname, "csv", dictkey="survey")
 
-            case 'VAS':
-                overtimepath = "" # This exists btw
+                    with open(auctionpath, 'a', newline='') as f:
+                        csv.writer(f).writerow(['t', 'subject_bid', 'user_win_flag', 'current_payout', 'total_winnings'])
+                    with open(surveypath, 'a', newline='') as f:
+                        csv.writer(f).writerow(['t', 'enjoyment', 'rpe'])
 
-                vasresultsname = "{}_{}".format(self.file_prefix, "vasresults", dictkey="vasresults")
-                vasresultspath = self.filingcabinet.newfile(vasresultsname, "csv")
-                with open(vasresultspath, 'a', newline='') as f:
-                    header = ['btn_option', 'trial', 'pres']
-                    for i in range(20): # TODO remove constant 20
-                        header.append('torque{}'.format(i))
-                        header.append('mv{}'.format(i))
-                        
-                    csv.writer(f).writerow(header)
+                case 'VAS':
+                    overtimepath = ""
+                    vasresultsname = "{}_{}".format(self.file_prefix, "vasresults")
+                    vasresultspath = self.filingcabinet.newfile(vasresultsname, "csv", dictkey="vasresults")
 
-            case 'JND':
-                comparisonname = "{}_{}".format(self.file_prefix, "comparison")
-                comparisonpath = self.filingcabinet.newfile(comparisonname, "csv", dictkey="comparison")
-                with open(comparisonpath, 'a', newline='') as f:
-                    csv.writer(f).writerow(['pres', 'prop', 'T_ref', 'T_comp', 'truth', 'higher'])
-            
-            case 'PREF':
-                prefname = "{}_{}".format(self.file_prefix, "pref")
-                prefpath = self.filingcabinet.newfile(prefname, "csv", dictkey="pref")
-                with open(prefpath, 'a', newline='') as f:
-                    csv.writer(f).writerow(['pres', 'torque'])
+                    with open(vasresultspath, 'a', newline='') as f:
+                        header = ['btn_option', 'trial', 'pres']
+                        for i in range(20): # TODO remove constant 20
+                            header.append('torque{}'.format(i))
+                            header.append('mv{}'.format(i))
+                        csv.writer(f).writerow(header)
 
-            case 'THERMAL':
-                pass
+                case 'JND':
+                    comparisonname = "{}_{}".format(self.file_prefix, "comparison")
+                    comparisonpath = self.filingcabinet.newfile(comparisonname, "csv", dictkey="comparison")
+
+                    with open(comparisonpath, 'a', newline='') as f:
+                        csv.writer(f).writerow(['pres', 'prop', 'T_ref', 'T_comp', 'truth', 'higher'])
+                
+                case 'PREF':
+                    prefname = "{}_{}".format(self.file_prefix, "pref")
+                    prefpath = self.filingcabinet.newfile(prefname, "csv", dictkey="pref")
+
+                    with open(prefpath, 'a', newline='') as f:
+                        csv.writer(f).writerow(['pres', 'torque'])
+
+                case 'THERMAL':
+                    pass
 
 # General Methods
     def testconnection(self, request, context):
@@ -196,10 +205,12 @@ class ExobootCommServicer(pb2_grpc.exoboot_over_networkServicer):
         return pb2.receipt(received=True)
     
     def get_subject_info(self, nullmsg, context):
-        return pb2.subject_info(startstamp=self.mainwrapper.startstamp, subjectID=self.mainwrapper.subjectID,
+        return pb2.subject_info(startstamp=self.mainwrapper.startstamp, 
+                                subjectID=self.mainwrapper.subjectID,
                                 trial_type=self.mainwrapper.trial_type,
                                 trial_cond=self.mainwrapper.trial_cond,
-                                description=self.mainwrapper.description)
+                                description=self.mainwrapper.description,
+                                usebackup=self.mainwrapper.usebackup)
 
     def chop(self, beaver, context):
         """
@@ -325,9 +336,9 @@ class ExobootCommServicer(pb2_grpc.exoboot_over_networkServicer):
         """
         Send updated slider info
         """
-        btn_option = presmsg.btn_option
-        trial = presmsg.trial
-        pres = presmsg.pres
+        btn_option = int(presmsg.btn_option)
+        trial = int(presmsg.trial)
+        pres = int(presmsg.pres)
         torques = presmsg.torques
         values = presmsg.values
 
@@ -381,10 +392,10 @@ class ExobootRemoteServerThread(BaseThread):
 
     Does not pause
     """
-    def __init__(self, mainwrapper, startstamp, filingcabinet, name='exoboot_remote_thread', daemon=True, pause_event=Type[threading.Event], quit_event=Type[threading.Event]):
+    def __init__(self, mainwrapper, startstamp, filingcabinet, usebackup=False, name='exoboot_remote_thread', daemon=True, pause_event=Type[threading.Event], quit_event=Type[threading.Event]):
         super().__init__(name=name, daemon=daemon, pause_event=pause_event, quit_event=quit_event)
         self.mainwrapper = mainwrapper
-        self.exoboot_remote_servicer = ExobootCommServicer(self.mainwrapper, startstamp, filingcabinet, quit_event=self.quit_event)
+        self.exoboot_remote_servicer = ExobootCommServicer(self.mainwrapper, startstamp, filingcabinet, usebackup=usebackup, quit_event=self.quit_event)
         self.target_IP = ''
     
     def set_target_IP(self, target_IP):

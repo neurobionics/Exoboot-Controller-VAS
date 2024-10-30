@@ -15,7 +15,7 @@ class FilingCabinet:
 
     Return paths using filepaths_dict lookup
     """
-    def __init__(self, pfolder, subject):
+    def __init__(self, pfolder, subject, defaultbehavior="new"):
         self.subject = subject
         self.pfolderpath = ""
 
@@ -28,16 +28,34 @@ class FilingCabinet:
         self.pfolderpath = os.path.join(self.pfolderpath, self.subject)
 
         self.filepaths_dict = {}
-        self.validfiletypes = ["csv", "txt"]
+        self.validfiletypes = ("csv", "txt")
 
         self.validbehaviors = ["new", "add"]
-        self.defaultbehavior = "new"
+        try:
+            assert defaultbehavior in self.validbehaviors
+            self.defaultbehavior = defaultbehavior
+        except:
+            print("Invalid defaultbehavior for FilingCabinet")
+            self.defaultbehavior = "new"
 
     def getpfolderpath(self):
         """
         Return path to folder in subject_data
         """
         return self.pfolderpath
+
+    def getpath(self, name):
+        """
+        Returns path from filepaths_dict
+        """
+        return self.filepaths_dict[name]
+    
+    def load(self, filepath, dictkey):
+        """
+        Adds existing filepath into filepaths_dict
+        MUST ALREADY EXIST
+        """
+        self.filepaths_dict[dictkey] = filepath
     
     def newfile(self, name, type, behavior=None, dictkey=None):
         """
@@ -81,19 +99,48 @@ class FilingCabinet:
 
         return fullpath
 
-    def setnewfilebehavior(self, behavior):
-        try:
-            assert behavior in ["new", "add"]
-            self.defaultbehavior = behavior
-        except:
-            print("FilingCabinet.setdefaultbehavior: not a valid behavior")
+    def loadbackup(self, file_prefix, rule=None):
+        backupfiles = []
+        pfolderpath = self.getpfolderpath()
+        for file in os.listdir(pfolderpath):
+            if file_prefix in file:
+                backupfiles.append(os.path.join(pfolderpath, file))
 
-    def getpath(self, name):
-        """
-        Returns path from filepaths_dict
-        """
-        return self.filepaths_dict[name]
+        if not backupfiles:
+            return False
 
+        # find unique dictkeys
+        dictkeys = []
+        for file in backupfiles:
+            if file.endswith(self.validfiletypes):
+                dictkey = file.split('.')[0]
+                dictkey = dictkey.replace(os.path.join(self.getpfolderpath(), file_prefix), "")
+                dictkey = dictkey.replace("_new", "").strip('_')
+                dictkeys.append(dictkey)
+        dictkeys = set(dictkeys)
+
+        # Find path to each unique dictkey
+        for dictkey in dictkeys:
+            subbackupfiles = [f for f in backupfiles if dictkey in f]
+
+            if subbackupfiles:
+                match rule:
+                    case "newest":
+                        subbackup = max(subbackupfiles, key=os.path.getctime)
+                    case "oldest":
+                        subbackup = max(subbackupfiles, key=os.path.getctime)
+                    case _:
+                        print("No rule implemented for case {}".format(rule))
+
+                for snippet in subbackup.split(os.sep):
+                    if snippet.endswith(self.validfiletypes):
+                        subject_info = snippet.split('.')[0]
+                        subject_info = subject_info.split('_')
+                        dictkey = subject_info[4]
+
+                        self.load(subbackup, dictkey)
+
+        return True
 
 class LoggingNexus:
     def __init__(self, subjectID, file_prefix, filingcabinet, *threads, pause_event=Type[threading.Event]):

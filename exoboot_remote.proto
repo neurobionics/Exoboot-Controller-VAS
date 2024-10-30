@@ -37,6 +37,7 @@ message subject_info {
     string trial_type = 3;
     string trial_cond = 4;
     string description = 5;
+    bool usebackup = 6;
 }
 
 // Vickrey Auction Messages
