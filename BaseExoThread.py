@@ -22,10 +22,11 @@ class BaseThread(threading.Thread):
     Threads cannot lock out other threads from running
     """
     
-    def __init__(self, name='Base', daemon=True, pause_event=Type[threading.Event], quit_event=Type[threading.Event]):
+    def __init__(self, name='Base', daemon=True, pause_event=Type[threading.Event], quit_event=Type[threading.Event], log_event=Type[threading.Event]):
         super().__init__(name=name)
         self.pause_event = pause_event
         self.quit_event = quit_event
+        self.log_event = log_event
         self.daemon = daemon
 
     def on_pre_run(self):

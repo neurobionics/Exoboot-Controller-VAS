@@ -117,26 +117,28 @@ class MainControllerWrapper:
             self.filingcabinet = FilingCabinet("subject_data", self.subjectID)
             self.filingcabinet.setnewfilebehavior(behavior="new")
 
-            """Initialize Threads"""
+            """Threading"""
             # Thread events
             self.pause_event = threading.Event()
+            self.log_event = threading.Event()
             self.quit_event = threading.Event()
             self.pause_event.clear() # Start with threads paused
+            self.log_event.clear()
             self.quit_event.set()
             self.startstamp = time.perf_counter() # Timesync logging between all threads
 
             # Thread 1/2: Left and right exoboots
-            self.exothread_left = ExobootThread(side_left, device_left, self.startstamp, name='exothread_left', daemon=True, pause_event=self.pause_event, quit_event=self.quit_event)
-            self.exothread_right = ExobootThread(side_right, device_right, self.startstamp, name='exothread_right', daemon=True, pause_event=self.pause_event, quit_event=self.quit_event)
+            self.exothread_left = ExobootThread(side_left, device_left, self.startstamp, name='exothread_left', daemon=True, pause_event=self.pause_event, quit_event=self.quit_event, log_event=self.log_event)
+            self.exothread_right = ExobootThread(side_right, device_right, self.startstamp, name='exothread_right', daemon=True, pause_event=self.pause_event, quit_event=self.quit_event, log_event=self.log_event)
             self.exothread_left.start()
             self.exothread_right.start()
 
             # Thread 3: Gait State Estimator
-            self.gse_thread = GaitStateEstimator(self.startstamp, device_left, device_right, self.exothread_left, self.exothread_right, daemon=True, pause_event=self.pause_event, quit_event=self.quit_event)
+            self.gse_thread = GaitStateEstimator(self.startstamp, device_left, device_right, self.exothread_left, self.exothread_right, daemon=True, pause_event=self.pause_event, quit_event=self.quit_event, log_event=self.log_event)
             self.gse_thread.start()
 
             # Thread 4: Exoboot Remote Control
-            self.remote_thread = ExobootRemoteServerThread(self, self.startstamp, self.trial_type, self.filingcabinet, pause_event=self.pause_event, quit_event=self.quit_event)
+            self.remote_thread = ExobootRemoteServerThread(self, self.startstamp, self.trial_type, self.filingcabinet, pause_event=self.pause_event, quit_event=self.quit_event, log_event=self.log_event)
             self.remote_thread.set_target_IP(self.myIP)
             self.remote_thread.start()
 

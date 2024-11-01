@@ -71,11 +71,11 @@ from TransmissionRatioGenerator import TransmissionRatioGenerator
 
 
 class ExobootThread(BaseThread):
-    def __init__(self, side, flexdevice, startstamp, name='exobootthread', daemon=True, pause_event=Type[threading.Event], quit_event=Type[threading.Event]):
+    def __init__(self, side, flexdevice, startstamp, name='exobootthread', daemon=True, pause_event=Type[threading.Event], quit_event=Type[threading.Event], log_event=Type[threading.Event]):
         """
         TODO make overview
         """
-        super().__init__(name=name, daemon=daemon, pause_event=pause_event, quit_event=quit_event)
+        super().__init__(name=name, daemon=daemon, pause_event=pause_event, quit_event=quit_event, log_event=log_event)
         # Necessary Inputs for Exo Class
         self.side = side
         self.flexdevice = flexdevice # In ref to flexsea Device class
@@ -384,11 +384,11 @@ class ExobootThread(BaseThread):
         my_freq = 1/self.period_tracker.average()
         self.data_dict['thread_freq'] = my_freq
 
-        # Perform thermal safety check on actpack
+        # Perform thermal safety check on actpack TODO fix
         # self.thermal_safety_checker()
 
-        # Send GSE data for logging
-        if self.loggingnexus and self.pause_event.is_set() and end_time - self.lastlogstamp > 1/EXOTHREAD_LOGGING_FREQ:
+        # Append data to LoggingNexus
+        if self.loggingnexus and self.log_event.is_set() and end_time - self.lastlogstamp > 1/EXOTHREAD_LOGGING_FREQ:
             self.loggingnexus.append(self.name, self.data_dict)
             self.lastlogstamp = end_time
 
