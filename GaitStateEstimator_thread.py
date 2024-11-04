@@ -19,7 +19,7 @@ from utils import MovingAverageFilter
 from GroundContact import BertecEstimator
 from SoftRTloop import FlexibleTimer, FlexibleSleeper
 
-from constants import RTPLOT_IP, VICON_IP
+from constants import RTPLOT_IP, VICON_IP, EXOTHREAD_MAIN_FREQ
 from constants import DEV_ID_TO_MOTOR_SIGN_DICT, DEV_ID_TO_ANK_ENC_SIGN_DICT, GSETHREAD_FIELDS
 from constants import EFFICIENCY, Kt, ENC_CLICKS_TO_DEG, GYRO_GAIN, ACCEL_GAIN
 
@@ -48,6 +48,7 @@ class GaitStateEstimator(BaseThread):
         self.link_to_device()
 
     def link_to_device(self):
+        # TODO remove?  
         self.device_left.gse = self
         self.device_right.gse = self
 
@@ -93,8 +94,7 @@ class GaitStateEstimator(BaseThread):
         self.prev_end_time = time.perf_counter()
 
         # Soft real time loop
-        loopFreq = 500 # Hz
-        loop_period = 1 / loopFreq
+        loop_period = 1 / EXOTHREAD_MAIN_FREQ
         self.softRTloop = FlexibleSleeper(period=loop_period)
 
     def pre_iterate(self):

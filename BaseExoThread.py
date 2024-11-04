@@ -107,10 +107,12 @@ if __name__ == "__main__":
     quit_event.set()
     pause_event = threading.Event()
     pause_event.set()
+    log_event = threading.Event()
+    log_event.set()
 
     # Create threads with same quit and pause events to control at the same time
-    t1 = DemoThread(pause_event=pause_event, quit_event=quit_event, name="t1")
-    t2 = DemoThread(pause_event=pause_event, quit_event=quit_event, name="t2")
+    t1 = DemoThread(pause_event=pause_event, quit_event=quit_event, log_event=log_event, name="t1")
+    t2 = DemoThread(pause_event=pause_event, quit_event=quit_event, log_event=log_event, name="t2")
 
     # Start the inherited run() method
     t1.start()
