@@ -40,6 +40,7 @@ class MainControllerWrapper:
         self.trial_cond = trial_cond.upper()
         self.description = description
         self.usebackup = usebackup in ["true", "True", "1", "yes", "Yes"]
+        self.file_prefix = "{}_{}_{}_{}".format(self.subjectID, self.trial_type, self.trial_cond, self.description)
 
         # Thread events
         self.pause_event = threading.Event()
@@ -50,8 +51,10 @@ class MainControllerWrapper:
         self.quit_event.clear()
         self.startstamp = time.perf_counter() # Timesync logging between all threads
 
-        # Intiailize subject and FilingCabinet
+        # Intiailize subject
         self.init_subject()
+
+        # Init FilingCabinet
         self.filingcabinet = FilingCabinet("subject_data", self.subjectID)
 
         # Initializing Flexsea devices

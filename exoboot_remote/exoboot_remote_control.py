@@ -140,14 +140,14 @@ class ExobootRemoteClient:
         return response
 
 # JND Specific    
-    def comparison_result(self, rep, pres, prop, T_ref, T_comp, truth, answer):
-        compmsg = pb2.comparison(rep=rep, pres=pres, prop=prop, T_ref=T_ref, T_comp=T_comp, truth=truth, answer=answer)
+    def comparison_result(self, walk, pres, prop, T_ref, T_comp, truth, answer):
+        compmsg = pb2.comparison(walk=walk, pres=pres, prop=prop, T_ref=T_ref, T_comp=T_comp, truth=truth, answer=answer)
         response = self.stub.comparison_result(compmsg)
         return response
     
-    def newrep(self, rep):
-        msg = pb2.repmsg(rep=rep)
-        response = self.stub.newrep(msg)
+    def newwalkjnd(self, walk):
+        msg = pb2.walkmsgjnd(walk=walk)
+        response = self.stub.newwalk(msg)
         return response
 
 # PREF Specific
@@ -359,24 +359,24 @@ class ExobootCommServicer(pb2_grpc.exoboot_over_networkServicer):
         """
         Log comparison result
         """
-        rep = compmsg.rep
+        walk = compmsg.walk
         pres = compmsg.pres
         prop = compmsg.prop
         T_ref = compmsg.T_ref
         T_comp = compmsg.T_comp
         truth = compmsg.truth
         answer = compmsg.answer
-        self.filingcabinet.writerow("comparison", [rep, pres, prop, T_ref, T_comp, truth, answer])
+        self.filingcabinet.writerow("comparison", [walk, pres, prop, T_ref, T_comp, truth, answer])
 
         return pb2.receipt(received=True)
     
-    def newrep(self, repmsg, context):
+    def newwalkjnd(self, walkmsgjnd, context):
         """
         Update threads logging csv files
         """
-        rep = int(repmsg.rep)
+        walk = int(walkmsgjnd.walk)
         for thread in self.loggingnexus.thread_names:
-            self.loggingnexus.update_suffix("rep{}".format(rep), thread)
+            self.loggingnexus.update_suffix("walk{}".format(walk), thread)
 
         return pb2.receipt(received=True)
     

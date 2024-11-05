@@ -115,9 +115,9 @@ class exoboot_over_networkStub(object):
                 request_serializer=exoboot__remote__pb2.comparison.SerializeToString,
                 response_deserializer=exoboot__remote__pb2.receipt.FromString,
                 _registered_method=True)
-        self.newrep = channel.unary_unary(
-                '/exoboot_over_network/newrep',
-                request_serializer=exoboot__remote__pb2.repmsg.SerializeToString,
+        self.newwalkjnd = channel.unary_unary(
+                '/exoboot_over_network/newwalkjnd',
+                request_serializer=exoboot__remote__pb2.walkmsgjnd.SerializeToString,
                 response_deserializer=exoboot__remote__pb2.receipt.FromString,
                 _registered_method=True)
         self.pref_result = channel.unary_unary(
@@ -226,7 +226,7 @@ class exoboot_over_networkServicer(object):
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
-    def newrep(self, request, context):
+    def newwalkjnd(self, request, context):
         """Missing associated documentation comment in .proto file."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
@@ -317,9 +317,9 @@ def add_exoboot_over_networkServicer_to_server(servicer, server):
                     request_deserializer=exoboot__remote__pb2.comparison.FromString,
                     response_serializer=exoboot__remote__pb2.receipt.SerializeToString,
             ),
-            'newrep': grpc.unary_unary_rpc_method_handler(
-                    servicer.newrep,
-                    request_deserializer=exoboot__remote__pb2.repmsg.FromString,
+            'newwalkjnd': grpc.unary_unary_rpc_method_handler(
+                    servicer.newwalkjnd,
+                    request_deserializer=exoboot__remote__pb2.walkmsgjnd.FromString,
                     response_serializer=exoboot__remote__pb2.receipt.SerializeToString,
             ),
             'pref_result': grpc.unary_unary_rpc_method_handler(
@@ -745,7 +745,7 @@ class exoboot_over_network(object):
             _registered_method=True)
 
     @staticmethod
-    def newrep(request,
+    def newwalkjnd(request,
             target,
             options=(),
             channel_credentials=None,
@@ -758,8 +758,8 @@ class exoboot_over_network(object):
         return grpc.experimental.unary_unary(
             request,
             target,
-            '/exoboot_over_network/newrep',
-            exoboot__remote__pb2.repmsg.SerializeToString,
+            '/exoboot_over_network/newwalkjnd',
+            exoboot__remote__pb2.walkmsgjnd.SerializeToString,
             exoboot__remote__pb2.receipt.FromString,
             options,
             channel_credentials,
