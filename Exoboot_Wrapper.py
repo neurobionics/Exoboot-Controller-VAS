@@ -68,7 +68,7 @@ class MainControllerWrapper:
         # Get own IP address for GRPC
         s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         s.connect(('10.255.255.255', 1))
-        self.myIP = s.getsockname()[0] + ":50051"
+        self.myIP = s.getsockname()[0] + ":50055"
         print("myIP: {}".format(self.myIP))
 
     @staticmethod
