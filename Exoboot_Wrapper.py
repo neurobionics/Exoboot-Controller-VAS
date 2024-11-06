@@ -234,4 +234,6 @@ if __name__ == "__main__":
         exit(1)
 
     _, subjectID, trial_type, trial_cond, description, usebackup = sys.argv
-    MainControllerWrapper(subjectID, trial_type, trial_cond, description, usebackup, streamingfrequency=1000).run()
+    mainwrapper = MainControllerWrapper(subjectID, trial_type, trial_cond, description, usebackup, streamingfrequency=1000)
+    input("Initialization finished.\nPress any key to start")
+    mainwrapper.run()
