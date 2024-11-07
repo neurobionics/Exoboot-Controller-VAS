@@ -363,7 +363,7 @@ class ExobootThread(BaseThread):
         self.data_dict['current_command'] = current_command
         
         # Clamp current between bias and max allowable current
-        vetted_current = max(min(current_command, MAX_ALLOWABLE_CURRENT), 0) # BIAS_CURRENT)
+        vetted_current = max(min(current_command, MAX_ALLOWABLE_CURRENT), BIAS_CURRENT)
         
         # Shut off exo if thermal limits breached
         if self.exo_safety_shutoff_flag:
