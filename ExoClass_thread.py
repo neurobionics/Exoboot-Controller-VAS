@@ -300,12 +300,12 @@ class ExobootThread(BaseThread):
     def iterate(self):
         """
         Sends motor commands based on current_time estimate
-
         Runs in main loop when not paused
         """
         self.current_time = time.perf_counter() - self.HS
 
         # Acquire torque command based on gait estimate
+        # print("TORQUE GEN: ", self.current_time, self.stride_period, self.peak_torque, self.in_swing)
         torque_command = self.assistance_generator.generic_torque_generator(self.current_time, self.stride_period, self.peak_torque, self.in_swing)
         self.data_dict['torque_command'] = torque_command
 
@@ -316,6 +316,8 @@ class ExobootThread(BaseThread):
         # Clamp current between bias and max allowable current
         vetted_current = max(min(current_command, MAX_ALLOWABLE_CURRENT), BIAS_CURRENT)
         
+        # print("ITERATE: ", self.peak_torque, torque_command, current_command, vetted_current)
+
         # Shut off exo if thermal limits breached
         if self.exo_safety_shutoff_flag:
             print("Safety shutoff flag: pausing_threads")
@@ -351,15 +353,15 @@ class ExobootThread(BaseThread):
         Main Loop
         """
         self.on_pre_run()
-        try:
-            while self.quit_event.is_set():
-                self.pre_iterate
-                if self.pause_event.is_set():
-                    self.iterate()
-                else:
-                    self.on_pause()
-                self.post_iterate()
-        except Exception as e:
-            print("ERROR {}: {}".format(self.name, e))
-        finally:
-            print("THREAD TERMINATED {}".format(self.name))
+        # try:
+        while self.quit_event.is_set():
+            self.pre_iterate()
+            if self.pause_event.is_set():
+                self.iterate()
+            else:
+                self.on_pause()
+            self.post_iterate()
+        # except Exception as e:
+        #     print("ERROR {}: {}".format(self.name, e))
+        # finally:
+        #     print("THREAD TERMINATED {}".format(self.name))

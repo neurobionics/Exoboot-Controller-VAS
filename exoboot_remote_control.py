@@ -137,13 +137,12 @@ class ExobootCommServicer(pb2_grpc.exoboot_over_networkServicer):
 
     This class is rpi side
     """
-    def __init__(self, mainwrapper, startstamp, filingcabinet, usebackup, quit_event):
+    def __init__(self, mainwrapper, startstamp, filingcabinet, usebackup):
         super().__init__()
         self.mainwrapper = mainwrapper
         self.startstamp = startstamp
         self.filingcabinet = filingcabinet
         self.usebackup = usebackup
-        self.quit_event = quit_event
     
         # file prefix from mainwrapper
         self.file_prefix = self.mainwrapper.file_prefix
@@ -215,7 +214,7 @@ class ExobootCommServicer(pb2_grpc.exoboot_over_networkServicer):
         """
         Kill rpi from Client
         """
-        self.quit_event.set()
+        self.mainwrapper.quit_event.set()
         return pb2.receipt(received=True)
 
 # Exoboot Controller Commands
@@ -406,10 +405,10 @@ class ExobootRemoteServerThread(BaseThread):
 
     Does not pause
     """
-    def __init__(self, mainwrapper, startstamp, filingcabinet, usebackup=False, name='exoboot_remote_thread', daemon=True, pause_event=Type[threading.Event], quit_event=Type[threading.Event]):
-        super().__init__(name=name, daemon=daemon, pause_event=pause_event, quit_event=quit_event)
+    def __init__(self, mainwrapper, startstamp, filingcabinet, name='exoboot_remote_thread', usebackup=False, daemon=True, quit_event=Type[threading.Event], pause_event=Type[threading.Event], log_event=Type[threading.Event]):
+        super().__init__(name, daemon, quit_event, pause_event,log_event)
         self.mainwrapper = mainwrapper
-        self.exoboot_remote_servicer = ExobootCommServicer(self.mainwrapper, startstamp, filingcabinet, usebackup=usebackup, quit_event=self.quit_event)
+        self.exoboot_remote_servicer = ExobootCommServicer(self.mainwrapper, startstamp, filingcabinet, usebackup)
         self.target_IP = ''
     
     def set_target_IP(self, target_IP):

@@ -11,13 +11,14 @@ VICON_IP='141.212.77.30'    # Vicon ip to connect to Bertec Forceplates for stre
 """File Paths on Pi"""
 PORT_CFG_PATH = '/home/pi/VAS_exoboot_controller/ports.yaml' # DEPRECATED
 TR_COEFS_PREFIX = "Transmission_Ratio_Characterization/default_TR_coefs_"
+SUBJECT_DATA_PATH = "subject_data"
 
 
 """TRIAL TYPES AND CONDITIONS"""
 TRIAL_CONDS_DICT = {'VICKREY': ["WNE", "EPO", "NPO"],
                     'VAS': [],
                     'JND': ['SPLITLEG', 'SAMELEG'],
-                    'PREF': ['SLIDER', 'BUTTON'],
+                    'PREF': ['SLIDER', 'BUTTON', 'DIAL'],
                     'ACCLIMATION': []
                     }
 
@@ -52,8 +53,8 @@ P_TOE_OFF = 67		# stance from heel strike
 END_OF_STANCE = P_TOE_OFF
 END_OF_STRIDE = 100
 
-HOLDING_TORQUE = 0	# 2 Nm
-BIAS_CURRENT = 0 # 500 mA
+HOLDING_TORQUE = 2	# 2 Nm
+BIAS_CURRENT = 500 # 500 mA
 SPINE_TIMING_PARAMS_DICT = {'P_RISE': P_RISE, 'P_PEAK': P_PEAK, 'P_FALL': P_FALL, 'P_TOE_OFF': P_TOE_OFF, 
                             'HOLDING_TORQUE': HOLDING_TORQUE, 'BIAS_CURRENT': BIAS_CURRENT}
 

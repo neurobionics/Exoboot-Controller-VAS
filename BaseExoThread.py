@@ -24,10 +24,10 @@ class BaseThread(threading.Thread):
     
     def __init__(self, name='Base', daemon=True, quit_event=Type[threading.Event], pause_event=Type[threading.Event], log_event=Type[threading.Event]):
         super().__init__(name=name)
+        self.daemon = daemon
         self.quit_event = quit_event
         self.pause_event = pause_event
         self.log_event = log_event
-        self.daemon = daemon
 
     def on_pre_run(self):
         """Fill Out Yourself!!!"""

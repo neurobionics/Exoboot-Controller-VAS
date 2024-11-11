@@ -11,14 +11,14 @@ import os, sys, csv, time, socket, threading
 from flexsea.device import Device
 from rtplot import client
 
-from LoggingClass import LoggingNexus
+from LoggingClass import LoggingNexus, FilingCabinet
 from ExoClass_thread import ExobootThread
 from GaitStateEstimator_thread import GaitStateEstimator
 from exoboot_remote_control import ExobootRemoteServerThread
 from curses_HUD.hud_thread import HUDThread
 
 from SoftRTloop import FlexibleSleeper
-from constants import DEV_ID_TO_SIDE_DICT, DEFAULT_KP, DEFAULT_KI, DEFAULT_KD, DEFAULT_FF, RTPLOT_IP, TRIAL_CONDS_DICT
+from constants import DEV_ID_TO_SIDE_DICT, DEFAULT_KP, DEFAULT_KI, DEFAULT_KD, DEFAULT_FF, RTPLOT_IP, TRIAL_CONDS_DICT, SUBJECT_DATA_PATH
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "curses_HUD"))
 from curses_HUD import hud_thread
@@ -32,19 +32,17 @@ class MainControllerWrapper:
 
     Allows for high level interaction with flexsea controller
     """
-    def __init__(self, subjectID, trial_type, trial_cond, description, streamingfrequency=1000, clockspeed=0.2):
+    def __init__(self, subjectID, trial_type, trial_cond, description, usebackup, streamingfrequency=1000, clockspeed=0.2):
+        self.streamingfrequency = streamingfrequency
+        self.clockspeed = clockspeed
+
+        # Subject info
         self.subjectID = subjectID
         self.trial_type = trial_type.upper()
         self.trial_cond = trial_cond.upper()
         self.description = description
-        self.streamingfrequency = streamingfrequency
-        self.clockspeed = clockspeed
-
-        # Dummy mode check TODO implement dummymode
-        if self.subjectID == "DUMMY":
-            self.dummymode = True
-        else:
-            self.dummymode = False
+        self.usebackup = usebackup in ["true", "True", "1", "yes", "Yes"]
+        self.file_prefix = "{}_{}_{}_{}".format(self.subjectID, self.trial_type, self.trial_cond, self.description)
 
         # Validate trial_type and trial_cond
         self.valid_trial_typeconds = TRIAL_CONDS_DICT
@@ -62,8 +60,12 @@ class MainControllerWrapper:
             print("\ttrial_type: [trial_conds]: pick from VICKREY: [WNE, EPO, NPO], JND: [SPLITLEG, SAMELEG], PREF: [SLIDER, BTN]")
             print("\t\tother trial_types can have arbitrary trial_cond")
             print("\tdescription: any additional notes")
-        
-        self.file_prefix = "{}_{}_{}_{}".format(self.subjectID, self.trial_type, self.trial_cond, self.description)
+
+        # FilingCabinet
+        self.filingcabinet = FilingCabinet(SUBJECT_DATA_PATH, self.subjectID)
+        if self.usebackup:
+            loadstatus = self.filingcabinet.loadbackup(self.file_prefix, rule="newest")
+            print("Backup Load Status: {}".format("SUCCESS" if loadstatus else "FAILURE"))
 
         # Get own IP address for GRPC
         s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
@@ -108,7 +110,7 @@ class MainControllerWrapper:
         try:
             # # Initializing the Exo
             side_left, device_left, side_right, device_right = self.get_active_ports()
-            
+
             # # Start device streaming and set gains:
             device_left.start_streaming(self.streamingfrequency)
             device_right.start_streaming(self.streamingfrequency)
@@ -121,6 +123,7 @@ class MainControllerWrapper:
             self.pause_event = threading.Event()
             self.log_event = threading.Event()
             self.quit_event.set()
+            print("BLAH, ", self.quit_event.is_set())
             self.pause_event.clear() # Start with threads paused
             self.log_event.clear()
             self.startstamp = time.perf_counter() # Timesync logging between all threads
@@ -132,22 +135,22 @@ class MainControllerWrapper:
             self.exothread_right.start()
 
             # Thread 3: Gait State Estimator
-            self.gse_thread = GaitStateEstimator(self.startstamp, device_left, device_right, self.exothread_left, self.exothread_right, True, self.quit_event, self.pause_event, self.log_event)
+            self.gse_thread = GaitStateEstimator(self.startstamp, device_left, device_right, self.exothread_left, self.exothread_right, daemon=True, quit_event=self.quit_event, pause_event=self.pause_event, log_event=self.log_event)
             self.gse_thread.start()
 
             # Thread 4: Exoboot Remote Control
-            self.remote_thread = ExobootRemoteServerThread(self, self.startstamp, self.trial_type, self.quit_event, self.pause_event, self.log_event)
+            self.remote_thread = ExobootRemoteServerThread(self, self.startstamp, self.filingcabinet, name='exoboot_remote_thread', usebackup=False, daemon=True, quit_event=self.quit_event, pause_event=self.pause_event, log_event=self.log_event)
             self.remote_thread.set_target_IP(self.myIP)
             self.remote_thread.start()
 
             # Thread 5: Curses HUD
-            self.hud = HUDThread(self, "exohud_layout.json", napms=25, pause_event=self.pause_event, quit_event=self.quit_event)
-            self.hud.getwidget("si").settextline(0, "{}, {}, {}, {}".format(self.subjectID, self.trial_type, self.trial_cond, self.description))
-            self.hud.getwidget("ii").settextline(0, str(self.myIP))
-            self.hud.start()
+            # self.hud = HUDThread(self, "exohud_layout.json", napms=25, pause_event=self.pause_event, quit_event=self.quit_event)
+            # self.hud.getwidget("si").settextline(0, "{}, {}, {}, {}".format(self.subjectID, self.trial_type, self.trial_cond, self.description))
+            # self.hud.getwidget("ii").settextline(0, str(self.myIP))
+            # self.hud.start()
 
             # LoggingNexus
-            self.loggingnexus = LoggingNexus(self.subjectID, self.file_prefix, self.exothread_left, self.exothread_right, self.gse_thread, log_event=self.log_event)
+            self.loggingnexus = LoggingNexus(self.subjectID, self.file_prefix, self.filingcabinet, self.exothread_left, self.exothread_right, self.gse_thread)
 
             # ~~~Main Loop~~~
             self.softrtloop = FlexibleSleeper(period=1/self.clockspeed)
@@ -156,32 +159,32 @@ class MainControllerWrapper:
                 try:
                     # Print if no hud
                     try:
-                        if not self.hud.isrunning:
-                            print("Peak Torque Left: {}\nPeak Torque Right: {}".format(self.loggingnexus.get(self.exothread_left.name, "peak_torque"), self.loggingnexus.get(self.exothread_right.name, "peak_torque")))
-                            print("Case Temp Left: {}\nCase Temp Right: {}\n".format(self.loggingnexus.get(self.exothread_left.name, "temperature"), self.loggingnexus.get(self.exothread_right.name, "temperature")))
-                            print("Freq Left: {}\nFreq Right: {}\n".format(self.loggingnexus.get(self.exothread_left.name, "thread_freq"), self.loggingnexus.get(self.exothread_right.name, "thread_freq")))
+                        # if not self.hud.isrunning:
+                        print("Peak Torque Left: {}\nPeak Torque Right: {}".format(self.loggingnexus.get(self.exothread_left.name, "peak_torque"), self.loggingnexus.get(self.exothread_right.name, "peak_torque")))
+                        print("Case Temp Left: {}\nCase Temp Right: {}\n".format(self.loggingnexus.get(self.exothread_left.name, "temperature"), self.loggingnexus.get(self.exothread_right.name, "temperature")))
+                        print("Freq Left: {}\nFreq Right: {}\n".format(self.loggingnexus.get(self.exothread_left.name, "thread_freq"), self.loggingnexus.get(self.exothread_right.name, "thread_freq")))
                     except:
                         pass
 
                     # Update HUD
-                    try:
-                        exostate_text = "Running" if self.pause_event.is_set() else "Paused"
-                        self.hud.getwidget("ls").settextline(0, exostate_text)
-                        self.hud.getwidget("rs").settextline(0, exostate_text)
-                        self.hud.getwidget("lpt").settextline(0, str(self.loggingnexus.get(self.exothread_left.name, "peak_torque")))
-                        self.hud.getwidget("rpt").settextline(0, str(self.loggingnexus.get(self.exothread_right.name, "peak_torque")))
-                        self.hud.getwidget("lct").settextline(0, str(self.loggingnexus.get(self.exothread_left.name, "temperature")))
-                        self.hud.getwidget("rct").settextline(0, str(self.loggingnexus.get(self.exothread_right.name, "temperature")))
-                        self.hud.getwidget("lcs").settextline(0, "{:0.2f}".format(self.loggingnexus.get(self.exothread_left.name, "thread_freq")))
-                        self.hud.getwidget("rcs").settextline(0, "{:0.2f}".format(self.loggingnexus.get(self.exothread_right.name, "thread_freq")))
+                    # try:
+                    #     exostate_text = "Running" if self.pause_event.is_set() else "Paused"
+                    #     self.hud.getwidget("ls").settextline(0, exostate_text)
+                    #     self.hud.getwidget("rs").settextline(0, exostate_text)
+                    #     self.hud.getwidget("lpt").settextline(0, str(self.loggingnexus.get(self.exothread_left.name, "peak_torque")))
+                    #     self.hud.getwidget("rpt").settextline(0, str(self.loggingnexus.get(self.exothread_right.name, "peak_torque")))
+                    #     self.hud.getwidget("lct").settextline(0, str(self.loggingnexus.get(self.exothread_left.name, "temperature")))
+                    #     self.hud.getwidget("rct").settextline(0, str(self.loggingnexus.get(self.exothread_right.name, "temperature")))
+                    #     self.hud.getwidget("lcs").settextline(0, "{:0.2f}".format(self.loggingnexus.get(self.exothread_left.name, "thread_freq")))
+                    #     self.hud.getwidget("rcs").settextline(0, "{:0.2f}".format(self.loggingnexus.get(self.exothread_right.name, "thread_freq")))
 
-                        self.hud.getwidget("batv").settextline(0, str(self.loggingnexus.get(self.exothread_right.name, "battery_voltage")))
-                        self.hud.getwidget("bati").settextline(0, str(self.loggingnexus.get(self.exothread_right.name, "battery_current")))
+                    #     self.hud.getwidget("batv").settextline(0, str(self.loggingnexus.get(self.exothread_right.name, "battery_voltage")))
+                    #     self.hud.getwidget("bati").settextline(0, str(self.loggingnexus.get(self.exothread_right.name, "battery_current")))
 
-                        self.hud.getwidget("bert").settextline(0, "IDK")
-                        self.hud.getwidget("vicon").settextline(0, "TBI")
-                    except Exception as e:
-                        print("Exception: ", e)
+                    #     self.hud.getwidget("bert").settextline(0, "IDK")
+                    #     self.hud.getwidget("vicon").settextline(0, "TBI")
+                    # except Exception as e:
+                    #     print("Exception: ", e)
 
                     # Log data. Obeys log_event
                     if self.log_event.is_set():
@@ -216,7 +219,7 @@ class MainControllerWrapper:
 
 
 if __name__ == "__main__":
-    assert len(sys.argv) - 1 == 4
-    _, subjectID, trial_type, trial_cond, description = sys.argv
-    MainControllerWrapper(subjectID, trial_type, trial_cond, description, streamingfrequency=1000).run()
+    assert len(sys.argv) - 1 == 5
+    _, subjectID, trial_type, trial_cond, description, usebackup= sys.argv
+    MainControllerWrapper(subjectID, trial_type, trial_cond, description, usebackup, streamingfrequency=1000).run()
     # TODO move gui file to subject_data folder tree

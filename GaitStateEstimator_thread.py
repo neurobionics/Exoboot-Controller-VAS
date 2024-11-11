@@ -8,7 +8,7 @@ import time, copy, threading
 from typing import Type
 
 from rtplot import client
-from ZMQ_PubSub import Subscriber
+from Reference_Scripts_Bertec_Sync.ZMQ_PubSub import Subscriber
 from BaseExoThread import BaseThread
 from utils import MovingAverageFilter
 from GroundContact import BertecEstimator
@@ -148,14 +148,17 @@ class GaitStateEstimator(BaseThread):
         """
         self.on_pre_run()
         try:
+            # print("GSE QUIT: ", self.quit_event.is_set())
             while self.quit_event.is_set():
+                # print("GSE RUNNING")
                 nslf, nsfr = self.pre_iterate(self.pause_event)
                 if self.pause_event.is_set():
                     self.iterate(nslf, nsfr)
                 else:
                     pass
+                # print("GSE EXIT")
                 self.post_iterate()
         except Exception as e:
             print("ERROR {}: {}".format(self.name, e))
         finally:
-            print("THREAD TERMINATED {}".format(self.name))
+            print("THREAD TERMINATED GSE{}".format(self.name))
