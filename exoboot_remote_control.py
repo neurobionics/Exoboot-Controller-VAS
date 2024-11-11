@@ -55,14 +55,16 @@ class ExobootRemoteClient:
         return response
 
 # Exoboot Controller Commands
+    def set_quit(self, mybool=False):
+        receipt = self.stub.set_quit(pb2.quit(mybool=mybool))
+        return receipt
+
     def set_pause(self, mybool=False):
-        pause_msg = pb2.pause(mybool=mybool)
-        receipt = self.stub.set_pause(pause_msg)
+        receipt = self.stub.set_pause(pb2.pause(mybool=mybool))
         return receipt
     
-    def set_quit(self, mybool=False):
-        quit_msg = pb2.quit(mybool=mybool)
-        receipt = self.stub.set_quit(quit_msg)
+    def set_log(self, mybool=False):
+        receipt = self.stub.set_log(pb2.log(mybool=mybool))
         return receipt
 
     def set_torques(self, peak_torque_left=0, peak_torque_right=0):
@@ -138,11 +140,10 @@ class ExobootCommServicer(pb2_grpc.exoboot_over_networkServicer):
 
     This class is rpi side
     """
-    def __init__(self, mainwrapper, startstamp, quit_event):
+    def __init__(self, mainwrapper, startstamp):
         super().__init__()
         self.mainwrapper = mainwrapper
         self.startstamp = startstamp
-        self.quit_event = quit_event
     
         # file prefix from mainwrapper
         self.file_prefix = self.mainwrapper.file_prefix
@@ -199,14 +200,26 @@ class ExobootCommServicer(pb2_grpc.exoboot_over_networkServicer):
         """
         Kill rpi from Client
         """
-        self.quit_event.set()
+        self.mainwrapper.quit_event.set()
         return pb2.receipt(received=True)
 
 # Exoboot Controller Commands
+    def set_quit(self, quit_msg, context):
+        """
+        Exoboot_Thread Command
+        Set quit event
+        """
+        quit = quit_msg.mybool
+        if quit:
+            self.mainwrapper.quit_event.clear()
+        else:
+            self.mainwrapper.quit_event.set()
+        return pb2.receipt(received=True)
+
     def set_pause(self, pause_msg, context):
         """
         Exoboot_Thread Command
-        Pauses threads in main
+        Set pause event
         """
         pause = pause_msg.mybool
         if pause:
@@ -215,16 +228,16 @@ class ExobootCommServicer(pb2_grpc.exoboot_over_networkServicer):
             self.mainwrapper.pause_event.set()
         return pb2.receipt(received=True)
 
-    def set_quit(self, quit_msg, context):
+    def set_quit(self, log_msg, context):
         """
         Exoboot_Thread Command
-        Quits execution in main
+        Set log event
         """
-        quit = quit_msg.mybool
-        if quit:
-            self.mainwrapper.quit_event.clear()
+        log = log_msg.mybool
+        if log:
+            self.mainwrapper.log_event.clear()
         else:
-            self.mainwrapper.quit_event.set()
+            self.mainwrapper.log_event.set()
         return pb2.receipt(received=True)
 
     def set_torque(self, torque_msg, context):
@@ -366,10 +379,10 @@ class ExobootRemoteServerThread(BaseThread):
 
     Does not pause
     """
-    def __init__(self, mainwrapper, startstamp, name='exoboot_remote_thread', daemon=True, pause_event=Type[threading.Event], quit_event=Type[threading.Event]):
-        super().__init__(name=name, daemon=daemon, pause_event=pause_event, quit_event=quit_event)
+    def __init__(self, mainwrapper, startstamp, name='exoboot_remote_thread', daemon=True, quit_event=Type[threading.Event], pause_event=Type[threading.Event], log_event=Type[threading.Event]):
+        super().__init__(name, daemon, quit_event, pause_event, log_event)
         self.mainwrapper = mainwrapper
-        self.exoboot_remote_servicer = ExobootCommServicer(self.mainwrapper, startstamp, quit_event=self.quit_event)
+        self.exoboot_remote_servicer = ExobootCommServicer(self.mainwrapper, startstamp)
         self.target_IP = ''
     
     def set_target_IP(self, target_IP):

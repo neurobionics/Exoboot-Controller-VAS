@@ -55,14 +55,19 @@ class exoboot_over_networkStub(object):
                 request_serializer=exoboot__remote__pb2.beaver.SerializeToString,
                 response_deserializer=exoboot__remote__pb2.receipt.FromString,
                 _registered_method=True)
+        self.set_quit = channel.unary_unary(
+                '/exoboot_over_network/set_quit',
+                request_serializer=exoboot__remote__pb2.quit.SerializeToString,
+                response_deserializer=exoboot__remote__pb2.receipt.FromString,
+                _registered_method=True)
         self.set_pause = channel.unary_unary(
                 '/exoboot_over_network/set_pause',
                 request_serializer=exoboot__remote__pb2.pause.SerializeToString,
                 response_deserializer=exoboot__remote__pb2.receipt.FromString,
                 _registered_method=True)
-        self.set_quit = channel.unary_unary(
-                '/exoboot_over_network/set_quit',
-                request_serializer=exoboot__remote__pb2.quit.SerializeToString,
+        self.set_log = channel.unary_unary(
+                '/exoboot_over_network/set_log',
+                request_serializer=exoboot__remote__pb2.log.SerializeToString,
                 response_deserializer=exoboot__remote__pb2.receipt.FromString,
                 _registered_method=True)
         self.set_torque = channel.unary_unary(
@@ -130,14 +135,20 @@ class exoboot_over_networkServicer(object):
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
-    def set_pause(self, request, context):
+    def set_quit(self, request, context):
         """Exoboot Controller Commands
         """
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
-    def set_quit(self, request, context):
+    def set_pause(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def set_log(self, request, context):
         """Missing associated documentation comment in .proto file."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
@@ -213,14 +224,19 @@ def add_exoboot_over_networkServicer_to_server(servicer, server):
                     request_deserializer=exoboot__remote__pb2.beaver.FromString,
                     response_serializer=exoboot__remote__pb2.receipt.SerializeToString,
             ),
+            'set_quit': grpc.unary_unary_rpc_method_handler(
+                    servicer.set_quit,
+                    request_deserializer=exoboot__remote__pb2.quit.FromString,
+                    response_serializer=exoboot__remote__pb2.receipt.SerializeToString,
+            ),
             'set_pause': grpc.unary_unary_rpc_method_handler(
                     servicer.set_pause,
                     request_deserializer=exoboot__remote__pb2.pause.FromString,
                     response_serializer=exoboot__remote__pb2.receipt.SerializeToString,
             ),
-            'set_quit': grpc.unary_unary_rpc_method_handler(
-                    servicer.set_quit,
-                    request_deserializer=exoboot__remote__pb2.quit.FromString,
+            'set_log': grpc.unary_unary_rpc_method_handler(
+                    servicer.set_log,
+                    request_deserializer=exoboot__remote__pb2.log.FromString,
                     response_serializer=exoboot__remote__pb2.receipt.SerializeToString,
             ),
             'set_torque': grpc.unary_unary_rpc_method_handler(
@@ -357,6 +373,33 @@ class exoboot_over_network(object):
             _registered_method=True)
 
     @staticmethod
+    def set_quit(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/exoboot_over_network/set_quit',
+            exoboot__remote__pb2.quit.SerializeToString,
+            exoboot__remote__pb2.receipt.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
     def set_pause(request,
             target,
             options=(),
@@ -384,7 +427,7 @@ class exoboot_over_network(object):
             _registered_method=True)
 
     @staticmethod
-    def set_quit(request,
+    def set_log(request,
             target,
             options=(),
             channel_credentials=None,
@@ -397,8 +440,8 @@ class exoboot_over_network(object):
         return grpc.experimental.unary_unary(
             request,
             target,
-            '/exoboot_over_network/set_quit',
-            exoboot__remote__pb2.quit.SerializeToString,
+            '/exoboot_over_network/set_log',
+            exoboot__remote__pb2.log.SerializeToString,
             exoboot__remote__pb2.receipt.FromString,
             options,
             channel_credentials,

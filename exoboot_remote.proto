@@ -12,10 +12,13 @@ message receipt {
 }
 
 // Exoboot Controller Messages
+message quit {
+    bool mybool = 1;
+}
 message pause {
     bool mybool = 1;
 }
-message quit {
+message log {
     bool mybool = 1;
 }
 message torques {
@@ -24,7 +27,7 @@ message torques {
 }
 
 
-// Logging Messages
+// General Info Messages
 message beaver {}
 
 message testmsg {
@@ -114,8 +117,9 @@ service exoboot_over_network {
     rpc chop (beaver) returns (receipt) {}; // LoggingServer kill message
 
     // Exoboot Controller Commands
-    rpc set_pause (pause) returns (receipt) {}
     rpc set_quit (quit) returns (receipt) {}
+    rpc set_pause (pause) returns (receipt) {}
+    rpc set_log (log) returns (receipt) {}
     rpc set_torque (torques) returns (receipt) {}
 
     // Vickrey Auction Specific

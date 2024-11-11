@@ -4,29 +4,22 @@
 # Author: Varun Satyadev Shetty
 # Date: 06/17/2024
 # Sensor reading logic modified based on exoboot structure by Max Shepherd
-import os, sys, csv, time, copy, threading
-import numpy as np
+import time, copy, threading
 from typing import Type
-from itertools import chain
-from collections import deque
 
-# # logging from Bertec
-sys.path.insert(0, '/home/pi/VAS_exoboot_controller/Reference_Scripts_Bertec_Sync')
 from rtplot import client
 from ZMQ_PubSub import Subscriber
 from BaseExoThread import BaseThread
 from utils import MovingAverageFilter
 from GroundContact import BertecEstimator
-from SoftRTloop import FlexibleTimer, FlexibleSleeper
+from SoftRTloop import FlexibleSleeper
 
-from constants import RTPLOT_IP, VICON_IP
-from constants import DEV_ID_TO_MOTOR_SIGN_DICT, DEV_ID_TO_ANK_ENC_SIGN_DICT, GSETHREAD_FIELDS
-from constants import EFFICIENCY, Kt, ENC_CLICKS_TO_DEG, GYRO_GAIN, ACCEL_GAIN
+from constants import VICON_IP, GSETHREAD_FIELDS
 
 class GaitStateEstimator(BaseThread):
-    def __init__(self, startstamp, device_left, device_right, thread_left, thread_right, name='GSE', daemon=True, pause_event=Type[threading.Event], quit_event=Type[threading.Event]):
+    def __init__(self, startstamp, device_left, device_right, thread_left, thread_right, name='GSE', daemon=True, quit_event=Type[threading.Event], pause_event=Type[threading.Event], log_event=Type[threading.Event]):
         # Threading
-        super().__init__(name=name, daemon=daemon, pause_event=pause_event, quit_event=quit_event)
+        super().__init__(name, daemon, quit_event, pause_event, log_event)
         self.device_left = device_left
         self.device_right = device_right
         self.device_thread_left = thread_left
@@ -143,7 +136,7 @@ class GaitStateEstimator(BaseThread):
 
         # Log gse freq
         self.data_dict['thread_freq'] = my_freq
-        if self.loggingnexus and self.pause_event.is_set():
+        if self.loggingnexus and self.log_event.is_set():
             self.loggingnexus.append(self.name, copy.deepcopy(self.data_dict))
 
         # soft real-time loop
@@ -154,9 +147,15 @@ class GaitStateEstimator(BaseThread):
         Custom run to continue catching heelstrike but not update estimates
         """
         self.on_pre_run()
-        while self.quit_event.is_set():
-            nslf, nsfr = self.pre_iterate(self.pause_event)
-            if self.pause_event.is_set():
-                self.iterate(nslf, nsfr)
-            self.post_iterate()
-        self.on_pre_exit()
+        try:
+            while self.quit_event.is_set():
+                nslf, nsfr = self.pre_iterate(self.pause_event)
+                if self.pause_event.is_set():
+                    self.iterate(nslf, nsfr)
+                else:
+                    pass
+                self.post_iterate()
+        except Exception as e:
+            print("ERROR {}: {}".format(self.name, e))
+        finally:
+            print("THREAD TERMINATED {}".format(self.name))

@@ -117,35 +117,37 @@ class MainControllerWrapper:
 
             """Initialize Threads"""
             # Thread events
-            self.pause_event = threading.Event()
             self.quit_event = threading.Event()
-            self.pause_event.clear() # Start with threads paused
+            self.pause_event = threading.Event()
+            self.log_event = threading.Event()
             self.quit_event.set()
+            self.pause_event.clear() # Start with threads paused
+            self.log_event.clear()
             self.startstamp = time.perf_counter() # Timesync logging between all threads
 
             # Thread 1/2: Left and right exoboots
-            self.exothread_left = ExobootThread(side_left, device_left, self.startstamp, name='exothread_left', daemon=True, pause_event=self.pause_event, quit_event=self.quit_event)
-            self.exothread_right = ExobootThread(side_right, device_right, self.startstamp, name='exothread_right', daemon=True, pause_event=self.pause_event, quit_event=self.quit_event)
+            self.exothread_left = ExobootThread(side_left, device_left, self.startstamp, "exothread_left", True, self.quit_event, self.pause_event, self.log_event)
+            self.exothread_right = ExobootThread(side_right, device_right, self.startstamp, "exothread_right", True,  self.quit_event, self.pause_event, self.log_event)
             self.exothread_left.start()
             self.exothread_right.start()
 
             # Thread 3: Gait State Estimator
-            self.gse_thread = GaitStateEstimator(self.startstamp, device_left, device_right, self.exothread_left, self.exothread_right, daemon=True, pause_event=self.pause_event, quit_event=self.quit_event)
+            self.gse_thread = GaitStateEstimator(self.startstamp, device_left, device_right, self.exothread_left, self.exothread_right, True, self.quit_event, self.pause_event, self.log_event)
             self.gse_thread.start()
 
             # Thread 4: Exoboot Remote Control
-            self.remote_thread = ExobootRemoteServerThread(self, self.startstamp, self.trial_type, pause_event=self.pause_event, quit_event=self.quit_event)
+            self.remote_thread = ExobootRemoteServerThread(self, self.startstamp, self.trial_type, self.quit_event, self.pause_event, self.log_event)
             self.remote_thread.set_target_IP(self.myIP)
             self.remote_thread.start()
 
             # Thread 5: Curses HUD
-            self.hud = HUDThread(self, "exohud_layout.json", napms=10, pause_event=self.pause_event, quit_event=self.quit_event)
+            self.hud = HUDThread(self, "exohud_layout.json", napms=25, pause_event=self.pause_event, quit_event=self.quit_event)
             self.hud.getwidget("si").settextline(0, "{}, {}, {}, {}".format(self.subjectID, self.trial_type, self.trial_cond, self.description))
             self.hud.getwidget("ii").settextline(0, str(self.myIP))
             self.hud.start()
 
             # LoggingNexus
-            self.loggingnexus = LoggingNexus(self.subjectID, self.file_prefix, self.exothread_left, self.exothread_right, self.gse_thread, pause_event=self.pause_event)
+            self.loggingnexus = LoggingNexus(self.subjectID, self.file_prefix, self.exothread_left, self.exothread_right, self.gse_thread, log_event=self.log_event)
 
             # ~~~Main Loop~~~
             self.softrtloop = FlexibleSleeper(period=1/self.clockspeed)
@@ -181,9 +183,9 @@ class MainControllerWrapper:
                     except Exception as e:
                         print("Exception: ", e)
 
-                    # Log data. Obeys pause_event
-                    self.loggingnexus.log()
-
+                    # Log data. Obeys log_event
+                    if self.log_event.is_set():
+                        self.loggingnexus.log()
 
                     # SoftRT pause
                     self.softrtloop.pause()

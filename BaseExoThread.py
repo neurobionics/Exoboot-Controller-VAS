@@ -22,10 +22,11 @@ class BaseThread(threading.Thread):
     Threads cannot lock out other threads from running
     """
     
-    def __init__(self, name='Base', daemon=True, pause_event=Type[threading.Event], quit_event=Type[threading.Event]):
+    def __init__(self, name='Base', daemon=True, quit_event=Type[threading.Event], pause_event=Type[threading.Event], log_event=Type[threading.Event]):
         super().__init__(name=name)
-        self.pause_event = pause_event
         self.quit_event = quit_event
+        self.pause_event = pause_event
+        self.log_event = log_event
         self.daemon = daemon
 
     def on_pre_run(self):
@@ -58,21 +59,22 @@ class BaseThread(threading.Thread):
 
         Fill out on_pre_run(), pre_iterate(), on_pre_pause(), iterate(), post_iterate(), and on_pre_exit()
         """
-        self.on_pre_run()
-        try:
-            while self.quit_event.is_set():
-                self.pre_iterate()
-                if not self.pause_event.is_set():
-                    self.on_pre_pause()
-                    self.pause_event.wait()
-                self.iterate()
-                self.post_iterate()
-            self.on_pre_exit()
-        except Exception as e:
-            print("Exception: ", e)
-            exc_type, exc_obj, exc_tb = sys.exc_info()
-            fname = os.path.split(exc_tb.tb_frame.f_code.co_filename)[1]
-            print(exc_type, fname, exc_tb.tb_lineno)
+        pass
+        # self.on_pre_run()
+        # try:
+        #     while self.quit_event.is_set():
+        #         self.pre_iterate()
+        #         if not self.pause_event.is_set():
+        #             self.on_pre_pause()
+        #             self.pause_event.wait()
+        #         self.iterate()
+        #         self.post_iterate()
+        #     self.on_pre_exit()
+        # except Exception as e:
+        #     print("Exception: ", e)
+        #     exc_type, exc_obj, exc_tb = sys.exc_info()
+        #     fname = os.path.split(exc_tb.tb_frame.f_code.co_filename)[1]
+        #     print(exc_type, fname, exc_tb.tb_lineno)
 
 
 if __name__ == "__main__":

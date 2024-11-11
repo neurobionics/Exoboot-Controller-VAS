@@ -6,9 +6,8 @@
 # Modified for VAS Vickrey protocol by: Nundini Rawal
 # Date: 06/13/2024
 
-import os, csv, time, copy, threading
-import numpy as np
-from typing import Type, Tuple
+import os, csv, time, threading
+from typing import Type
 
 from constants import DEV_ID_TO_ANK_ENC_SIGN_DICT, DEV_ID_TO_MOTOR_SIGN_DICT, TR_COEFS_PREFIX, EXOTHREAD_FIELDS
 from constants import MAX_ALLOWABLE_CURRENT, BIAS_CURRENT, EFFICIENCY, Kt, ENC_CLICKS_TO_DEG, SPINE_TIMING_PARAMS_DICT, GYRO_GAIN, ACCEL_GAIN, TEMPANTISPIKE, MAX_CASE_TEMP, MAX_WINDING_TEMP
@@ -16,66 +15,18 @@ from constants import EXOTHREAD_MAIN_FREQ, EXOTHREAD_LOGGING_FREQ
 
 from thermal import ThermalModel
 from BaseExoThread import BaseThread
-from utils import MovingAverageFilter, TrueAfter
 from SoftRTloop import FlexibleSleeper
+from utils import MovingAverageFilter, TrueAfter
 from AssistanceGenerator_new import AssistanceGenerator
 from TransmissionRatioGenerator import TransmissionRatioGenerator
 
 
-# class DumbExobootThread(BaseThread):
-#     """
-#     Testing purposes only!
-#     """
-#     def __init__(self, side, flexdevice, startstamp, name='dumbexobootthread', daemon=True, pause_event=Type[threading.Event], quit_event=Type[threading.Event]):
-#         pass
-
-#     def getval(self, what):
-#         pass
-
-#     def spool_belt(self):
-#         pass
-        
-#     def zeroProcedure(self):
-#         pass
-
-#     def read_sensors(self):
-#         pass
-
-#     def torque_2_current(self, torque, N) -> int:
-#         pass
-    
-#     def thermal_safety_checker(self):
-#         pass
-    
-#     def set_state_estimate(self, HS, stride_period, peak_torque, in_swing):
-#         pass
-
-#     def log_state_estimate(self):
-#         pass
-
-#     # Threading run() functions
-#     def on_pre_run(self):
-#         pass
-        
-#     def on_pre_pause(self):
-#         pass
-
-#     def pre_iterate(self):
-#         pass
-
-#     def iterate(self):
-#         pass
-
-#     def post_iterate(self):
-#         pass
-
-
 class ExobootThread(BaseThread):
-    def __init__(self, side, flexdevice, startstamp, name='exobootthread', daemon=True, pause_event=Type[threading.Event], quit_event=Type[threading.Event]):
+    def __init__(self, side, flexdevice, startstamp, name='exobootthread', daemon=True, quit_event=Type[threading.Event], pause_event=Type[threading.Event], log_event=Type[threading.Event]):
         """
         TODO make overview
         """
-        super().__init__(name=name, daemon=daemon, pause_event=pause_event, quit_event=quit_event)
+        super().__init__(name, daemon, quit_event, pause_event, log_event)
         # Necessary Inputs for Exo Class
         self.side = side
         self.flexdevice = flexdevice # In ref to flexsea Device class
@@ -328,7 +279,7 @@ class ExobootThread(BaseThread):
         # Soft real time loop
         self.softRTloop = FlexibleSleeper(period=1/EXOTHREAD_MAIN_FREQ)
         
-    def on_pre_pause(self):
+    def on_pause(self):
         """
         Runs once before pausing threads
         """
@@ -388,9 +339,27 @@ class ExobootThread(BaseThread):
         # self.thermal_safety_checker()
 
         # Send GSE data for logging
-        if self.loggingnexus and self.pause_event.is_set() and end_time - self.lastlogstamp > 1/EXOTHREAD_LOGGING_FREQ:
+        if self.loggingnexus and self.log_event.is_set() and end_time - self.lastlogstamp > 1/EXOTHREAD_LOGGING_FREQ:
             self.loggingnexus.append(self.name, self.data_dict)
             self.lastlogstamp = end_time
 
         # Soft real-time loop
         self.softRTloop.pause()
+
+    def run(self):
+        """
+        Main Loop
+        """
+        self.on_pre_run()
+        try:
+            while self.quit_event.is_set():
+                self.pre_iterate
+                if self.pause_event.is_set():
+                    self.iterate()
+                else:
+                    self.on_pause()
+                self.post_iterate()
+        except Exception as e:
+            print("ERROR {}: {}".format(self.name, e))
+        finally:
+            print("THREAD TERMINATED {}".format(self.name))

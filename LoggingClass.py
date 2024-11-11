@@ -24,10 +24,10 @@ class FilingCabinet:
         return self.subject_path
 
 class LoggingNexus:
-    def __init__(self, subjectID, file_prefix, *threads, pause_event=Type[threading.Event]):
+    def __init__(self, subjectID, file_prefix, *threads, log_event=Type[threading.Event]):
         self.subjectID = subjectID
         self.file_prefix = file_prefix
-        self.pause_event = pause_event
+        self.log_event = log_event
 
         self.thread_names = []
         self.thread_fields = {}
@@ -104,19 +104,18 @@ class LoggingNexus:
         Empty data from thread_stashes and write to corresponding file
         """
         try:
-            if self.pause_event.is_set():
-                pathname = self.filingcabinet.getpath()
-                for thread in self.thread_names:
-                    filename = self.filenames[thread]
-                    fullfilename = os.path.join(pathname, filename)
+            pathname = self.filingcabinet.getpath()
+            for thread in self.thread_names:
+                filename = self.filenames[thread]
+                fullfilename = os.path.join(pathname, filename)
 
-                    fields = self.thread_fields[thread]
-                    stash = self.thread_stashes[thread]
-                    stash_size = len(stash)
+                fields = self.thread_fields[thread]
+                stash = self.thread_stashes[thread]
+                stash_size = len(stash)
 
-                    with open(fullfilename, 'a') as f:
-                        writer = csv.DictWriter(f, fieldnames=fields, lineterminator='\n',quotechar='|')
-                        for _ in range(stash_size):
-                            writer.writerow(stash.popleft())
+                with open(fullfilename, 'a') as f:
+                    writer = csv.DictWriter(f, fieldnames=fields, lineterminator='\n',quotechar='|')
+                    for _ in range(stash_size):
+                        writer.writerow(stash.popleft())
         except Exception as e:
-            print("wqer", e)
+            print("log exception: {}".format(e))
