@@ -15,11 +15,11 @@ SUBJECT_DATA_PATH = "subject_data"
 
 
 """TRIAL TYPES AND CONDITIONS"""
-TRIAL_CONDS_DICT = {'VICKREY': ["WNE", "EPO", "NPO"],
-                    'VAS': [],
-                    'JND': ['SPLITLEG', 'SAMELEG'],
-                    'PREF': ['SLIDER', 'BUTTON', 'DIAL'],
-                    'ACCLIMATION': []
+TRIAL_CONDS_DICT = {"VICKREY": {"COND": ["WNE", "EPO", "NPO"], "DESC": []},
+                    "VAS": {"COND": [], "DESC": []},
+                    "JND": {"COND": ["SPLITLEG", "SAMELEG"], "DESC": ["UNIFORM", "STAIR"]},
+                    "PREF": {"COND": ["SLIDER", "BUTTON", "DIAL"], "DESC": []},
+                    "ACCLIMATION": {"COND": [], "DESC": []}
                     }
 
 
