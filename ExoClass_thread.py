@@ -22,7 +22,7 @@ from TransmissionRatioGenerator import TransmissionRatioGenerator
 
 
 class ExobootThread(BaseThread):
-    def __init__(self, side, flexdevice, startstamp, name='exobootthread', daemon=True, quit_event=Type[threading.Event], pause_event=Type[threading.Event], log_event=Type[threading.Event], overridecurrentbounds=False, min_current=0, max_current = 27500):
+    def __init__(self, side, flexdevice, startstamp, name='exobootthread', daemon=True, quit_event=Type[threading.Event], pause_event=Type[threading.Event], log_event=Type[threading.Event], overridedefaultcurrentbounds=False, min_current=0, max_current = 27500):
         """
         TODO make overview
         """
@@ -73,7 +73,7 @@ class ExobootThread(BaseThread):
         self.loggingnexus = None
 
         # Override current bounds set in constants
-        if overridecurrentbounds:
+        if overridedefaultcurrentbounds:
             self.min_current = min_current
             self.max_current = max_current
         else:

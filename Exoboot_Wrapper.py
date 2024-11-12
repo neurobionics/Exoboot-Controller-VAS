@@ -45,6 +45,10 @@ class MainControllerWrapper:
         self.usebackup = usebackup in ["true", "True", "1", "yes", "Yes"]
         self.file_prefix = "{}_{}_{}_{}".format(self.subjectID, self.trial_type, self.trial_cond, self.description)
 
+        # Allow slack mode when Vickrey WNE/NPO
+        allowoverride =  self.trial_type == "VICKREY" and self.trial_cond in ["WNE", "NPO"]
+        self.overridedefaultcurrentbounds = True if allowoverride else False
+
         # FilingCabinet
         self.filingcabinet = FilingCabinet(SUBJECT_DATA_PATH, self.subjectID)
         if self.usebackup:
@@ -107,14 +111,13 @@ class MainControllerWrapper:
             self.pause_event = threading.Event()
             self.log_event = threading.Event()
             self.quit_event.set()
-            print("BLAH, ", self.quit_event.is_set())
             self.pause_event.clear() # Start with threads paused
             self.log_event.clear()
             self.startstamp = time.perf_counter() # Timesync logging between all threads
 
             # Thread 1/2: Left and right exoboots
-            self.exothread_left = ExobootThread(side_left, device_left, self.startstamp, "exothread_left", True, self.quit_event, self.pause_event, self.log_event, overridecurrentbounds, 0, MAX_ALLOWABLE_CURRENT)
-            self.exothread_right = ExobootThread(side_right, device_right, self.startstamp, "exothread_right", True,  self.quit_event, self.pause_event, self.log_event)
+            self.exothread_left = ExobootThread(side_left, device_left, self.startstamp, "exothread_left", True, self.quit_event, self.pause_event, self.log_event, self.overridedefaultcurrentbounds, 0, MAX_ALLOWABLE_CURRENT)
+            self.exothread_right = ExobootThread(side_right, device_right, self.startstamp, "exothread_right", True,  self.quit_event, self.pause_event, self.log_event, self.overridedefaultcurrentbounds, 0, MAX_ALLOWABLE_CURRENT)
             self.exothread_left.start()
             self.exothread_right.start()
 
