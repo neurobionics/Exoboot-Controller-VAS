@@ -46,11 +46,11 @@ class GaitStateEstimator(BaseThread):
 
     def set_peak_torque_left(self, T):
         self.peak_torque_left = T
-        self.device_thread_left.peak_torque = self.peak_torque_left
+        # self.device_thread_left.peak_torque = self.peak_torque_left # TODO add conditions for continuous mode
 
     def set_peak_torque_right(self, T):
         self.peak_torque_right = T
-        self.device_thread_right.peak_torque = self.peak_torque_right
+        # self.device_thread_right.peak_torque = self.peak_torque_right # TODO add conditions for continuous mode
 
     def get_sensor_data(self):
         """TODO implement"""
