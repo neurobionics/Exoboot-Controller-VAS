@@ -36,6 +36,8 @@ class ExobootThread(BaseThread):
         self.motor_sign = DEV_ID_TO_MOTOR_SIGN_DICT[self.flexdevice.id]
         self.ank_enc_sign = DEV_ID_TO_ANK_ENC_SIGN_DICT[self.flexdevice.id]
 
+        print("MOTOR SIGN {}: {}\nANKLE SIGN {}: {}\n".format(self.side, self.motor_sign, self.side, self.ank_enc_sign))
+
         # Zeroes from homing procedure
         self.motor_angle_zero = 0
         self.ankle_angle_zero = 0
@@ -172,8 +174,8 @@ class ExobootThread(BaseThread):
         # Remove -1 for EB-51
         self.data_dict['gyro_z'] = data['gyroz'] * GYRO_GAIN
 
-        # Ankle Encoder
-        ankle_angle = (self.ank_enc_sign * data['ank_ang'] * ENC_CLICKS_TO_DEG) #- self.ankle_angle_zero
+        # Ankle Encoder with offset
+        ankle_angle = (self.ank_enc_sign * data['ank_ang'] * ENC_CLICKS_TO_DEG) - self.tr_gen.get_offset()
         self.data_dict['ankle_angle'] = ankle_angle
         self.data_dict['ankle_velocity'] = data['ank_vel'] / 10
 

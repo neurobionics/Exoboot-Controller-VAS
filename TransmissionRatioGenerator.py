@@ -36,6 +36,9 @@ class TransmissionRatioGenerator:
 
         return TR_curve_coeffs, motor_angle_curve_coeffs, max_dorsi_offset
     
+    def get_offset(self):
+        return self.offset
+
     def index_to_angle(self, i):
         """
         Linearly transforms index in [0, granularity] to angle in [min_ang, max_ang]
@@ -62,3 +65,12 @@ class TransmissionRatioGenerator:
         """
         N = self.TR_dict[max(min(int(self.angle_to_index(ang)), self.granularity - 1), 0)]
         return max(N, self.min_allowable_TR)
+
+
+if __name__ == "__main__":
+    prefix = "Transmission_Ratio_Characterization/default_TR_coefs_"
+    leftgen = TransmissionRatioGenerator("{}{}.csv".format(prefix,"left"), max_allowable_angle=180, min_allowable_angle=0, min_allowable_TR=10, granularity=10000)
+    rightgen = TransmissionRatioGenerator("{}{}.csv".format(prefix,"right"), max_allowable_angle=180, min_allowable_angle=0, min_allowable_TR=10, granularity=10000)
+
+    for angle in np.linspace(-20, 200, 11):
+        print("{}: {}, {}".format(angle, leftgen.get_TR(angle), rightgen.get_TR(angle)))
