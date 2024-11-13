@@ -11,14 +11,15 @@ import os, sys, csv, time, socket, threading
 from flexsea.device import Device
 from rtplot import client
 
-from LoggingClass import LoggingNexus, FilingCabinet
+from validator import Validator
 from ExoClass_thread import ExobootThread
 from GaitStateEstimator_thread import GaitStateEstimator
 from exoboot_remote_control import ExobootRemoteServerThread
+from LoggingClass import LoggingNexus, FilingCabinet
 from curses_HUD.hud_thread import HUDThread
 
 from SoftRTloop import FlexibleSleeper
-from constants import DEV_ID_TO_SIDE_DICT, DEFAULT_KP, DEFAULT_KI, DEFAULT_KD, DEFAULT_FF, RTPLOT_IP, TRIAL_CONDS_DICT, SUBJECT_DATA_PATH
+from constants import DEV_ID_TO_SIDE_DICT, DEFAULT_KP, DEFAULT_KI, DEFAULT_KD, DEFAULT_FF, RTPLOT_IP, TRIAL_CONDS_DICT, SUBJECT_DATA_PATH, MAX_ALLOWABLE_CURRENT
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "curses_HUD"))
 from curses_HUD import hud_thread
@@ -44,22 +45,9 @@ class MainControllerWrapper:
         self.usebackup = usebackup in ["true", "True", "1", "yes", "Yes"]
         self.file_prefix = "{}_{}_{}_{}".format(self.subjectID, self.trial_type, self.trial_cond, self.description)
 
-        # Validate trial_type and trial_cond
-        self.valid_trial_typeconds = TRIAL_CONDS_DICT
-        try:
-            if not self.trial_type in self.valid_trial_typeconds.keys():
-                raise Exception("Invalid trial type: {} not in {}".format(self.trial_type, self.valid_trial_typeconds.keys()))
-
-            valid_conds = self.valid_trial_typeconds[self.trial_type]
-            if valid_conds and self.trial_cond not in valid_conds:
-                raise Exception("Invalid trial cond: {} not in {}".format(trial_cond, valid_conds))
-        except:
-            print("\nINCORRECT ARGUMENTS\n")
-            print("How to run: python Exoboot_Wrapper.py subjectID trial_type trial_cond description")
-            print("\tsubjectID: name of subject")
-            print("\ttrial_type: [trial_conds]: pick from VICKREY: [WNE, EPO, NPO], JND: [SPLITLEG, SAMELEG], PREF: [SLIDER, BTN]")
-            print("\t\tother trial_types can have arbitrary trial_cond")
-            print("\tdescription: any additional notes")
+        # Allow slack mode when Vickrey WNE/NPO
+        allowoverride =  self.trial_type == "VICKREY" and self.trial_cond in ["WNE", "NPO"]
+        self.overridedefaultcurrentbounds = True if allowoverride else False
 
         # FilingCabinet
         self.filingcabinet = FilingCabinet(SUBJECT_DATA_PATH, self.subjectID)
@@ -123,14 +111,13 @@ class MainControllerWrapper:
             self.pause_event = threading.Event()
             self.log_event = threading.Event()
             self.quit_event.set()
-            print("BLAH, ", self.quit_event.is_set())
             self.pause_event.clear() # Start with threads paused
             self.log_event.clear()
             self.startstamp = time.perf_counter() # Timesync logging between all threads
 
             # Thread 1/2: Left and right exoboots
-            self.exothread_left = ExobootThread(side_left, device_left, self.startstamp, "exothread_left", True, self.quit_event, self.pause_event, self.log_event)
-            self.exothread_right = ExobootThread(side_right, device_right, self.startstamp, "exothread_right", True,  self.quit_event, self.pause_event, self.log_event)
+            self.exothread_left = ExobootThread(side_left, device_left, self.startstamp, "exothread_left", True, self.quit_event, self.pause_event, self.log_event, self.overridedefaultcurrentbounds, 0, MAX_ALLOWABLE_CURRENT)
+            self.exothread_right = ExobootThread(side_right, device_right, self.startstamp, "exothread_right", True,  self.quit_event, self.pause_event, self.log_event, self.overridedefaultcurrentbounds, 0, MAX_ALLOWABLE_CURRENT)
             self.exothread_left.start()
             self.exothread_right.start()
 
@@ -221,5 +208,8 @@ class MainControllerWrapper:
 if __name__ == "__main__":
     assert len(sys.argv) - 1 == 5
     _, subjectID, trial_type, trial_cond, description, usebackup= sys.argv
+
+    # Validate args
+    Validator(subjectID, trial_type, trial_cond, description, usebackup)
+
     MainControllerWrapper(subjectID, trial_type, trial_cond, description, usebackup, streamingfrequency=1000).run()
-    # TODO move gui file to subject_data folder tree

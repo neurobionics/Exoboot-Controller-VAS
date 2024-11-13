@@ -22,7 +22,7 @@ from TransmissionRatioGenerator import TransmissionRatioGenerator
 
 
 class ExobootThread(BaseThread):
-    def __init__(self, side, flexdevice, startstamp, name='exobootthread', daemon=True, quit_event=Type[threading.Event], pause_event=Type[threading.Event], log_event=Type[threading.Event]):
+    def __init__(self, side, flexdevice, startstamp, name='exobootthread', daemon=True, quit_event=Type[threading.Event], pause_event=Type[threading.Event], log_event=Type[threading.Event], overridedefaultcurrentbounds=False, min_current=0, max_current = 27500):
         """
         TODO make overview
         """
@@ -74,6 +74,14 @@ class ExobootThread(BaseThread):
         self.lastlogstamp = time.perf_counter()
         self.loggingnexus = None
 
+        # Override current bounds set in constants
+        if overridedefaultcurrentbounds:
+            self.min_current = min_current
+            self.max_current = max_current
+        else:
+            self.min_current = BIAS_CURRENT
+            self.max_current = MAX_ALLOWABLE_CURRENT
+
     def getval(self, what):
         """
         Return value from data_dict given what
@@ -81,7 +89,7 @@ class ExobootThread(BaseThread):
         return self.data_dict[what]
 
     def spool_belt(self):
-        self.flexdevice.command_motor_current(self.motor_sign * BIAS_CURRENT)
+        self.flexdevice.command_motor_current(self.motor_sign * self.min_current)
         time.sleep(0.5)
         
     def zeroProcedure(self):
@@ -286,7 +294,7 @@ class ExobootThread(BaseThread):
         Runs once before pausing threads
         """
         # Send bias current
-        self.flexdevice.command_motor_current(self.motor_sign * BIAS_CURRENT)
+        self.flexdevice.command_motor_current(self.motor_sign * self.min_current)
 
     def pre_iterate(self):
         """
@@ -316,7 +324,7 @@ class ExobootThread(BaseThread):
         self.data_dict['current_command'] = current_command
         
         # Clamp current between bias and max allowable current
-        vetted_current = max(min(current_command, MAX_ALLOWABLE_CURRENT), BIAS_CURRENT)
+        vetted_current = max(min(current_command, self.max_current), self.min_current)
         
         # print("ITERATE: ", self.peak_torque, torque_command, current_command, vetted_current)
 
