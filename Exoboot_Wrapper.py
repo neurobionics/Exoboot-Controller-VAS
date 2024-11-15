@@ -19,7 +19,7 @@ from LoggingClass import LoggingNexus, FilingCabinet
 from curses_HUD.hud_thread import HUDThread
 
 from SoftRTloop import FlexibleSleeper
-from constants import DEV_ID_TO_SIDE_DICT, DEFAULT_KP, DEFAULT_KI, DEFAULT_KD, DEFAULT_FF, RTPLOT_IP, TRIAL_CONDS_DICT, SUBJECT_DATA_PATH, MAX_ALLOWABLE_CURRENT
+from constants import *
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "curses_HUD"))
 from curses_HUD import hud_thread
@@ -33,21 +33,21 @@ class MainControllerWrapper:
 
     Allows for high level interaction with flexsea controller
     """
-    def __init__(self, subjectID, trial_type, trial_cond, description, usebackup, streamingfrequency=1000, clockspeed=0.2):
+    def __init__(self, subjectID=None, trial_type=None, trial_cond=None, description=None, usebackup=False, continuousmode = False, overridedefaultcurrentbounds=False, streamingfrequency=1000, clockspeed=0.2):
         self.streamingfrequency = streamingfrequency
         self.clockspeed = clockspeed
 
         # Subject info
         self.subjectID = subjectID
-        self.trial_type = trial_type.upper()
-        self.trial_cond = trial_cond.upper()
+        self.trial_type = trial_type
+        self.trial_cond = trial_cond
         self.description = description
-        self.usebackup = usebackup in ["true", "True", "1", "yes", "Yes"]
+        self.usebackup = usebackup
         self.file_prefix = "{}_{}_{}_{}".format(self.subjectID, self.trial_type, self.trial_cond, self.description)
 
-        # Allow slack mode when Vickrey WNE/NPO
-        allowoverride =  self.trial_type == "VICKREY" and self.trial_cond in ["WNE", "NPO"]
-        self.overridedefaultcurrentbounds = True if allowoverride else False
+        # Exo alternative modes
+        self.continuousmode = continuousmode
+        self.overridedefaultcurrentbounds = overridedefaultcurrentbounds
 
         # FilingCabinet
         self.filingcabinet = FilingCabinet(SUBJECT_DATA_PATH, self.subjectID)
@@ -55,7 +55,7 @@ class MainControllerWrapper:
             loadstatus = self.filingcabinet.loadbackup(self.file_prefix, rule="newest")
             print("Backup Load Status: {}".format("SUCCESS" if loadstatus else "FAILURE"))
 
-        # Get own IP address for GRPC
+        # Get IP for GRPC server
         s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         s.connect(('10.255.255.255', 1))
         self.myIP = s.getsockname()[0] + ":50055"
@@ -116,13 +116,13 @@ class MainControllerWrapper:
             self.startstamp = time.perf_counter() # Timesync logging between all threads
 
             # Thread 1/2: Left and right exoboots
-            self.exothread_left = ExobootThread(side_left, device_left, self.startstamp, "exothread_left", True, self.quit_event, self.pause_event, self.log_event, self.overridedefaultcurrentbounds, 0, MAX_ALLOWABLE_CURRENT)
-            self.exothread_right = ExobootThread(side_right, device_right, self.startstamp, "exothread_right", True,  self.quit_event, self.pause_event, self.log_event, self.overridedefaultcurrentbounds, 0, MAX_ALLOWABLE_CURRENT)
+            self.exothread_left = ExobootThread(side_left, device_left, self.startstamp, "exothread_left", True, self.quit_event, self.pause_event, self.log_event, self.overridedefaultcurrentbounds, ZERO_CURRENT, MAX_ALLOWABLE_CURRENT)
+            self.exothread_right = ExobootThread(side_right, device_right, self.startstamp, "exothread_right", True,  self.quit_event, self.pause_event, self.log_event, self.overridedefaultcurrentbounds, ZERO_CURRENT, MAX_ALLOWABLE_CURRENT)
             self.exothread_left.start()
             self.exothread_right.start()
 
             # Thread 3: Gait State Estimator
-            self.gse_thread = GaitStateEstimator(self.startstamp, device_left, device_right, self.exothread_left, self.exothread_right, daemon=True, quit_event=self.quit_event, pause_event=self.pause_event, log_event=self.log_event)
+            self.gse_thread = GaitStateEstimator(self.startstamp, device_left, device_right, self.exothread_left, self.exothread_right, daemon=True, continuousmode=self.continuousmode, quit_event=self.quit_event, pause_event=self.pause_event, log_event=self.log_event)
             self.gse_thread.start()
 
             # Thread 4: Exoboot Remote Control
@@ -212,4 +212,17 @@ if __name__ == "__main__":
     # Validate args
     Validator(subjectID, trial_type, trial_cond, description, usebackup)
 
-    MainControllerWrapper(subjectID, trial_type, trial_cond, description, usebackup, streamingfrequency=1000).run()
+    # Set controller kwargs
+    controller_kwargs = {"subjectID": subjectID,
+                         "trial_type": trial_type.upper(),
+                         "trial_cond": trial_cond.upper(),
+                         "description": description,
+                         "usebackup": usebackup in ["true", "True", "1", "yes", "Yes"]}
+
+    # Allow GSE to alter peak torque during strides
+    controller_kwargs["continuousmode"] = controller_kwargs["trial_type"] == "PREF" and controller_kwargs["trial_cond"] in ["SLIDER", "DIAL"]
+
+    # Use alternate upper and lower current bounds
+    controller_kwargs["overridedefaultcurrentbounds"] = controller_kwargs["trial_type"] == "VICKREY" and controller_kwargs["trial_cond"] in ["WNE", "NPO"]
+
+    MainControllerWrapper(**controller_kwargs).run()

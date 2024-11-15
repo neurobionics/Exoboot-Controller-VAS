@@ -71,6 +71,7 @@ EXOTHREAD_LOGGING_FREQ = 250 # Hz
 
 
 """Safety Limits"""
+ZERO_CURRENT = 0 # mA
 MAX_ALLOWABLE_CURRENT = 27000 # mA
 
 

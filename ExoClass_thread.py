@@ -22,7 +22,7 @@ from TransmissionRatioGenerator import TransmissionRatioGenerator
 
 
 class ExobootThread(BaseThread):
-    def __init__(self, side, flexdevice, startstamp, name='exobootthread', daemon=True, quit_event=Type[threading.Event], pause_event=Type[threading.Event], log_event=Type[threading.Event], overridedefaultcurrentbounds=False, min_current=0, max_current = 27500):
+    def __init__(self, side, flexdevice, startstamp, name='exobootthread', daemon=True, quit_event=Type[threading.Event], pause_event=Type[threading.Event], log_event=Type[threading.Event], overridedefaultcurrentbounds=False, min_current=0, max_current=27500):
         """
         TODO make overview
         """
@@ -89,7 +89,7 @@ class ExobootThread(BaseThread):
         return self.data_dict[what]
 
     def spool_belt(self):
-        self.flexdevice.command_motor_current(self.motor_sign * self.min_current)
+        self.flexdevice.command_motor_current(self.motor_sign * BIAS_CURRENT)
         time.sleep(0.5)
         
     def zeroProcedure(self):

@@ -17,13 +17,18 @@ from SoftRTloop import FlexibleSleeper
 from constants import VICON_IP, GSETHREAD_FIELDS
 
 class GaitStateEstimator(BaseThread):
-    def __init__(self, startstamp, device_left, device_right, thread_left, thread_right, name='GSE', daemon=True, quit_event=Type[threading.Event], pause_event=Type[threading.Event], log_event=Type[threading.Event]):
-        # Threading
+    """
+    Description
+    """
+    def __init__(self, startstamp, device_left, device_right, thread_left, thread_right, name='GSE', daemon=True, continuousmode=False, quit_event=Type[threading.Event], pause_event=Type[threading.Event], log_event=Type[threading.Event]):
         super().__init__(name, daemon, quit_event, pause_event, log_event)
         self.device_left = device_left
         self.device_right = device_right
         self.device_thread_left = thread_left
         self.device_thread_right = thread_right
+
+        # Operating mode
+        self.continuousmode = continuousmode
 
         # Peak torques set by GUI
         self.peak_torque_left = 0
@@ -46,11 +51,13 @@ class GaitStateEstimator(BaseThread):
 
     def set_peak_torque_left(self, T):
         self.peak_torque_left = T
-        # self.device_thread_left.peak_torque = self.peak_torque_left # TODO add conditions for continuous mode
+        if self.continuousmode:
+            self.device_thread_left.peak_torque = self.peak_torque_left
 
     def set_peak_torque_right(self, T):
         self.peak_torque_right = T
-        # self.device_thread_right.peak_torque = self.peak_torque_right # TODO add conditions for continuous mode
+        if self.continuousmode:
+            self.device_thread_right.peak_torque = self.peak_torque_right
 
     def get_sensor_data(self):
         """TODO implement"""
