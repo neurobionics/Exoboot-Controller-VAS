@@ -147,9 +147,9 @@ class MainControllerWrapper:
                     # Print if no hud
                     try:
                         # if not self.hud.isrunning:
-                        print("Peak Torque Left: {}\nPeak Torque Right: {}".format(self.loggingnexus.get(self.exothread_left.name, "peak_torque"), self.loggingnexus.get(self.exothread_right.name, "peak_torque")))
-                        print("Case Temp Left: {}\nCase Temp Right: {}\n".format(self.loggingnexus.get(self.exothread_left.name, "temperature"), self.loggingnexus.get(self.exothread_right.name, "temperature")))
-                        print("Freq Left: {}\nFreq Right: {}\n".format(self.loggingnexus.get(self.exothread_left.name, "thread_freq"), self.loggingnexus.get(self.exothread_right.name, "thread_freq")))
+                        print("Peak Torque Left/Right: ({}, {})".format(self.loggingnexus.get(self.exothread_left.name, "peak_torque"), self.loggingnexus.get(self.exothread_right.name, "peak_torque")))
+                        print("Case Temp Left/Right: ({}, {})".format(self.loggingnexus.get(self.exothread_left.name, "temperature"), self.loggingnexus.get(self.exothread_right.name, "temperature")))
+                        print("BattV Left/Right: ({}, {})\n".format(self.loggingnexus.get(self.exothread_left.name, "battery_voltage"), self.loggingnexus.get(self.exothread_right.name, "battery_voltage")))
                     except:
                         pass
 
