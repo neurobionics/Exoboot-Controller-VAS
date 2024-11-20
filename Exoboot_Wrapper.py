@@ -96,10 +96,10 @@ class MainControllerWrapper:
         Start All Threads
         """
         try:
-            # # Initializing the Exo
+            # Initializing the Exo
             side_left, device_left, side_right, device_right = self.get_active_ports()
 
-            # # Start device streaming and set gains:
+            # Start device streaming and set gains:
             device_left.start_streaming(self.streamingfrequency)
             device_right.start_streaming(self.streamingfrequency)
             device_left.set_gains(DEFAULT_KP, DEFAULT_KI, DEFAULT_KD, 0, 0, DEFAULT_FF)

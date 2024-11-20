@@ -1,52 +1,61 @@
-# MAIN SCRIPT TO PERFORM TR CHARACTERIZATION 
+import os, sys, csv, threading
 
-import csv
-import threading
 import numpy as np
-
 from time import time, sleep
 
-# from flexsea import flexsea as flex
-# from flexsea import fxUtils as fxu
-# from flexsea import fxEnums as fxe
 from flexsea.device import Device
 
-import sys
 sys.path.insert(0, '/home/pi/VAS_exoboot_controller/')
-from ExoClass_new import ExoObject
-import config
+
+
+from constants import *
+
 
 def get_active_ports():
-    """To use the exos, it is necessary to define the ports they are going to be connected to. 
-    These are defined in the ports.yaml file in the flexsea repo.
-     """
-    # port_cfg_path = '/home/pi/VAS_exoboot_controller/ports.yaml'
-    print("in get_active_ports")
-    device_1 = Device(port="/dev/ttyACM0", firmwareVersion="7.2.0", baudRate=230400, logLevel=6)
-    device_2 = Device(port="/dev/ttyACM1", firmwareVersion="7.2.0", baudRate=230400, logLevel=6)
-    
-    # Establish a connection between the computer and the device    
-    device_1.open()
-    device_2.open()
-    
-    print("Dev1", device_1.id, device_1.connected)
-    print("Dev2", device_2.id, device_2.connected)
-    print("opened comm with device")
-    
-    if(device_1.id in config.LEFT_EXO_DEV_IDS):
-        side_1  = 'left'
-        side_2 = 'right'
-    elif(device_1.id in config.RIGHT_EXO_DEV_IDS):
-        side_1 = 'right' 
-        side_2 = 'left'
-    
-    print("device connected and active ports recieved")
+    """
+    To use the exos, it is necessary to define the ports they are going to be connected to. 
+    These are defined in the ports.yaml file in the flexsea repo
+    """
+    try:
+        device_1 = Device(port="/dev/ttyACM0", firmwareVersion="7.2.0", baudRate=230400, logLevel=3)
+        device_1.open()
+        side_1 = DEV_ID_TO_SIDE_DICT[device_1.id]
+        print("Device 1: {}, {}".format(device_1.id, side_1))
+    except:
+        side_1 = None
+        device_1 = None
+        print("DEVICE 1 NOT FOUND PROCEEDING")
 
-    return side_1, device_1, side_2, device_2
+    try:
+        device_2 = Device(port="/dev/ttyACM1", firmwareVersion="7.2.0", baudRate=230400, logLevel=3)
+        device_2.open()
+        side_2 = DEV_ID_TO_SIDE_DICT[device_2.id]
+        print("Device 2: {}, {}".format(device_2.id, side_2))
+    except:
+        side_2 = None
+        device_2 = None
+        print("DEVICE 2 NOT FOUND PROCEEDING")
+
+    if not (device_1 or device_2):
+        print("NO DEVICES")
+        quit()
+
+    # Always assign first pair of outputs to left side
+    if side_1 == "left" or side_2 == "right":
+        return side_1, device_1, side_2, device_2
+    elif side_1 == "right" or side_2 == "left":
+        return side_2, device_2, side_1, device_1
+    else:
+        raise Exception("Invalid sides for devices: Check DEV_ID_TO_SIDE_DICT!")
 
 class TR_Characterizer:
-    def __init__(self, exo):
-        self.exo = exo
+    def __init__(self, side, flexdevice):
+        self.side = side
+        self.flexdevice = flexdevice
+
+        self.motor_sign = DEV_ID_TO_MOTOR_SIGN_DICT[self.flexdevice.id]
+        self.ank_enc_sign = DEV_ID_TO_ANK_ENC_SIGN_DICT[self.flexdevice.id]
+
         self.full_filename = "Transmission_Ratio_Characterization/default_TR_fulldata_{}.csv".format(self.exo.side)
         self.coefs_filename = "Transmission_Ratio_Characterization/default_TR_coefs_{}.csv".format(self.exo.side)
 
@@ -65,24 +74,20 @@ class TR_Characterizer:
         # conduct transmission ratio curve characterization procedure and store curve
         self.motorAngleVec = np.array([])
         self.ankleAngleVec = np.array([])
-        startTime = time()
-
-        pullCurrent = 1000  # magnitude only, not adjusted based on leg side yet
-        desCurrent = pullCurrent * self.exo.exo_left_or_right_sideMultiplier
         
         iterations = 0
         with open(self.full_filename, "w", newline="\n") as fd:
             writer = csv.writer(fd)
-            self.exo.device.command_motor_current(desCurrent)
+            self.flexdevice.command_motor_current(self.motor_sign * BIAS_CURRENT)
             
             while not self.kill:
-                act_pack = self.exo.device.read()
+                act_pack = self.flexdevice.read()
                 # fxu.clear_terminal()
                 iterations += 1
 
                 # Ankle direction convention:   plantarflexion: increasing angle, dorsiflexion: decreasing angle
-                current_ank_angle = (self.exo.ank_enc_sign * act_pack['ank_ang'] * self.exo.ANK_ENC_CLICKS_TO_DEG) - self.offset # deg
-                current_mot_angle = self.exo.exo_left_or_right_sideMultiplier * act_pack['mot_ang'] * self.exo.ANK_ENC_CLICKS_TO_DEG # deg
+                current_ank_angle = (self.ank_enc_sign * act_pack['ank_ang'] * ENC_CLICKS_TO_DEG) - self.offset # deg
+                current_mot_angle = self.motor_sign * act_pack['mot_ang'] * ENC_CLICKS_TO_DEG # deg
 
                 act_current = act_pack['mot_cur']
                 currentTime = time()
@@ -96,7 +101,7 @@ class TR_Characterizer:
                 print("\nPress any key to stop characterization")
                 sleep(1/250)
 
-                writer.writerow([iterations, desCurrent, act_current, current_mot_angle, current_ank_angle])
+                writer.writerow([iterations, BIAS_CURRENT, act_current, current_mot_angle, current_ank_angle])
 
         # fit a 3rd order polynomial to the ankle and motor angles
         self.motor_angle_curve_coeffs = np.polyfit(self.ankleAngleVec, self.motorAngleVec, 3)
@@ -111,7 +116,7 @@ class TR_Characterizer:
         print(self.offset)
         
         print("Exiting curve characterization procedure")
-        self.exo.device.command_motor_current(0)
+        self.flexdevice.command_motor_current(0)
         sleep(0.5)
         
         with open(self.coefs_filename, "w") as file:
@@ -123,16 +128,12 @@ class TR_Characterizer:
         print("Collect Finished\n")
         
     def start(self):
-        pullCurrent = 1000  # magnitude only, not adjusted based on leg side yet
-        desCurrent = pullCurrent * self.exo.exo_left_or_right_sideMultiplier
-        self.exo.device.command_motor_current(desCurrent)
-
-        # self.exo.fxs.send_motor_command(self.exo.dev_id, fxe.FX_CURRENT, desCurrent)
+        self.flexdevice.command_motor_current(self.motor_sign * BIAS_CURRENT)
         
         input("Set ankle angle to maximum dorsiflexion hardstop. Press any key to lock in angle/offset at this ankle position")
-        act_pack = self.exo.device.read()
-        self.offset = self.exo.ank_enc_sign * act_pack['ank_ang'] * self.exo.ANK_ENC_CLICKS_TO_DEG 
-        print(self.offset)
+        act_pack = self.flexdevice.read()
+        self.offset = self.ank_enc_sign * act_pack['ank_ang'] * ENC_CLICKS_TO_DEG
+        print("OFFSET: ", self.offset)
 
         input("Press any key to continue")
         self.thread = threading.Thread(target=self.collect, args=())
@@ -144,36 +145,22 @@ class TR_Characterizer:
 
 
 if __name__ == "__main__":
-    # Recieve active ports that the exoskeletons are connected to
-    # fxs = flex.FlexSEA()
-    
-    side_1, device_1, side_2, device_2 = get_active_ports()
-    print(side_1, device_1.id, side_2, device_2.id)
+    # Get active ports
+    side_left, device_left, side_right, device_right = get_active_ports()
     
     # start device streaming and set gains:
-    frequency = 1000
-    device_1.start_streaming(frequency)
-    device_2.start_streaming(frequency)
-    device_1.set_gains(config.DEFAULT_KP, config.DEFAULT_KI, config.DEFAULT_KD, 0, 0, config.DEFAULT_FF)
-    device_2.set_gains(config.DEFAULT_KP, config.DEFAULT_KI, config.DEFAULT_KD, 0, 0, config.DEFAULT_FF)
-
-    # Instantiate exo object for both left and right sides
-    if(side_1 == 'left'):
-        exo_left = ExoObject(side = side_1, device = device_1)
-        exo_right = ExoObject(side = side_2, device = device_2)
-    else:
-        exo_left = ExoObject(side=side_2, device = device_2)
-        exo_right = ExoObject(side=side_1, device = device_1)
-    
-    # Collect the transmission ratio & motor-angle coefficients anytime the belts are replaced
     print("Starting TR Characterization")
-    char_Left = TR_Characterizer(exo_left)
-    char_Left.start()
-    input() #"Press any key to stop TR characterization of LEFT exo"
-    char_Left.stop()
+    frequency = 1000
+    for device in [device_left, device_right]:
+        try:
+            device.start_streaming(frequency)
+            device.set_gains(DEFAULT_KP, DEFAULT_KI, DEFAULT_KD, 0, 0, DEFAULT_FF)
 
-    char_Right = TR_Characterizer(exo_right)
-    char_Right.start()
-    input() #"Press any key to stop TR characterization of RIGHT exo"
-    char_Right.stop()
+            characterizer = TR_Characterizer(device_left)
+            characterizer.start()
+            input() #"Press any key to stop TR characterization of LEFT exo"
+            characterizer.stop()
+
+        except:
+            pass
     print("TR Characterization successful. Goodbye")

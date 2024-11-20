@@ -35,8 +35,7 @@ class ExobootThread(BaseThread):
         """TEST TO ENSURE CORRECT DIRECTIONS BEFORE RUNNING IN FULL"""
         self.motor_sign = DEV_ID_TO_MOTOR_SIGN_DICT[self.flexdevice.id]
         self.ank_enc_sign = DEV_ID_TO_ANK_ENC_SIGN_DICT[self.flexdevice.id]
-
-        print("MOTOR SIGN {}: {}\nANKLE SIGN {}: {}\n".format(self.side, self.motor_sign, self.side, self.ank_enc_sign))
+        # print("MOTOR SIGN {}: {}\nANKLE SIGN {}: {}\n".format(self.side, self.motor_sign, self.side, self.ank_enc_sign))
 
         # Zeroes from homing procedure
         self.motor_angle_zero = 0
