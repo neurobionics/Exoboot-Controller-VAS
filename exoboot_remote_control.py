@@ -68,6 +68,11 @@ class ExobootRemoteClient:
         torque_msg = pb2.torques(peak_torque_left=peak_torque_left, peak_torque_right=peak_torque_right)
         receipt = self.stub.set_torque(torque_msg)
         return receipt
+    
+    def getpack(self, thread, field):
+        req_log = pb2.req_log(thread=thread, field=field)
+        ret_val = self.stub.getpack(req_log)
+        return ret_val.val
 
 # Vickrey Specific
     def call(self, t, subject_bid, user_win_flag, current_payout, total_winnings):
@@ -123,6 +128,12 @@ class ExobootRemoteClient:
         compmsg = pb2.comparison(pres=pres, prop=prop, T_ref=T_ref, T_comp=T_comp, truth=truth, answer=answer)
         response = self.stub.comparison_result(compmsg)
         return response
+    
+    def comparison_result_stair(self, pres, prop, T_ref, T_comp, truth, answer):
+        # TODO: modify grpc msg to server to include stair info
+        compmsg = pb2.comparison_stair(pres=pres, prop=prop, T_ref=T_ref, T_comp=T_comp, truth=truth, answer=answer)
+        response = self.stub.comparison_result_stair(compmsg)
+        return response
 
 # PREF Specific
     def pref_result(self, pres, torque):
@@ -137,12 +148,13 @@ class ExobootCommServicer(pb2_grpc.exoboot_over_networkServicer):
 
     This class is rpi side
     """
-    def __init__(self, mainwrapper, startstamp, filingcabinet, usebackup):
+    def __init__(self, mainwrapper, startstamp, filingcabinet, usebackup, quit_event):
         super().__init__()
         self.mainwrapper = mainwrapper
         self.startstamp = startstamp
         self.filingcabinet = filingcabinet
         self.usebackup = usebackup
+        self.quit_event = quit_event
     
         # file prefix from mainwrapper
         self.file_prefix = self.mainwrapper.file_prefix
@@ -183,6 +195,7 @@ class ExobootCommServicer(pb2_grpc.exoboot_over_networkServicer):
                     comparisonname = "{}_{}".format(self.file_prefix, "comparison")
                     comparisonpath = self.filingcabinet.newfile(comparisonname, "csv", dictkey="comparison")
 
+                    # TODO: Add extra logging on pi here for kaernbach (check file_prefix for trial cond)
                     with open(comparisonpath, 'a', newline='') as f:
                         csv.writer(f).writerow(['pres', 'prop', 'T_ref', 'T_comp', 'truth', 'higher'])
                 
@@ -214,7 +227,7 @@ class ExobootCommServicer(pb2_grpc.exoboot_over_networkServicer):
         """
         Kill rpi from Client
         """
-        self.mainwrapper.quit_event.set()
+        self.quit_event.set()
         return pb2.receipt(received=True)
 
 # Exoboot Controller Commands
@@ -271,6 +284,16 @@ class ExobootCommServicer(pb2_grpc.exoboot_over_networkServicer):
         self.mainwrapper.gse_thread.set_peak_torque_right(peak_torque_right)
 
         return pb2.receipt(received=True)
+    
+    def getpack(self, req_log, context):
+        """
+        Get value from LoggingNexus
+        """
+        thread = req_log.thread
+        field = req_log.field
+        val = self.mainwrapper.loggingnexus.get(thread, field)
+
+        return pb2.ret_val(val=val)
 
 # Vickrey Auction Specific
     def call(self, resultmsg, context):
@@ -383,6 +406,23 @@ class ExobootCommServicer(pb2_grpc.exoboot_over_networkServicer):
             csv.writer(f).writerow(datalist)
         return pb2.receipt(received=True)
     
+    # TODO: add in custom grpc msg
+    def comparison_result_stair(self, compmsg, context):
+        pres = compmsg.pres
+        prop = compmsg.prop
+        T_ref = compmsg.T_ref
+        T_comp = compmsg.T_comp
+        truth = compmsg.truth
+        answer = compmsg.answer
+
+        print("Received comparison results: {}, {}, {}, {}, {}, {}".format(pres, prop, T_ref, T_comp, truth, answer))
+        datalist = [pres, prop, T_ref, T_comp, truth, answer]   # TODO: change data list to include stair info
+
+        comparisonpath = self.filingcabinet.getpath("comparison")
+        with open(comparisonpath, 'a', newline='') as f:
+            csv.writer(f).writerow(datalist)
+        return pb2.receipt(received=True)
+    
 # Pref Specific
     def pref_result(self, prefmsg, context):
         pres = prefmsg.pres
@@ -405,10 +445,10 @@ class ExobootRemoteServerThread(BaseThread):
 
     Does not pause
     """
-    def __init__(self, mainwrapper, startstamp, filingcabinet, name='exoboot_remote_thread', usebackup=False, daemon=True, quit_event=Type[threading.Event], pause_event=Type[threading.Event], log_event=Type[threading.Event]):
-        super().__init__(name, daemon, quit_event, pause_event,log_event)
+    def __init__(self, mainwrapper, startstamp, filingcabinet, usebackup=False, name='exoboot_remote_thread', daemon=True, pause_event=Type[threading.Event], quit_event=Type[threading.Event]):
+        super().__init__(name=name, daemon=daemon, pause_event=pause_event, quit_event=quit_event)
         self.mainwrapper = mainwrapper
-        self.exoboot_remote_servicer = ExobootCommServicer(self.mainwrapper, startstamp, filingcabinet, usebackup)
+        self.exoboot_remote_servicer = ExobootCommServicer(self.mainwrapper, startstamp, filingcabinet, usebackup=usebackup, quit_event=self.quit_event)
         self.target_IP = ''
     
     def set_target_IP(self, target_IP):

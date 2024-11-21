@@ -75,6 +75,11 @@ class exoboot_over_networkStub(object):
                 request_serializer=exoboot__remote__pb2.torques.SerializeToString,
                 response_deserializer=exoboot__remote__pb2.receipt.FromString,
                 _registered_method=True)
+        self.getpack = channel.unary_unary(
+                '/exoboot_over_network/getpack',
+                request_serializer=exoboot__remote__pb2.req_log.SerializeToString,
+                response_deserializer=exoboot__remote__pb2.ret_val.FromString,
+                _registered_method=True)
         self.call = channel.unary_unary(
                 '/exoboot_over_network/call',
                 request_serializer=exoboot__remote__pb2.result.SerializeToString,
@@ -155,6 +160,12 @@ class exoboot_over_networkServicer(object):
         raise NotImplementedError('Method not implemented!')
 
     def set_torque(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def getpack(self, request, context):
         """Missing associated documentation comment in .proto file."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
@@ -243,6 +254,11 @@ def add_exoboot_over_networkServicer_to_server(servicer, server):
                     servicer.set_torque,
                     request_deserializer=exoboot__remote__pb2.torques.FromString,
                     response_serializer=exoboot__remote__pb2.receipt.SerializeToString,
+            ),
+            'getpack': grpc.unary_unary_rpc_method_handler(
+                    servicer.getpack,
+                    request_deserializer=exoboot__remote__pb2.req_log.FromString,
+                    response_serializer=exoboot__remote__pb2.ret_val.SerializeToString,
             ),
             'call': grpc.unary_unary_rpc_method_handler(
                     servicer.call,
@@ -470,6 +486,33 @@ class exoboot_over_network(object):
             '/exoboot_over_network/set_torque',
             exoboot__remote__pb2.torques.SerializeToString,
             exoboot__remote__pb2.receipt.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def getpack(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/exoboot_over_network/getpack',
+            exoboot__remote__pb2.req_log.SerializeToString,
+            exoboot__remote__pb2.ret_val.FromString,
             options,
             channel_credentials,
             insecure,

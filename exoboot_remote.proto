@@ -25,6 +25,13 @@ message torques {
     float peak_torque_left = 1;
     float peak_torque_right = 2;
 }
+message req_log {
+    string thread = 1;
+    string field = 2;
+}
+message ret_val {
+    float val = 1;
+}
 
 
 // Logging Messages
@@ -122,6 +129,7 @@ service exoboot_over_network {
     rpc set_pause (pause) returns (receipt) {}
     rpc set_log (log) returns (receipt) {}
     rpc set_torque (torques) returns (receipt) {}
+    rpc getpack (req_log) returns (ret_val) {}
 
     // Vickrey Auction Specific
     rpc call (result) returns (receipt) {};
