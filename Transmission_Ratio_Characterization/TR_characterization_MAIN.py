@@ -151,12 +151,14 @@ if __name__ == "__main__":
     # start device streaming and set gains:
     print("Starting TR Characterization")
     frequency = 1000
-    for device in [device_left, device_right]:
+    for side, device in zip([side_left, side_right], [device_left, device_right]):
         try:
             device.start_streaming(frequency)
             device.set_gains(DEFAULT_KP, DEFAULT_KI, DEFAULT_KD, 0, 0, DEFAULT_FF)
 
             characterizer = TR_Characterizer(device)
+            
+            print("Starting {} Characterization".format(side.upper()))
             characterizer.start()
             input() #"Press any key to stop TR characterization of LEFT exo"
             characterizer.stop()
