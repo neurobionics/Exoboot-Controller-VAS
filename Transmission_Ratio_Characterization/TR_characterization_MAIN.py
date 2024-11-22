@@ -156,11 +156,11 @@ if __name__ == "__main__":
             device.start_streaming(frequency)
             device.set_gains(DEFAULT_KP, DEFAULT_KI, DEFAULT_KD, 0, 0, DEFAULT_FF)
 
-            characterizer = TR_Characterizer(device_left)
+            characterizer = TR_Characterizer(device)
             characterizer.start()
             input() #"Press any key to stop TR characterization of LEFT exo"
             characterizer.stop()
-
         except:
             pass
-    print("TR Characterization successful. Goodbye")
+
+    print("TR Characterization finished. Goodbye")
