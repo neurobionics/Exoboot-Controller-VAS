@@ -21,9 +21,6 @@ from curses_HUD.hud_thread import HUDThread
 from SoftRTloop import FlexibleSleeper
 from constants import *
 
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), "curses_HUD"))
-from curses_HUD import hud_thread
-
 thisdir = os.path.dirname(os.path.abspath(__file__))
 sys.path.append(thisdir)
 
@@ -33,7 +30,7 @@ class MainControllerWrapper:
 
     Allows for high level interaction with flexsea controller
     """
-    def __init__(self, subjectID=None, trial_type=None, trial_cond=None, description=None, usebackup=False, continuousmode = False, overridedefaultcurrentbounds=False, streamingfrequency=1000, clockspeed=0.2):
+    def __init__(self, subjectID=None, trial_type=None, trial_cond=None, description=None, usebackup=False, continuousmode = False, overridedefaultcurrentbounds=False, streamingfrequency=100, clockspeed=0.2):
         self.streamingfrequency = streamingfrequency
         self.clockspeed = clockspeed
 
@@ -122,7 +119,7 @@ class MainControllerWrapper:
             self.exothread_right.start()
 
             # Thread 3: Gait State Estimator
-            self.gse_thread = GaitStateEstimator(self.startstamp, device_left, device_right, self.exothread_left, self.exothread_right, daemon=True, continuousmode=self.continuousmode, quit_event=self.quit_event, pause_event=self.pause_event, log_event=self.log_event)
+            self.gse_thread = GaitStateEstimator(self.startstamp, device_left, device_right, self.exothread_left, self.exothread_right, filter_size=5, daemon=True, continuousmode=self.continuousmode, quit_event=self.quit_event, pause_event=self.pause_event, log_event=self.log_event)
             self.gse_thread.start()
 
             # Thread 4: Exoboot Remote Control
@@ -142,6 +139,7 @@ class MainControllerWrapper:
             # ~~~Main Loop~~~
             self.softrtloop = FlexibleSleeper(period=1/self.clockspeed)
             # self.pause_event.set()
+            # self.log_event.set()
             while self.quit_event.is_set():
                 try:
                     # Print if no hud

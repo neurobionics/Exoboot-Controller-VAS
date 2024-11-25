@@ -157,8 +157,15 @@ class ExobootThread(BaseThread):
         self.flexdevice.command_motor_current(0)
 
     def read_sensors(self):
-        data = self.flexdevice.read() #(allData=True)
-
+        """
+        Read sensor data on exoboot
+        """
+        all_data = self.flexdevice.read(allData=True)
+        try:
+            data = all_data[-1] # Newest data
+        except:
+            return
+        
         # Exoboot Time
         self.data_dict['state_time'] = data['state_time'] / 1000 #converting to seconds
 
@@ -275,7 +282,7 @@ class ExobootThread(BaseThread):
         """
         # Exoboot spooling/zeroing routine
         self.spool_belt()
-        self.zeroProcedure()
+        # self.zeroProcedure()
 
         # Load profile timings and create generic profile
         self.assistance_generator.load_timings(SPINE_TIMING_PARAMS_DICT)
@@ -362,7 +369,6 @@ class ExobootThread(BaseThread):
         Main Loop
         """
         self.on_pre_run()
-        # try:
         while self.quit_event.is_set():
             self.pre_iterate()
             if self.pause_event.is_set():
@@ -370,7 +376,3 @@ class ExobootThread(BaseThread):
             else:
                 self.on_pause()
             self.post_iterate()
-        # except Exception as e:
-        #     print("ERROR {}: {}".format(self.name, e))
-        # finally:
-        #     print("THREAD TERMINATED {}".format(self.name))

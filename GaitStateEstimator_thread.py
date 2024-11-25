@@ -20,12 +20,15 @@ class GaitStateEstimator(BaseThread):
     """
     Description
     """
-    def __init__(self, startstamp, device_left, device_right, thread_left, thread_right, name='GSE', daemon=True, continuousmode=False, quit_event=Type[threading.Event], pause_event=Type[threading.Event], log_event=Type[threading.Event]):
+    def __init__(self, startstamp, device_left, device_right, thread_left, thread_right, name='GSE', filter_size=10, daemon=True, continuousmode=False, quit_event=Type[threading.Event], pause_event=Type[threading.Event], log_event=Type[threading.Event]):
         super().__init__(name, daemon, quit_event, pause_event, log_event)
         self.device_left = device_left
         self.device_right = device_right
         self.device_thread_left = thread_left
         self.device_thread_right = thread_right
+
+        # Filter size
+        self.filter_size = filter_size
 
         # Operating mode
         self.continuousmode = continuousmode
@@ -74,7 +77,7 @@ class GaitStateEstimator(BaseThread):
         # Bertec subscribers and estimators
         self.sub_bertec_right = Subscriber(publisher_ip=VICON_IP,topic_filter='fz_right',timeout_ms=5)
         self.sub_bertec_left = Subscriber(publisher_ip=VICON_IP,topic_filter='fz_left',timeout_ms=5)
-        self.bertec_estimator = BertecEstimator(self.sub_bertec_left, self.sub_bertec_right, filter_size=10)
+        self.bertec_estimator = BertecEstimator(self.sub_bertec_left, self.sub_bertec_right, filter_size=self.filter_size)
 
         # RealTimePlotting of: left & right angle angle, actual ankle torque, ankle velocity, and commanded torque
         # client.configure_ip(RTPLOT_IP)
@@ -168,4 +171,4 @@ class GaitStateEstimator(BaseThread):
         except Exception as e:
             print("ERROR {}: {}".format(self.name, e))
         finally:
-            print("THREAD TERMINATED GSE{}".format(self.name))
+            pass
