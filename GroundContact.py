@@ -117,6 +117,8 @@ class BertecEstimator:
         Using Bertec forceplate thresholding to determine HS/TO
 
         Only updates filters if threads are not paused
+
+        TODO add mode to accept all strides
         """
         # Validate pause_event. Defaults to True if None
         if not pause_event:

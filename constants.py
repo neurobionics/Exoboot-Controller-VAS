@@ -10,7 +10,7 @@ VICON_IP='141.212.77.30'    # Vicon ip to connect to Bertec Forceplates for stre
 
 """File Paths on Pi"""
 PORT_CFG_PATH = '/home/pi/VAS_exoboot_controller/ports.yaml' # DEPRECATED
-TR_COEFS_PREFIX = "Transmission_Ratio_Characterization/default_TR_coefs_"
+TR_FOLDER_PATH = "Transmission_Ratio_Characterization"
 SUBJECT_DATA_PATH = "subject_data"
 
 
@@ -33,6 +33,11 @@ RTPLOT_FIELDS = ['pitime_left', 'pitime_right', 'motor_current_left', 'motor_cur
 
 EXOTHREAD_FIELDS = GENERAL_FIELDS + GAIT_ESTIMATE_FIELDS + SENSOR_FIELDS
 GSETHREAD_FIELDS = GENERAL_FIELDS + BERTEC_FIELDS
+
+"""Transmission Ratio Constants"""
+TR_FILE_PREFIX = "default_TR_coefs"
+TR_DATE_FORMATTER = "%Y_%m_%d_%H_%M"
+
 
 
 """Assistance Profile Constants"""

@@ -10,7 +10,7 @@ import matplotlib.pyplot as plt
 motor_angles = []
 ankle_angles  = []
 
-with open("default_TR_fulldata_right.csv", newline='') as file:
+with open("default_TR_fulldata_left.csv", newline='') as file:
     reader = csv.reader(file, delimiter=',')
     # reader.__next__()
     

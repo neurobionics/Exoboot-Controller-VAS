@@ -9,9 +9,7 @@
 import os, csv, time, threading
 from typing import Type
 
-from constants import DEV_ID_TO_ANK_ENC_SIGN_DICT, DEV_ID_TO_MOTOR_SIGN_DICT, TR_COEFS_PREFIX, EXOTHREAD_FIELDS
-from constants import MAX_ALLOWABLE_CURRENT, BIAS_CURRENT, EFFICIENCY, Kt, ENC_CLICKS_TO_DEG, SPINE_TIMING_PARAMS_DICT, GYRO_GAIN, ACCEL_GAIN, TEMPANTISPIKE, MAX_CASE_TEMP, MAX_WINDING_TEMP
-from constants import EXOTHREAD_MAIN_FREQ, EXOTHREAD_LOGGING_FREQ
+from constants import *
 
 from thermal import ThermalModel
 from BaseExoThread import BaseThread
@@ -42,8 +40,7 @@ class ExobootThread(BaseThread):
         self.ankle_angle_zero = 0
 
         # Set Transmission Ratio and Motor-Angle Curve Coefficients	from pre-performed calibration
-        self.coefs_filename = "{}{}.csv".format(TR_COEFS_PREFIX, self.side)
-        self.tr_gen = TransmissionRatioGenerator(self.coefs_filename, max_allowable_angle=180, min_allowable_angle=0, min_allowable_TR=10, granularity=10000)
+        self.tr_gen = TransmissionRatioGenerator(self.side, file_prefix=TR_FILE_PREFIX, filepath=TR_FOLDER_PATH, max_allowable_angle=180, min_allowable_angle=0, min_allowable_TR=10, granularity=10000)
         
         # Instantiate AssistanceGenerator (DOES NOT HAVE PROFILE ON INITIALIZATION)
         self.assistance_generator = AssistanceGenerator()

@@ -1,19 +1,57 @@
-import csv
+import os, csv, datetime
 import numpy as np
+
+from constants import TR_FILE_PREFIX, TR_FOLDER_PATH, TR_DATE_FORMATTER
 
 
 class TransmissionRatioGenerator:
-    def __init__(self, coefs_filename, max_allowable_angle=180, min_allowable_angle=0, min_allowable_TR=10, granularity=10000):
-        self.coefs_filename = coefs_filename
+    def __init__(self, side, tr_coefs_file_specific=None, file_prefix=TR_FILE_PREFIX, filepath=TR_FOLDER_PATH, max_allowable_angle=180, min_allowable_angle=0, min_allowable_TR=10, granularity=10000):
+        # Source file settings
+        self.side = side
+        self.tr_coefs_file_specific = tr_coefs_file_specific
+        self.file_prefix = file_prefix
+        self.filepath = filepath
+        self.coefs_filename = None
+
+        # TR profile settings
         self.max_allowable_angle = max_allowable_angle
         self.min_allowable_angle = min_allowable_angle
         self.min_allowable_TR = min_allowable_TR
         self.granularity = granularity
 
+        # Get coefs file
+        self.get_coefs_file()
+
         # Get coefs from file
         self.TR_coefs, self.motor_curve_coefs, self.offset = self.load_coefs()
 
+        # Set TR profile
         self.TR_dict = self.set_TR_dict()
+
+    def get_coefs_file(self):
+        """
+        Use tr_coefs_file_specific if available or
+        Load in most recent TR coefs file for given side
+        """
+        if self.tr_coefs_file_specific:
+            self.coefs_filename = self.tr_coefs_file_specific
+        else:
+            tr_files = []
+            datestrings = []
+            datetimes = []
+
+            fullfileprefix = "{}_{}".format(self.file_prefix, self.side)
+            for file in os.listdir(self.filepath):
+                if fullfileprefix in file:
+                    tr_files.append(os.path.join(self.filepath, file))
+                    datestring = file.replace(fullfileprefix, "").strip("_").split(".")[0]
+                    dt = datetime.datetime.strptime(datestring, TR_DATE_FORMATTER)
+                    datestrings.append(datestring)
+                    datetimes.append(dt)
+
+            most_recent = datestrings[datetimes.index(min(datetimes))]
+            self.coefs_filename = "{}_{}_{}.csv".format(self.file_prefix, self.side, most_recent)
+            print("TR {} USING: {}".format(self.side, self.coefs_filename))
 
     def load_coefs(self):
         """
@@ -23,7 +61,8 @@ class TransmissionRatioGenerator:
         """
         # Open and read the CSV file
 
-        with open(self.coefs_filename, mode='r') as file:
+        coefs_filepath = os.path.join(self.filepath, self.coefs_filename)
+        with open(coefs_filepath, mode='r') as file:
             csv_reader = csv.reader(file)
             coefs_ankle_vs_motor = next(csv_reader)  # Read the first row, which is the motor_angle_curve_coeffs
             coefs_TR = next(csv_reader)      # Read the second row, which is the TR_coeffs
@@ -68,9 +107,4 @@ class TransmissionRatioGenerator:
 
 
 if __name__ == "__main__":
-    prefix = "Transmission_Ratio_Characterization/default_TR_coefs_"
-    leftgen = TransmissionRatioGenerator("{}{}.csv".format(prefix,"left"), max_allowable_angle=180, min_allowable_angle=0, min_allowable_TR=10, granularity=10000)
-    rightgen = TransmissionRatioGenerator("{}{}.csv".format(prefix,"right"), max_allowable_angle=180, min_allowable_angle=0, min_allowable_TR=10, granularity=10000)
-
-    for angle in np.linspace(-20, 200, 11):
-        print("{}: {}, {}".format(angle, leftgen.get_TR(angle), rightgen.get_TR(angle)))
+    testgen = TransmissionRatioGenerator("left", tr_coefs_file_specific="default_TR_coefs_left_2024_11_25_17_22.csv")

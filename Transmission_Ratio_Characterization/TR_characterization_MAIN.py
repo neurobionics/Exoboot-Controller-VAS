@@ -1,7 +1,7 @@
-import os, sys, csv, threading
+import os, sys, csv, datetime, threading
 
 import numpy as np
-from time import time, sleep
+from time import sleep
 
 from flexsea.device import Device
 
@@ -24,7 +24,7 @@ def get_active_ports():
     except:
         side_1 = None
         device_1 = None
-        print("DEVICE 1 NOT FOUND PROCEEDING")
+        print("DEVICE 1 NOT FOUND")
 
     try:
         device_2 = Device(port="/dev/ttyACM1", firmwareVersion="7.2.0", baudRate=230400, logLevel=3)
@@ -34,10 +34,10 @@ def get_active_ports():
     except:
         side_2 = None
         device_2 = None
-        print("DEVICE 2 NOT FOUND PROCEEDING")
+        print("DEVICE 2 NOT FOUND")
 
     if not (device_1 or device_2):
-        print("NO DEVICES")
+        print("\nNO DEVICES: CONNECT AND POWER ON ATLEAST 1 EXOBOOT\n")
         quit()
 
     # Always assign first pair of outputs to left side
@@ -49,15 +49,19 @@ def get_active_ports():
         raise Exception("Invalid sides for devices: Check DEV_ID_TO_SIDE_DICT!")
 
 class TR_Characterizer:
-    def __init__(self, side, flexdevice):
+    def __init__(self, side, flexdevice, date=None):
         self.side = side
         self.flexdevice = flexdevice
+        self.date = date
 
         self.motor_sign = DEV_ID_TO_MOTOR_SIGN_DICT[self.flexdevice.id]
         self.ank_enc_sign = DEV_ID_TO_ANK_ENC_SIGN_DICT[self.flexdevice.id]
 
-        self.full_filename = "Transmission_Ratio_Characterization/default_TR_fulldata_{}.csv".format(self.exo.side)
-        self.coefs_filename = "Transmission_Ratio_Characterization/default_TR_coefs_{}.csv".format(self.exo.side)
+        # Set date
+        self.date = date if date else datetime.datetime.today().strftime(TR_DATE_FORMATTER)
+
+        self.full_filename = "default_TR_fulldata_{}_{}.csv".format(self.side, self.date)
+        self.coefs_filename = "default_TR_coefs_{}_{}.csv".format(self.side, self.date)
 
         self.thread = None
         self.kill = False
@@ -76,32 +80,35 @@ class TR_Characterizer:
         self.ankleAngleVec = np.array([])
         
         iterations = 0
-        with open(self.full_filename, "w", newline="\n") as fd:
-            writer = csv.writer(fd)
+        with open(self.full_filename, "w", newline="\n") as f:
+            writer = csv.writer(f)
             self.flexdevice.command_motor_current(self.motor_sign * BIAS_CURRENT)
             
             while not self.kill:
-                act_pack = self.flexdevice.read()
-                # fxu.clear_terminal()
-                iterations += 1
+                try:
+                    all_data = self.flexdevice.read(allData=True)
+                    act_pack = all_data[-1] # Newest data
 
-                # Ankle direction convention:   plantarflexion: increasing angle, dorsiflexion: decreasing angle
-                current_ank_angle = (self.ank_enc_sign * act_pack['ank_ang'] * ENC_CLICKS_TO_DEG) - self.offset # deg
-                current_mot_angle = self.motor_sign * act_pack['mot_ang'] * ENC_CLICKS_TO_DEG # deg
+                    iterations += 1
 
-                act_current = act_pack['mot_cur']
-                currentTime = time()
+                    # Ankle direction convention:   plantarflexion: increasing angle, dorsiflexion: decreasing angle
+                    current_ank_angle = (self.ank_enc_sign * act_pack['ank_ang'] * ENC_CLICKS_TO_DEG) - self.offset # deg
+                    current_mot_angle = self.motor_sign * act_pack['mot_ang'] * ENC_CLICKS_TO_DEG # deg
 
-                self.motorAngleVec = np.append(self.motorAngleVec, current_mot_angle)
-                self.ankleAngleVec = np.append(self.ankleAngleVec, current_ank_angle)
+                    act_current = act_pack['mot_cur']
 
-                print("Begin rotating the angle joint starting from extreme dorsiflexion to extreme plantarflexion...\n")
-                print("Motor Angle: {} deg".format(current_mot_angle))
-                print("Ankle Angle: {} deg".format(current_ank_angle))
-                print("\nPress any key to stop characterization")
-                sleep(1/250)
+                    self.motorAngleVec = np.append(self.motorAngleVec, current_mot_angle)
+                    self.ankleAngleVec = np.append(self.ankleAngleVec, current_ank_angle)
 
-                writer.writerow([iterations, BIAS_CURRENT, act_current, current_mot_angle, current_ank_angle])
+                    print("Begin rotating the angle joint starting from extreme dorsiflexion to extreme plantarflexion...\n")
+                    print("Motor Angle: {} deg".format(current_mot_angle))
+                    print("Ankle Angle: {} deg".format(current_ank_angle))
+                    print("\nPress any key to stop characterization")
+                    sleep(1/250)
+
+                    writer.writerow([iterations, BIAS_CURRENT, act_current, current_mot_angle, current_ank_angle])
+                except:
+                    pass
 
         # fit a 3rd order polynomial to the ankle and motor angles
         self.motor_angle_curve_coeffs = np.polyfit(self.ankleAngleVec, self.motorAngleVec, 3)
@@ -147,22 +154,32 @@ class TR_Characterizer:
 if __name__ == "__main__":
     # Get active ports
     side_left, device_left, side_right, device_right = get_active_ports()
+
+    devices = [device_left, device_right]
+    sides = [side_left, side_right]
     
+    # Get YEAR_MONTH_DAY_HOUR_MINUTE
+    date = datetime.datetime.today().strftime(TR_DATE_FORMATTER)
+
     # start device streaming and set gains:
     print("Starting TR Characterization")
     frequency = 1000
-    for side, device in zip([side_left, side_right], [device_left, device_right]):
-        try:
+    for side, device in zip(sides, devices):
+        if device:
             device.start_streaming(frequency)
             device.set_gains(DEFAULT_KP, DEFAULT_KI, DEFAULT_KD, 0, 0, DEFAULT_FF)
 
-            characterizer = TR_Characterizer(device)
+            characterizer = TR_Characterizer(side, device, date=date)
             
             print("Starting {} Characterization".format(side.upper()))
             characterizer.start()
-            input() #"Press any key to stop TR characterization of LEFT exo"
+            input() #"Press any key to stop TR characterization of exoboot"
             characterizer.stop()
-        except:
-            pass
+
+    # Stop motors
+    for device in devices:
+        if device:
+            device.stop_motor()
 
     print("TR Characterization finished. Goodbye")
+
