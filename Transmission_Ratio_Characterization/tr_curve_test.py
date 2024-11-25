@@ -37,7 +37,7 @@ print(deriv)
 
 TR_curve = np.polyval(deriv, ankle_raw)
 
-print(max(TR_curve))
+print("MAX RATIO: {}".format(max(TR_curve)))
 
 plt.scatter(ankle_raw, TR_curve)
 plt.show()
