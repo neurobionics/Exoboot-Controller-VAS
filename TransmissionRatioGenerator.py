@@ -49,9 +49,10 @@ class TransmissionRatioGenerator:
                     datestrings.append(datestring)
                     datetimes.append(dt)
 
-            most_recent = datestrings[datetimes.index(min(datetimes))]
+            most_recent = datestrings[datetimes.index(max(datetimes))]
             self.coefs_filename = "{}_{}_{}.csv".format(self.file_prefix, self.side, most_recent)
-            print("TR {} USING: {}".format(self.side, self.coefs_filename))
+
+        print("TR {} USING: {}".format(self.side, self.coefs_filename))
 
     def load_coefs(self):
         """
