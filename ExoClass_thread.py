@@ -40,7 +40,7 @@ class ExobootThread(BaseThread):
         self.ankle_angle_zero = 0
 
         # Set Transmission Ratio and Motor-Angle Curve Coefficients	from pre-performed calibration
-        self.tr_gen = TransmissionRatioGenerator(self.side, file_prefix=TR_FILE_PREFIX, filepath=TR_FOLDER_PATH, max_allowable_angle=180, min_allowable_angle=0, min_allowable_TR=10, granularity=10000)
+        self.tr_gen = TransmissionRatioGenerator(self.side, coefs_prefix=TR_COEFS_PREFIX, filepath=TR_FOLDER_PATH, max_allowable_angle=180, min_allowable_angle=0, min_allowable_TR=10, granularity=10000)
         
         # Instantiate AssistanceGenerator (DOES NOT HAVE PROFILE ON INITIALIZATION)
         self.assistance_generator = AssistanceGenerator()

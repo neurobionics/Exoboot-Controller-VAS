@@ -1,9 +1,11 @@
-import os, sys, csv, datetime, threading
+import os, sys, csv, time, datetime, threading
 
 import numpy as np
 from time import sleep
 
 from flexsea.device import Device
+
+from SoftRTloop import FlexibleSleeper
 
 sys.path.insert(0, '/home/pi/VAS_exoboot_controller/')
 
@@ -49,41 +51,51 @@ def get_active_ports():
         raise Exception("Invalid sides for devices: Check DEV_ID_TO_SIDE_DICT!")
 
 class TR_Characterizer:
-    def __init__(self, side, flexdevice, date=None):
+    """
+    Characterize Tranmission ratio of given exoboot
+    """
+    def __init__(self, side, flexdevice, current_cmd=BIAS_CURRENT, freq=500, fulldata_prefix=TR_FULLDATA_PREFIX, coefs_prefix=TR_COEFS_PREFIX, date=None):
         self.side = side
         self.flexdevice = flexdevice
-        self.date = date
+        self.current_cmd = current_cmd
+        
+        # collect speeds
+        self.freq = freq
+        self.printfreq = freq/10
 
+        # Get motor/ankle encoder signs
         self.motor_sign = DEV_ID_TO_MOTOR_SIGN_DICT[self.flexdevice.id]
         self.ank_enc_sign = DEV_ID_TO_ANK_ENC_SIGN_DICT[self.flexdevice.id]
 
-        # Set date
+        # Set filenames
         self.date = date if date else datetime.datetime.today().strftime(TR_DATE_FORMATTER)
+        self.fulldata_filename = "{}_{}_{}.csv".format(fulldata_prefix, self.side, self.date)
+        self.coefs_filename = "{}_{}_{}.csv".format(coefs_prefix, self.side, self.date)
 
-        self.full_filename = "default_TR_fulldata_{}_{}.csv".format(self.side, self.date)
-        self.coefs_filename = "default_TR_coefs_{}_{}.csv".format(self.side, self.date)
-
+        # Threading
         self.thread = None
         self.kill = False
 
     def collect(self):
-        """This function collects a curve of motor angle vs. ankle angle which is differentiated
+        """
+        This function collects a curve of motor angle vs. ankle angle which is differentiated
         later to get a transmission ratio curve vs. ankle angle. The ankle joint should be moved through
         the full range of motion (starting at extreme dorsiflexion to extreme plantarflexion on repeat)
         while this is running.
         """
-
         print("Starting ankle transmission ratio procedure...\n")
         
-        # conduct transmission ratio curve characterization procedure and store curve
+        # Conduct transmission ratio curve characterization procedure and store curve
         self.motorAngleVec = np.array([])
         self.ankleAngleVec = np.array([])
         
         iterations = 0
-        with open(self.full_filename, "w", newline="\n") as f:
+        with open(self.fulldata_filename, "w", newline="\n") as f:
             writer = csv.writer(f)
-            self.flexdevice.command_motor_current(self.motor_sign * BIAS_CURRENT)
-            
+            self.flexdevice.command_motor_current(self.motor_sign * self.current_cmd)
+
+            loopsleeper = FlexibleSleeper(period=1/self.freq)
+            lastprint = time.perf_counter()
             while not self.kill:
                 try:
                     all_data = self.flexdevice.read(allData=True)
@@ -100,13 +112,18 @@ class TR_Characterizer:
                     self.motorAngleVec = np.append(self.motorAngleVec, current_mot_angle)
                     self.ankleAngleVec = np.append(self.ankleAngleVec, current_ank_angle)
 
-                    print("Begin rotating the angle joint starting from extreme dorsiflexion to extreme plantarflexion...\n")
-                    print("Motor Angle: {} deg".format(current_mot_angle))
-                    print("Ankle Angle: {} deg".format(current_ank_angle))
-                    print("\nPress any key to stop characterization")
-                    sleep(1/250)
+                    # Print slower than loop freq
+                    current_time = time.perf_counter()
+                    if current_time - lastprint > 1/self.printfreq:
+                        print("Begin rotating the angle joint starting from extreme dorsiflexion to extreme plantarflexion...\n")
+                        print("Motor Angle: {} deg".format(current_mot_angle))
+                        print("Ankle Angle: {} deg".format(current_ank_angle))
+                        print("\nPress any key to stop characterization")
+                        lastprint = current_time
 
-                    writer.writerow([iterations, BIAS_CURRENT, act_current, current_mot_angle, current_ank_angle])
+                    writer.writerow([iterations, self.current_cmd, act_current, current_mot_angle, current_ank_angle])
+
+                    loopsleeper.pause()
                 except:
                     pass
 
@@ -135,7 +152,7 @@ class TR_Characterizer:
         print("Collect Finished\n")
         
     def start(self):
-        self.flexdevice.command_motor_current(self.motor_sign * BIAS_CURRENT)
+        self.flexdevice.command_motor_current(self.motor_sign * self.current_cmd)
         
         input("Set ankle angle to maximum dorsiflexion hardstop. Press any key to lock in angle/offset at this ankle position")
         act_pack = self.flexdevice.read()
@@ -161,7 +178,7 @@ if __name__ == "__main__":
     # Get YEAR_MONTH_DAY_HOUR_MINUTE
     date = datetime.datetime.today().strftime(TR_DATE_FORMATTER)
 
-    # start device streaming and set gains:
+    # Start device streaming and set gains:
     print("Starting TR Characterization")
     frequency = 1000
     for side, device in zip(sides, devices):
@@ -169,7 +186,7 @@ if __name__ == "__main__":
             device.start_streaming(frequency)
             device.set_gains(DEFAULT_KP, DEFAULT_KI, DEFAULT_KD, 0, 0, DEFAULT_FF)
 
-            characterizer = TR_Characterizer(side, device, date=date)
+            characterizer = TR_Characterizer(side, device, BIAS_CURRENT, date=date)
             
             print("Starting {} Characterization".format(side.upper()))
             characterizer.start()

@@ -1,15 +1,15 @@
 import os, csv, datetime
 import numpy as np
 
-from constants import TR_FILE_PREFIX, TR_FOLDER_PATH, TR_DATE_FORMATTER
+from constants import TR_COEFS_PREFIX, TR_FOLDER_PATH, TR_DATE_FORMATTER
 
 
 class TransmissionRatioGenerator:
-    def __init__(self, side, tr_coefs_file_specific=None, file_prefix=TR_FILE_PREFIX, filepath=TR_FOLDER_PATH, max_allowable_angle=180, min_allowable_angle=0, min_allowable_TR=10, granularity=10000):
+    def __init__(self, side, tr_coefs_file_specific=None, coefs_prefix=TR_COEFS_PREFIX, filepath=TR_FOLDER_PATH, max_allowable_angle=180, min_allowable_angle=0, min_allowable_TR=10, granularity=10000):
         # Source file settings
         self.side = side
         self.tr_coefs_file_specific = tr_coefs_file_specific
-        self.file_prefix = file_prefix
+        self.coefs_prefix = coefs_prefix
         self.filepath = filepath
         self.coefs_filename = None
 
@@ -40,7 +40,7 @@ class TransmissionRatioGenerator:
             datestrings = []
             datetimes = []
 
-            fullfileprefix = "{}_{}".format(self.file_prefix, self.side)
+            fullfileprefix = "{}_{}".format(self.coefs_prefix, self.side)
             for file in os.listdir(self.filepath):
                 if fullfileprefix in file:
                     tr_files.append(os.path.join(self.filepath, file))
@@ -50,7 +50,7 @@ class TransmissionRatioGenerator:
                     datetimes.append(dt)
 
             most_recent = datestrings[datetimes.index(max(datetimes))]
-            self.coefs_filename = "{}_{}_{}.csv".format(self.file_prefix, self.side, most_recent)
+            self.coefs_filename = "{}_{}_{}.csv".format(self.coefs_prefix, self.side, most_recent)
 
         print("TR {} USING: {}".format(self.side, self.coefs_filename))
 
