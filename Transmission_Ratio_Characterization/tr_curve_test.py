@@ -60,7 +60,7 @@ def main(file):
     deriv_poly = np.polyder(coefs)
     TR_poly = np.polyval(deriv_poly, ankle_sorted)
 
-    # Bspline
+    # Spline
     n_interior_knots = 6
     qs = np.linspace(0, 1, n_interior_knots+2)[1:-1]
     knots = np.quantile(ankle_sorted, qs)
