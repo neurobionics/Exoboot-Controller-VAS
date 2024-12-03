@@ -55,7 +55,7 @@ def main(file):
     motor_sorted = np.array(motor_raw)[p]
 
     # Polyfit
-    coefs = np.polyfit(ankle_sorted, motor_sorted, 6)
+    coefs = np.polyfit(ankle_sorted, motor_sorted, 4)
     motor_poly = np.polyval(coefs, ankle_sorted)
     deriv_poly = np.polyder(coefs)
     TR_poly = np.polyval(deriv_poly, ankle_sorted)
