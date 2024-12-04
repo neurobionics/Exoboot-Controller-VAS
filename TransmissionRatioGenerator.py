@@ -1,5 +1,6 @@
 import os, csv, datetime
 import numpy as np
+import matplotlib.pyplot as plt
 
 from constants import TR_COEFS_PREFIX, TR_FOLDER_PATH, TR_DATE_FORMATTER
 
@@ -57,11 +58,9 @@ class TransmissionRatioGenerator:
     def load_coefs(self):
         """
         Load TR coefs, motor angle curve coefs, and dorsi offset from file
-
         File is obtained by running TR_characterization_MAIN.py
         """
         # Open and read the CSV file
-
         coefs_filepath = os.path.join(self.filepath, self.coefs_filename)
         with open(coefs_filepath, mode='r') as file:
             csv_reader = csv.reader(file)
@@ -108,4 +107,16 @@ class TransmissionRatioGenerator:
 
 
 if __name__ == "__main__":
-    testgen = TransmissionRatioGenerator("left", tr_coefs_file_specific="default_TR_coefs_left_2024_11_25_17_22.csv")
+    testgen = TransmissionRatioGenerator("right")
+
+    print("TR COEFS: {}".format(testgen.TR_coefs))
+    print("OFFSET: {}".format(testgen.offset))
+
+    angles = np.linspace(testgen.min_allowable_angle, testgen.max_allowable_angle, 10000)
+    TRs = [testgen.get_TR(ang) for ang in angles]
+
+    plt.scatter(angles, TRs)
+    plt.title("MAX TR: {:0.3f}".format(max(TRs)))
+    plt.xlabel("angle (deg)")
+    plt.ylabel("TR")
+    plt.show()
