@@ -31,7 +31,7 @@ addpath(genpath(sub_dictionary_file_location))
 [subject, subject_list] = subject_dictionary_VAS;
 
 % specify subj numbers (remove subjects due to any criteria)
-subj_num = [4 5 6 7 8];
+subj_num = [1 6 8 9 10];
 
 clc
 
@@ -46,6 +46,7 @@ clc
 % PS: 1st value is ref for ankle exo, 2nd value is ref for knee exo
 
 num_of_exo_JNDs = 1;
+
 
 for sub_num = subj_num
 
@@ -109,11 +110,27 @@ for sub_num = subj_num
         end
 
     end
+
+    % convert proportions to Percent Changes from reference
+    percent_changes = (unique_props - 1).*100; 
+
+    % select a proportion to remove from middle
+    % if (sub_num == 1) || (sub_num == 6) || (sub_num == 8)
+    %     selection = [1 2 3 4 5 6 7 14 15 16 17 18 19 20];
+    %     NumPos = NumPos(selection);
+    %     OutofNum = OutofNum(selection);
+    %     percent_changes = percent_changes(selection);
+    % elseif (sub_num == 9)
+    %     selection = [1 2 3 4 5 6 7 8 9 10 11 12 19 20 21 22 23 24 25 26 27 28 29 30];
+    %     NumPos = NumPos(selection);
+    %     OutofNum = OutofNum(selection);
+    %     percent_changes = percent_changes(selection);
+    % end
            
     % store NumPos and OutofNum for each subject in struct
     sub_JND_proportion_data.( extractBetween(input_path,'Pilot/',' JND') ).NumPos =  NumPos';
     sub_JND_proportion_data.( extractBetween(input_path,'Pilot/',' JND') ).OutofNum =  OutofNum;
-    sub_JND_proportion_data.( extractBetween(input_path,'Pilot/',' JND') ).Props =  unique_props';
+    sub_JND_proportion_data.( extractBetween(input_path,'Pilot/',' JND') ).PercentChanges =  percent_changes';
 end
 
 %% Compute Parameter Values for each subject using Palamedes Library & Plot
@@ -149,17 +166,17 @@ for subs = 1:size(fieldnames(sub_JND_proportion_data),1)
         
         NumPos = sub_JND_proportion_data.( fields{subs,1} ).NumPos(cond,:);
         OutofNum = sub_JND_proportion_data.( fields{subs,1} ).OutofNum(cond,:); 
-        Props = sub_JND_proportion_data.( fields{subs,1} ).Props(cond,:); 
+        PercentChanges = sub_JND_proportion_data.( fields{subs,1} ).PercentChanges(cond,:); 
         ProportionForcefulSub = NumPos./OutofNum;
 
         % estimate the slope of the curve & set the searching region about this value
-        slope_est = ( ProportionForcefulSub(14) - ProportionForcefulSub(8) )/( Props(14) - Props(8) );
-        searchGrid.beta = 0.5;%logspace(0,10*abs(slope_est),1000);
+        slope_est = 0.5;%( ProportionForcefulSub(14) - ProportionForcefulSub(8) )/( PercentChanges(14) - PercentChanges(8) );
+        searchGrid.beta = logspace(0,10*abs(slope_est),1000);
 
         % Perform fits using fminsearch (unconstrained, nonlinear multivar 
         % optimizer; doesn't use gradients, but uses slack vars/simplex method
         disp('Fitting function.....');
-        [paramsValues, LL, scenario, exitflag] = PAL_PFML_Fit(Props, NumPos, ...
+        [paramsValues, LL, scenario, exitflag] = PAL_PFML_Fit(PercentChanges, NumPos, ...
             OutofNum, searchGrid, paramsFree, PF,'gammaEQlambda',1,'SearchOptions',options);
         
         disp('done:');
@@ -167,27 +184,27 @@ for subs = 1:size(fieldnames(sub_JND_proportion_data),1)
         disp(message);
 
         % apply parameters to function
-        CompTorquesFineGrain = 0.3:max(Props)/1000:2;
-        ProportionForcefulModel = PF(paramsValues,CompTorquesFineGrain);
+        PercentTorquesFineGrain = -100:max(PercentChanges)/1000:100;
+        ProportionForcefulModel = PF(paramsValues,PercentTorquesFineGrain);
 
         % interpolate to find the comparison torque value at which the model 
-        % predicts 0.25 & 75% of the reference were judged more forceful 
-        x25 = interp1(ProportionForcefulModel, CompTorquesFineGrain, 0.25);
-        x75 = interp1(ProportionForcefulModel, CompTorquesFineGrain, 0.75);
+        % predicts 25 & 75% of the reference were judged more forceful 
+        x25 = interp1(ProportionForcefulModel, PercentTorquesFineGrain, 0.25);
+        x75 = interp1(ProportionForcefulModel, PercentTorquesFineGrain, 0.75);
         JND = (x75-x25)/2;
 
         % plot the raw data with logistic fit and display JND on plot
         if user_select == "y"
             figure
-            plot(Props,ProportionForcefulSub,'k.','markersize',40);
+            plot(PercentChanges,ProportionForcefulSub,'k.','markersize',40);
             set(gca, 'fontsize',16);
-            set(gca, 'Xtick',Props);
-            axis([min(Props) max(Props) 0 1]);
-            xlabel('Fraction of Reference');
+            set(gca, 'Xtick',PercentChanges);
+            axis([min(PercentChanges) max(PercentChanges) 0 1]);
+            xlabel('Percent Change from Reference (%)');
             ylabel('Proportion(\psi)'); % Proportion of Trials judged higher than Reference 
             hold on
             
-            plot(CompTorquesFineGrain,ProportionForcefulModel,'-','color',[0 .7 0],'linewidth',4);
+            plot(PercentTorquesFineGrain,ProportionForcefulModel,'-','color',[0 .7 0],'linewidth',4);
             box off
             hold on
 
@@ -205,7 +222,7 @@ end
 % close; clc;
 
 figure('name','Plot Per Subject');
-CompTorquesFineGrain = min(comp_stiffs_ratios):max(comp_stiffs_ratios)/1000:max(comp_stiffs_ratios);
+PercentTorquesFineGrain = min(comp_stiffs_ratios):max(comp_stiffs_ratios)/1000:max(comp_stiffs_ratios);
 
 for subs = 1:size(fieldnames(sub_JND_proportion_data),1)
     fields = fieldnames(sub_JND_proportion_data);
@@ -217,7 +234,7 @@ for subs = 1:size(fieldnames(sub_JND_proportion_data),1)
         ProportionForcefulSub = NumPos./OutofNum;
         
         paramsValues = sub_JND_proportion_data.( fields{subs,1} ).paramsValues(cond,:);
-        ProportionForcefulModel = PF(paramsValues,CompTorquesFineGrain);
+        ProportionForcefulModel = PF(paramsValues,PercentTorquesFineGrain);
         
         % plot per subject (with incline & decline curve in same figure)
         subplot(1,6,subs);
@@ -226,7 +243,7 @@ for subs = 1:size(fieldnames(sub_JND_proportion_data),1)
         else
             color = [187 166 198]/255;
         end
-        plot(CompTorquesFineGrain,ProportionForcefulModel,'-','color',color,'linewidth',4);
+        plot(PercentTorquesFineGrain,ProportionForcefulModel,'-','color',color,'linewidth',4);
         hold on
         plot(comp_stiffs_ratios,ProportionForcefulSub,'.','markersize',40,'Color',color);
         set(gca, 'fontsize',16);
@@ -247,7 +264,7 @@ end
 close; clc;
 
 figure('name','Plot Per Activity');
-CompTorquesFineGrain = 0.3:max(comp_stiffs_ratios)/1000:2;
+PercentTorquesFineGrain = 0.3:max(comp_stiffs_ratios)/1000:2;
 % color = {'#B589D6', '#9969C7', '#804FAA', '#6A359C', '#552586', '#440150'};
 
 for cond = 1:2
@@ -264,13 +281,13 @@ for cond = 1:2
         multisubOutofNum(subs,:) = sub_JND_proportion_data.( fields{subs,1} ).OutofNum(cond,:);
 
         paramsValues = sub_JND_proportion_data.( fields{subs,1} ).paramsValues(cond,:);
-        ProportionForcefulModel = PF(paramsValues,CompTorquesFineGrain);
+        ProportionForcefulModel = PF(paramsValues,PercentTorquesFineGrain);
 
         multisubJND(1,subs) = sub_JND_proportion_data.( fields{subs,1} ).JND(1,cond);
 
         % plot per activity
         % plot(CompStiffsFineGrain,ProportionStiffModel,'-','color',color{1,subs},'linewidth',4);
-        plot(CompTorquesFineGrain,ProportionForcefulModel,'-','color','#d3d3d3','linewidth',4);
+        plot(PercentTorquesFineGrain,ProportionForcefulModel,'-','color','#d3d3d3','linewidth',4);
 
         set(gca, 'fontsize',16);
         hold on
@@ -290,14 +307,14 @@ for cond = 1:2
     message = sprintf('Slope estimate: %6.4f\r',paramsValues(2));
     disp(message);
 
-    avgdActivityTraj = PF(paramsValues,CompTorquesFineGrain);
+    avgdActivityTraj = PF(paramsValues,PercentTorquesFineGrain);
 
-    x25 = interp1(avgdActivityTraj, CompTorquesFineGrain, 0.25);
-    x75 = interp1(avgdActivityTraj, CompTorquesFineGrain, 0.75);
+    x25 = interp1(avgdActivityTraj, PercentTorquesFineGrain, 0.25);
+    x75 = interp1(avgdActivityTraj, PercentTorquesFineGrain, 0.75);
     avgdJND = (x75-x25)/2;
 
     % Compute averaged JND trajectory for each activity & overlay on plot
-    plot(CompTorquesFineGrain,avgdActivityTraj,'-','color','#804FAA','linewidth',4);
+    plot(PercentTorquesFineGrain,avgdActivityTraj,'-','color','#804FAA','linewidth',4);
 
     set(gca, 'Xtick',comp_stiffs_ratios);
     axis([min(comp_stiffs_ratios) max(comp_stiffs_ratios) 0 1]);

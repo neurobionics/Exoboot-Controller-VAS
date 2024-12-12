@@ -26,35 +26,37 @@ from curses_HUD import hud_thread
 thisdir = os.path.dirname(os.path.abspath(__file__))
 sys.path.append(thisdir)
 
+def get_ipaddress() -> str:
+    return ""
+
 class MainControllerWrapper:
     """
     Runs Necessary threads on pi to run exoboot
 
     Allows for high level interaction with flexsea controller
     """
-    def __init__(self, subjectID, trial_type, trial_cond, description, streamingfrequency=1000, clockspeed=0.2):
-        self.subjectID = subjectID
+    def __init__(self, subjectID, trial_type: str, trial_cond: str, description, streamingfrequency=1000, clockspeed=0.2):
+        self.subjectID: str = subjectID
         self.trial_type = trial_type.upper()
         self.trial_cond = trial_cond.upper()
         self.description = description
         self.streamingfrequency = streamingfrequency
         self.clockspeed = clockspeed
+        
 
         # Dummy mode check TODO implement dummymode
-        if self.subjectID == "DUMMY":
+        if self.subjectID.upper() == "DUMMY":
             self.dummymode = True
         else:
             self.dummymode = False
 
         # Validate trial_type and trial_cond
-        self.valid_trial_typeconds = TRIAL_CONDS_DICT
         try:
-            if not self.trial_type in self.valid_trial_typeconds.keys():
-                raise Exception("Invalid trial type: {} not in {}".format(self.trial_type, self.valid_trial_typeconds.keys()))
+            if self.trial_type not in TRIAL_CONDS_DICT.keys():
+                raise Exception("Invalid trial type: {} not in {}".format(self.trial_type,TRIAL_CONDS_DICT.keys()))
 
-            valid_conds = self.valid_trial_typeconds[self.trial_type]
-            if valid_conds and self.trial_cond not in valid_conds:
-                raise Exception("Invalid trial cond: {} not in {}".format(trial_cond, valid_conds))
+            if self.trial_cond not in TRIAL_CONDS_DICT[self.trial_type]:
+                raise Exception("Invalid trial cond: {} not in {}".format(trial_cond, TRIAL_CONDS_DICT[self.trial_type]))
         except:
             # TODO only run this section if arguments are incorrect
             print("\nINCORRECT ARGUMENTS\n")
@@ -66,13 +68,21 @@ class MainControllerWrapper:
         
         self.file_prefix = "{}_{}_{}_{}".format(self.subjectID, self.trial_type, self.trial_cond, self.description)
 
-        # Get own IP address for GRPC
+        # Get own IP address for GRPC     
         s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         s.connect(('10.255.255.255', 1))
         self.myIP = s.getsockname()[0] + ":50051"
         print("myIP: {}".format(self.myIP))
+        
 
-    @staticmethod
+        
+    def make_device(self, port, firmware_version, baud_rate, log_level) -> Device:
+        return Device()
+    
+    def start_streaming(self):
+        for _dev in self.devices:
+            _dev.open()
+
     def get_active_ports():
         """
         To use the exos, it is necessary to define the ports they are going to be connected to. 
@@ -108,7 +118,9 @@ class MainControllerWrapper:
         """
         try:
             # # Initializing the Exo
-            side_left, device_left, side_right, device_right = self.get_active_ports()
+            # side_left, device_left, side_right, device_right = self.get_active_ports()
+            
+            self.devices.append
             
             # # Start device streaming and set gains:
             device_left.start_streaming(self.streamingfrequency)
@@ -124,7 +136,7 @@ class MainControllerWrapper:
             self.quit_event.set()
             self.startstamp = time.perf_counter() # Timesync logging between all threads
 
-            # Thread 1/2: Left and right exoboots
+            # Thread 1&2: Left and right exoboots
             self.exothread_left = ExobootThread(side_left, device_left, self.startstamp, name='exothread_left', daemon=True, pause_event=self.pause_event, quit_event=self.quit_event)
             self.exothread_right = ExobootThread(side_right, device_right, self.startstamp, name='exothread_right', daemon=True, pause_event=self.pause_event, quit_event=self.quit_event)
             self.exothread_left.start()
@@ -213,6 +225,10 @@ class MainControllerWrapper:
 
 
 if __name__ == "__main__":
+    """
+    Uses the trial.config file to parse subjectID, trialtype
+    """
     assert len(sys.argv) == 4 + 1
     _, subjectID, trial_type, trial_cond, description = sys.argv
     MainControllerWrapper(subjectID, trial_type, trial_cond, description, streamingfrequency=1000).run()
+    

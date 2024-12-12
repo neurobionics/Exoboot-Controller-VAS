@@ -70,18 +70,18 @@ for subj_num = 1:length(subject_list)
     NPO_fname = '';
 
     % Determine appropriate filenames for each condition
-    for file = 1:numel(subject(subj_num).MVfilenames)
+    for file = 1:numel(subject(subj_num).MV_filenames)
         
         pat = ("WNE"|"EPO"|"NPO");  % determine and label which is WNE, EPO, NPO files
-        cond = extract(subject(subj_num).MVfilenames(file), pat);
+        cond = extract(subject(subj_num).MV_filenames(file), pat);
 
         switch cond
             case 'WNE'
-                WNE_fname = subject(subj_num).MVfilenames(file); 
+                WNE_fname = subject(subj_num).MV_filenames(file); 
             case 'EPO'
-                EPO_fname = subject(subj_num).MVfilenames(file);
+                EPO_fname = subject(subj_num).MV_filenames(file);
             case 'NPO'
-                NPO_fname = subject(subj_num).MVfilenames(file);
+                NPO_fname = subject(subj_num).MV_filenames(file);
         end
     end
 
@@ -89,28 +89,29 @@ for subj_num = 1:length(subject_list)
     if (isempty(WNE_fname) == true)
         continue;
     else
-        if (isempty(NPO_fname)== true)
+        if (isempty(NPO_fname) == true)
             comp_names = {EPO_fname};
-        elseif (isempty(EPO_fname)== true)
+        elseif (isempty(EPO_fname) == true)
             comp_names = {NPO_fname};
         else
             comp_names = {EPO_fname, NPO_fname};
         end
     end
 
-    % for each extracted filename, determine the Marginal Value 
-    % (relative to the WNE condition)
+    % for each extracted filename, determine the Marginal Value (relative to the WNE condition)
     for i = 1:length(comp_names)
+
+        fprintf("\n~~~~~Subject: %d, Trial Type: %s ~~~~~\n", subj_num, comp_names{1,i});
         
         % Pre-process the bids:
-        [t_WNE_bids, t_cond_bids, winRateWNE, winRateCond, WNE_bids, cond_bids, t_walked_WNE, t_walked_cond] = cutBids(WNE_fname, comp_names{1,i});
+        [t_WNE_bids, t_cond_bids, winRateWNE, winRateCond, WNE_bids, cond_bids, t_walked_WNE, t_walked_cond, winIdxsWNE, winIdxsCond] = cutBids(WNE_fname, comp_names{1,i}, subj_num);
     
         if t_walked_WNE > 10 && t_walked_cond > 10 
             count = count + 1;
             
             % Compute MV:
             [b_WNE,k_WNE,b_cond,k_cond, cond_bids, WNE_bids, scaledWNE_t, scaledCond_t, beta_cond, beta_WNE] = lstsqParams(winRateWNE, winRateCond, t_WNE_bids, WNE_bids, t_cond_bids, cond_bids);
-            [MV, diff, linmod_diff, r2_WNE, r2_cond, WNE_integral, cond_integral] = MVgenerator(b_WNE,k_WNE,b_cond,k_cond, gof_type, WNE_fname, WNE_bids, cond_bids, scaledCond_t, scaledWNE_t);
+            [MV, diff, linmod_diff, r2_WNE, r2_cond, WNE_integral, cond_integral] = MVgenerator(b_WNE, k_WNE, b_cond, k_cond, gof_type, WNE_fname, WNE_bids, cond_bids, scaledCond_t, scaledWNE_t, winIdxsWNE, winIdxsCond);
             WNE_price_per_hour = WNE_integral * 2;
             
             % Store data:
@@ -172,7 +173,7 @@ for subj_num = 1:length(subject_list)
                     res_NPOlist(subj_num,1) = r2_cond;
                     timeWalked_NPOlist(subj_num,1) = t_walked_cond;
                     
-                    b_NPOlist(subj_num,1) = b_cond; 
+                    b_NPOlist(subj_num,1) = b_cond;
                     k_NPOlist(subj_num,1) = k_cond;
             end
         end

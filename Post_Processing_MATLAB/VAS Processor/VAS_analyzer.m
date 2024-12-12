@@ -37,11 +37,17 @@ for sub_num = subj_num
     exp_data_sheet = readmatrix(xls_sheet);
     
     % extract data
-    btn_num = exp_data_sheet(1:9,1);
-    trial_num = exp_data_sheet(1:9,2);
-    pres_num = exp_data_sheet(1:9,3);
-    torques = exp_data_sheet(1:9,4:2:10);
-    values = exp_data_sheet(1:9,[5 7 9 11]);
+    if sub_num == 2
+        rows_2_extract = 1:9;
+    elseif sub_num == 3
+        rows_2_extract = 1:size(exp_data_sheet(1:end,1));
+    end
+    
+    btn_num = exp_data_sheet(rows_2_extract,1);
+    trial_num = exp_data_sheet(rows_2_extract,2);
+    pres_num = exp_data_sheet(rows_2_extract,3);
+    torques = exp_data_sheet(rows_2_extract,4:2:10);   
+    values = exp_data_sheet(rows_2_extract,[5 7 9 11]);
     max_trial_num = max(trial_num);
     max_pres_num = max(pres_num);
     total_options = max_pres_num*btn_num(1);
@@ -78,8 +84,12 @@ for sub_num = subj_num
     set(cfit,'color','k','LineWidth',2)
     errorbar(sorted_torques(:,1),avg_vals,std_vals,'.k','MarkerSize', 20);
 
-    legend({'trial 1';'trial 2';'trial 3'; 'curve fit'; 'trial averages with std'});
-    xlabel("Normalized Torque")
+    if sub_num == 2
+        legend({'trial 1';'trial 2';'trial 3'; 'curve fit'; 'trial averages with std'});
+    elseif sub_num == 3
+        legend({'trial 1';'trial 2';'curve fit'; 'trial averages with std'});
+    end
+        xlabel("Normalized Torque")
     ylabel("$/Hour")
     
 end
@@ -87,7 +97,7 @@ end
 %% Plot 12-button Trajectories for Selected Subjects
 
 % specify subj numbers (remove subjects due to any criteria)
-subj_num = [2];
+subj_num = [2 3];
 
 for sub_num = subj_num
 
@@ -96,14 +106,25 @@ for sub_num = subj_num
     exp_data_sheet = readmatrix(xls_sheet);
     
     % extract data
-    btn_num = exp_data_sheet(10:11,1);
-    trial_num = exp_data_sheet(10:11,2);
-    pres_num = exp_data_sheet(10:11,3);
-    torques = exp_data_sheet(10:11,4:2:26);
-    values = exp_data_sheet(10:11,5:2:27);
+    if sub_num == 2
+        rows_2_extract = 10:11;
+    elseif sub_num == 3
+        rows_2_extract = 1:size(exp_data_sheet(1:end,1));
+    end
+    
+    % extract data
+    btn_num = exp_data_sheet(rows_2_extract,1);
+    trial_num = exp_data_sheet(rows_2_extract,2);
+    pres_num = exp_data_sheet(rows_2_extract,3);
+    torques = exp_data_sheet(rows_2_extract,4:2:26);
+    values = exp_data_sheet(rows_2_extract,5:2:27);
     max_trial_num = max(trial_num);
     max_pres_num = max(pres_num);
     total_options = max_pres_num*btn_num(1);
+
+    % compile into columns for each trial
+    reshaped_torques = reshape(torques', total_options, max_trial_num);
+    reshaped_values = reshape(values', total_options, max_trial_num);
 
     % normalize data
     normd_torques = reshaped_torques/max(reshaped_torques,[],"all");
@@ -118,7 +139,7 @@ for sub_num = subj_num
 
     % Fit best-fit curve
     x = sorted_torques(:,1);
-    curve_fit = fit(x,avg_vals,'poly3','normalize','on');
+    curve_fit = fit(x,avg_vals,'poly4','normalize','on');
 
     % plot data
     figure()
@@ -133,11 +154,17 @@ for sub_num = subj_num
     set(cfit,'color','k','LineWidth',2)
     errorbar(sorted_torques(:,1),avg_vals,std_vals,'.k','MarkerSize', 20);
 
-    legend({'trial 1';'trial 2';'trial 3'; 'curve fit'; 'trial averages with std'});
+    if sub_num == 2
+        legend({'trial 1';'trial 2';'curve fit'; 'trial averages with std'});
+    elseif sub_num == 3
+        legend({'trial 1';'curve fit'; 'trial averages with std'});
+    end
     xlabel("Normalized Torque")
     ylabel("$/Hour")
     
 end
+
+   
 
 
 

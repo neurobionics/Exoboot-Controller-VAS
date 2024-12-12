@@ -1,8 +1,9 @@
 import os, sys, threading
 import time
 from typing import Type
+from abc import ABC, abstractmethod
 
-class BaseThread(threading.Thread):
+class BaseThread(ABC, threading.Thread):
     """
     Base Thread class for any Exoboot threads. 
 
@@ -28,10 +29,12 @@ class BaseThread(threading.Thread):
         self.quit_event = quit_event
         self.daemon = daemon
 
+    @abstractmethod
     def on_pre_run(self):
         """Fill Out Yourself!!!"""
         pass
     
+    @abstractmethod    
     def pre_iterate(self):
         """Fill Out Yourself!!!"""
         pass
@@ -68,6 +71,7 @@ class BaseThread(threading.Thread):
                 self.iterate()
                 self.post_iterate()
             self.on_pre_exit()
+            
         except Exception as e:
             print("Exception: ", e)
             exc_type, exc_obj, exc_tb = sys.exc_info()

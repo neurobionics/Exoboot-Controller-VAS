@@ -1,7 +1,7 @@
 %% 2024-25 Vickrey VAS Study - Post-Processes Exoboot Sensor Streams
 % This code plots:
 % (1) 
-% (2) 
+% (2)  
 %
 % Script should be run from the Exoboot-Controller-VAS/Post_Processing_MATLAB/Exploration Strategy Processor directory
 % Author: Nundini Rawal

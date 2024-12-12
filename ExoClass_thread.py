@@ -21,7 +21,6 @@ from SoftRTloop import FlexibleSleeper
 from AssistanceGenerator_new import AssistanceGenerator
 from TransmissionRatioGenerator import TransmissionRatioGenerator
 
-
 # class DumbExobootThread(BaseThread):
 #     """
 #     Testing purposes only!
