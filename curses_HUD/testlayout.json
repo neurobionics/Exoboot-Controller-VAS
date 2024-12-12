@@ -3,134 +3,143 @@
 
     "stylesheet": {
         "colors": {
-            "black": {"ind": "0", "rgb": [0, 0, 0]},
-            "white": {"ind": "1", "rgb": [255, 255, 255]}
+            "black": {"rgb": [0, 0, 0]},
+            "white": {"rgb": [1000, 1000, 1000]},
+            "red": {"rgb": [1000, 0, 0]},
+            "green": {"rgb": [0, 1000, 0]}
     },
-        "pairs": {
-            "black_white": {"ind": "0", "pairs": ["black", "white"]}
+        "colorpairs": {
+            "black_white": {"colorpair": ["black", "white"]},
+            "mycolor0": {"colorpair": [20, 100]},
+            "tealtext": {"colorpair": [50, 0]},
+            "redbg": {"colorpair": ["white", "red"]},
+            "greenbg": {"colorpair": ["white", "green"]}
         }
     },
 
-    "HUD": {
-        "widgettype": "HUD",
-        "nlines": 20,
-        "ncols": 60,
-        "l": 0,
-        "c": 0,
-        "signature": "h",
-        "kwargs": {"bgchar": " ", "bordertype": "box"},
-        "parent": ""
-    },
-
-    "widgets": {
-        "hudtitle": {
-            "widgettype": "TextBox",
-            "nlines": 2,
-            "ncols": 15,
-            "l": 1,
-            "c": 3,
-            "kwargs": {"bgchar": " ", "textlines": ["TESTHUDALPHA", "BOTTOMTEXT"]},
-            "signature": "t",
-            "parent": "h"
-        },
-
-        "win0": {
-            "widgettype": "Window",
-            "nlines": 20,
-            "ncols": 40,
-            "l": 5,
-            "c": 10,
-            "signature": "w0",
-            "kwargs": {"bgchar": " ", "bordertype": "box", "isdragable": true, "isresizeable": true, "keepbottomborder": true},
-            "parent": "h"
-        },
-
-        "tb0": {
-            "widgettype": "TextBox",
-            "nlines": 2,
-            "ncols": 10,
-            "l": 5,
-            "c": 4,
-            "signature": "t0",
-            "kwargs": {"bgchar": " ", "useprefix": true, "lineprefix": ["MAIN: ", ""]},
-            "parent": "w0"
-        },
-
-        "tb1": {
-            "widgettype": "TextBox",
-            "nlines": 2,
-            "ncols": 8,
+    "layout": {
+        "HUD": {
+            "widgettype": "HUD",
+            "nlines": 40,
+            "ncols": 60,
             "l": 0,
-            "c": 1,
-            "signature": "t1",
-            "kwargs": {"bgchar": " ", "textlines": ["peekaboo", "peekaboo"]},
-            "parent": "w0"
+            "c": 0,
+            "signature": "h",
+            "colorpair": "mycolor0",
+            "kwargs": {"bgchar": " ", "bordertype": "box"},
+            "parent": ""
         },
 
-        "quitbtn": {
-            "widgettype": "ToggleButton",
-            "nlines": 2,
-            "ncols": 7,
-            "l": 10,
-            "c": 3,
-            "signature": "qb",
-            "kwargs": {"bgchar": "K", "textlines": ["quitbtn", "quitbtn"], "onpressfunc": "setquitevent", "requires_top": false, "togglestate": false},
-            "parent": "w0"
-        },
+        "widgets": {
+            "hudtitle": {
+                "widgettype": "TextBox",
+                "nlines": 2,
+                "ncols": 15,
+                "l": 1,
+                "c": 3,
+                "kwargs": {"bgchar": " ", "textlines": ["TESTHUDALPHA", "BOTTOMTEXT"]},
+                "signature": "t",
+                "parent": "h"
+            },
 
-        "pausebtn": {
-            "widgettype": "ToggleButton",
-            "nlines": 2,
-            "ncols": 8,
-            "l": 13,
-            "c": 3,
-            "signature": "pb",
-            "kwargs": {"bgchar": "K", "textlines": ["pausebtn", "pausebtn"], "onpressfunc": "setpauseevent", "requires_top": false, "togglestate": false},
-            "parent": "w0"
-        },
+            "win0": {
+                "widgettype": "Window",
+                "nlines": 20,
+                "ncols": 40,
+                "l": 5,
+                "c": 10,
+                "signature": "w0",
+                "kwargs": {"bgchar": " ", "bordertype": "box", "isdragable": true, "isresizeable": true, "keepbottomborder": true},
+                "parent": "h"
+            },
 
-        "win1": {
-            "widgettype": "Window",
-            "nlines": 10,
-            "ncols": 20,
-            "l": 3,
-            "c": 3,
-            "signature": "w1",
-            "kwargs": {"bgchar": " ", "bordertype": "glitch", "isdragable": true, "isresizeable": true, "keepbottomborder": true},
-            "parent": "h"
-        },
+            "tb0": {
+                "widgettype": "TextBox",
+                "nlines": 2,
+                "ncols": 10,
+                "l": 5,
+                "c": 4,
+                "signature": "t0",
+                "kwargs": {"bgchar": " ", "useprefix": true, "lineprefix": ["MAIN: ", ""]},
+                "parent": "w0"
+            },
 
-        "win1_subwin0": {
-            "widgettype": "Window",
-            "nlines": 8,
-            "ncols": 10,
-            "l": 2,
-            "c": 2,
-            "signature": "w1s0",
-            "kwargs": {"bgchar": " ", "borderchar": "+", "isdragable": true, "isresizeable": true, "keepbottomborder": false},
-            "parent": "w1"
-        },
+            "tb1": {
+                "widgettype": "TextBox",
+                "nlines": 2,
+                "ncols": 8,
+                "l": 0,
+                "c": 1,
+                "signature": "t1",
+                "kwargs": {"bgchar": " ", "textlines": ["peekaboo", "peekaboo"]},
+                "parent": "w0"
+            },
 
-        "win1_subwin1": {
-            "widgettype": "Window",
-            "nlines": 7,
-            "ncols": 7,
-            "l": 2,
-            "c": 2,
-            "signature": "w1s1",
-            "kwargs": {"bgchar": " ", "borderchar": "X", "isdragable": true, "isresizeable": true, "keepbottomborder": false},
-            "parent": "w1s0"
-        },
+            "quitbtn": {
+                "widgettype": "ToggleButton",
+                "nlines": 2,
+                "ncols": 7,
+                "l": 10,
+                "c": 3,
+                "signature": "qb",
+                "kwargs": {"bgchar": "K", "textlines": ["quitbtn", "quitbtn"], "onpressfunc": "setquitevent", "requires_top": false, "togglestate": false},
+                "parent": "w0"
+            },
 
-        "btn0": {
-            "widgettype": "Button",
-            "nlines": 1,
-            "ncols": 5,
-            "l": 3,
-            "c": 1,
-            "signature": "b0",
-            "kwargs": {"bgchar": "&", "onpressfunc": "btn0func", "requires_top": false},
-            "parent": "w1s0" 
+            "pausebtn": {
+                "widgettype": "ToggleButton",
+                "nlines": 2,
+                "ncols": 8,
+                "l": 13,
+                "c": 3,
+                "signature": "pb",
+                "kwargs": {"bgchar": "K", "textlines": ["pausebtn", "pausebtn"], "onpressfunc": "setpauseevent", "requires_top": false, "togglestate": false},
+                "parent": "w0"
+            },
+
+            "win1": {
+                "widgettype": "Window",
+                "nlines": 10,
+                "ncols": 20,
+                "l": 3,
+                "c": 3,
+                "signature": "w1",
+                "kwargs": {"bgchar": " ", "bordertype": "glitch", "isdragable": true, "isresizeable": true, "keepbottomborder": true},
+                "parent": "h"
+            },
+
+            "win1_subwin0": {
+                "widgettype": "Window",
+                "nlines": 8,
+                "ncols": 10,
+                "l": 2,
+                "c": 2,
+                "signature": "w1s0",
+                "kwargs": {"bgchar": " ", "borderchar": "+", "isdragable": true, "isresizeable": true, "keepbottomborder": false},
+                "parent": "w1"
+            },
+
+            "win1_subwin1": {
+                "widgettype": "Window",
+                "nlines": 7,
+                "ncols": 7,
+                "l": 2,
+                "c": 2,
+                "signature": "w1s1",
+                "kwargs": {"bgchar": " ", "borderchar": "X", "isdragable": true, "isresizeable": true, "keepbottomborder": false},
+                "parent": "w1s0"
+            },
+
+            "btn0": {
+                "widgettype": "Button",
+                "nlines": 1,
+                "ncols": 5,
+                "l": 3,
+                "c": 1,
+                "signature": "b0",
+                "kwargs": {"bgchar": "&", "onpressfunc": "btn0func", "requires_top": false},
+                "parent": "w1s0" 
+            }
         }
     }
 }

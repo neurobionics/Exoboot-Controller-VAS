@@ -2,17 +2,16 @@ import curses
 from layout_base import CharLayout, Background
 
 class Widget:
-    def __init__(self, l, c, signature, bgchar=" "):
+    def __init__(self, l, c, signature, bgchar=" ", colorpair=1):
         self.signature = signature
         self.l = l
         self.c = c
         self.bgchar = bgchar
+        self.colorpair = colorpair
 
         self.layout = None
-
         self.parent = None
         self.children = None
-
         self.isvisible = True
 
     @property
@@ -63,8 +62,8 @@ class Widget:
             self.parent.layout.insertsublayout(self.layout, self.l, self.c)
 
 class TextBox(Widget):
-    def __init__(self, nlines, ncols, l, c, signature, bgchar=" ", textlines=[], useprefix=False, lineprefix=[]):
-        super().__init__(l, c, signature, bgchar=bgchar)
+    def __init__(self, nlines, ncols, l, c, signature, bgchar=" ", colorpair=1, textlines=[], useprefix=False, lineprefix=[]):
+        super().__init__(l, c, signature, bgchar=bgchar, colorpair=colorpair)
         self.textlines = textlines
         self.useprefix = useprefix
         self.lineprefix = lineprefix
@@ -109,8 +108,8 @@ class TextBox(Widget):
             self.parent.layout.insertsublayout(self.layout, self.l, self.c)
 
 class Button(TextBox):
-    def __init__(self, nlines, ncols, l, c, signature, bgchar=" ", textlines=[], onpressfunc=None, requires_top=True):
-        super().__init__(nlines, ncols, l, c, signature, bgchar=bgchar, textlines=textlines)
+    def __init__(self, nlines, ncols, l, c, signature, bgchar=" ", colorpair=1, textlines=[], onpressfunc=None, requires_top=True):
+        super().__init__(nlines, ncols, l, c, signature, bgchar=bgchar, colorpair=colorpair, textlines=textlines)
         self.onpressfunc = onpressfunc
         self.requires_top = requires_top
 
@@ -123,8 +122,8 @@ class Button(TextBox):
         self.parent.onpress(**kwargs)
 
 class ToggleButton(Button):
-    def __init__(self, nlines, ncols, l, c, signature, bgchar=" ", textlines=[], onpressfunc=None, requires_top=True, togglestate=False):
-        super().__init__(nlines, ncols, l, c, signature, bgchar=bgchar, textlines=textlines, onpressfunc=onpressfunc, requires_top=requires_top)
+    def __init__(self, nlines, ncols, l, c, signature, bgchar=" ", colorpair=1, textlines=[], onpressfunc=None, requires_top=True, togglestate=False):
+        super().__init__(nlines, ncols, l, c, signature, bgchar=bgchar, colorpair=colorpair, textlines=textlines, onpressfunc=onpressfunc, requires_top=requires_top)
         self.togglestate = togglestate
 
     def onpress(self, **kwargs):
@@ -138,10 +137,11 @@ class ToggleButton(Button):
         self.parent.onpress(**kwargs)
 
 class Window(Widget):
-    def __init__(self, nlines, ncols, l, c, signature, bgchar=" ", borderchar=" ", bordertype="borderchar", isdragable=False, isresizeable=False, keepbottomborder=False):
+    def __init__(self, nlines, ncols, l, c, signature, bgchar=" ", borderchar=" ", colorpair=1, bordertype="borderchar", isdragable=False, isresizeable=False, keepbottomborder=False):
         super().__init__(l, c, signature, bgchar=bgchar)
         self.layout = Background(nlines, ncols, self.signature, bgchar=bgchar, borderchar=borderchar, bordertype=bordertype, keepbottomborder=keepbottomborder)
-        
+        self.colorpair = colorpair
+
         self.anchor = [0, 0]
         self.isdragable = isdragable
         self.dragstate = False
@@ -198,14 +198,17 @@ class Window(Widget):
         self.parent.layout.insertsublayout(self.layout, self.l, self.c)
 
 class HUD(Window):
-    def __init__(self, nlines, ncols, l, c, signature, bgchar=" ", borderchar=" ", bordertype="borderchar", debug=False):
-        super().__init__(nlines, ncols, 0, 0, signature, bgchar=bgchar, borderchar=borderchar, bordertype=bordertype, keepbottomborder=True)
+    def __init__(self, nlines, ncols, l, c, signature, bgchar=" ", borderchar=" ", bordertype="borderchar", colorpair=1, debug=False):
+        super().__init__(nlines, ncols, 0, 0, signature, bgchar=bgchar, borderchar=borderchar, bordertype=bordertype, colorpair=colorpair, keepbottomborder=True)
         self.nlines = nlines
         self.ncols = ncols
         self.debug = debug
 
         self.widget_dict = {}
         self.running = True
+
+        # Colorpairs
+        self.colorpairs = {}
 
         # Main Window
         self.win = curses.newwin(self.nlines + 1, self.ncols, 0, 0)
@@ -247,6 +250,10 @@ class HUD(Window):
             else:
                 self.kb_text = event
 
+    def getcolorpair(self, signature):
+        widget = self.widget_dict[signature]
+        return self.colorpairs.get(widget.colorpair, widget.colorpair)
+
     def draw(self):
         self.layout.cleanslate()
 
@@ -261,8 +268,25 @@ class HUD(Window):
 
         # Draw to window
         self.win.clear()
+        x = 0
         for l in range(self.nlines):
-            self.win.addstr("".join(self.layout.readline(l)), curses.color_pair(1))
+            line = self.layout.readline(l)
+            signatures = self.layout.getsignature(l, -1)
+
+            text = line[0]
+            prev_signature = signatures[0]
+            x = 0
+            for i in range(1, len(line)):
+                char = line[i]
+                signature = signatures[i]
+                if signature == prev_signature:
+                    text += char
+                else:
+                    self.win.addstr(l, x, text, curses.color_pair(self.getcolorpair(prev_signature)))
+                    text = char
+                    x = i
+                prev_signature = signature
+            self.win.addstr(l, x, text, curses.color_pair(self.getcolorpair(prev_signature)))
 
     def refresh(self):
         # self.win.refresh()

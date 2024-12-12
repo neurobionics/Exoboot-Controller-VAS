@@ -1,4 +1,7 @@
 # setting trial naming (components compiled into a full filename in GSE Thread)
+
+# TODO remove all config dependencies
+
 subject_ID: str = "0"
 trial_type: str = ""
 trial_presentation: str = ""

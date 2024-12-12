@@ -6,7 +6,7 @@
 # Modified for VAS Vickrey protocol by: Nundini Rawal
 # Date: 06/13/2024
 
-import os, csv, time, copy, threading
+import os, sys, csv, time, copy, threading
 import numpy as np
 from typing import Type, Tuple
 
@@ -70,14 +70,17 @@ from TransmissionRatioGenerator import TransmissionRatioGenerator
 
 
 class ExobootThread(BaseThread):
-    def __init__(self, side, flexdevice, startstamp, name='exobootthread', daemon=True, pause_event=Type[threading.Event], quit_event=Type[threading.Event]):
+    def __init__(self, side, flexdevice, startstamp, dozero = True, name='exobootthread', daemon=True, pause_event=Type[threading.Event], quit_event=Type[threading.Event], log_event=Type[threading.Event]):
         """
         TODO make overview
         """
-        super().__init__(name=name, daemon=daemon, pause_event=pause_event, quit_event=quit_event)
+        super().__init__(name=name, daemon=daemon, pause_event=pause_event, quit_event=quit_event, log_event=log_event)
         # Necessary Inputs for Exo Class
         self.side = side
         self.flexdevice = flexdevice # In ref to flexsea Device class
+
+        # Do zero routine
+        self.dozero = dozero
         
         # Motor and ankle signs
         """TEST TO ENSURE CORRECT DIRECTIONS BEFORE RUNNING IN FULL"""
@@ -129,7 +132,6 @@ class ExobootThread(BaseThread):
     def spool_belt(self):
         self.flexdevice.command_motor_current(self.motor_sign * BIAS_CURRENT)
         time.sleep(0.5)
-        print("Belt spooled for: ", self.flexdevice.id)
         
     def zeroProcedure(self):
         """
@@ -315,7 +317,9 @@ class ExobootThread(BaseThread):
         """
         # Exoboot spooling/zeroing routine
         self.spool_belt()
-        self.zeroProcedure()
+
+        if self.dozero:
+            self.zeroProcedure()
 
         # Load profile timings and create generic profile
         self.assistance_generator.load_timings(SPINE_TIMING_PARAMS_DICT)
@@ -330,12 +334,10 @@ class ExobootThread(BaseThread):
         
     def on_pre_pause(self):
         """
-        Runs once before pausing threads
+        Runs when paused (repeatedly)
         """
         # Send bias current
         self.flexdevice.command_motor_current(self.motor_sign * BIAS_CURRENT)
-        
-        print("{} is paused".format(self.name))
 
     def pre_iterate(self):
         """
@@ -375,24 +377,54 @@ class ExobootThread(BaseThread):
         else:
             self.flexdevice.command_motor_current(self.motor_sign * vetted_current)
 
-    def post_iterate(self):
+    def post_iterate(self, end_time):
         """
         Loop period tracking and soft real time pause
         """
-        # Update Period Tracker and config
-        end_time = time.perf_counter()
-        self.period_tracker.update(end_time - self.prev_end_time)
-        self.prev_end_time = end_time
-        my_freq = 1/self.period_tracker.average()
-        self.data_dict['thread_freq'] = my_freq
-
-        # Perform thermal safety check on actpack
+        # Perform thermal safety check on actpack TODO fix
         # self.thermal_safety_checker()
 
-        # Send GSE data for logging
-        if self.loggingnexus and self.pause_event.is_set() and end_time - self.lastlogstamp > 1/EXOTHREAD_LOGGING_FREQ:
+        # Append data to LoggingNexus
+        if self.loggingnexus and self.log_event.is_set() and end_time - self.lastlogstamp > 1/EXOTHREAD_LOGGING_FREQ:
             self.loggingnexus.append(self.name, self.data_dict)
             self.lastlogstamp = end_time
 
         # Soft real-time loop
         self.softRTloop.pause()
+
+def run(self):
+        """
+        Generic Run with Pausing Capabilities
+
+        Fill out on_pre_run(), pre_iterate(), on_pre_pause(), iterate(), post_iterate(), and on_pre_exit()
+        """
+        self.on_pre_run()
+        try:
+            while self.quit_event.is_set():
+                # Runs first
+                self.pre_iterate()
+
+                # Pause event
+                if self.pause_event.is_set():
+                    self.iterate()
+                else:
+                    self.on_pre_pause()
+
+                # Log event
+                end_time = time.perf_counter()
+                if self.log_event.is_set():
+                    self.post_iterate(end_time)
+
+                 # Update Period Tracker and config
+                self.period_tracker.update(end_time - self.prev_end_time)
+                self.prev_end_time = end_time
+                my_freq = 1/self.period_tracker.average()
+                self.data_dict['thread_freq'] = my_freq
+    
+            # Run before exiting
+            self.on_pre_exit()
+        except Exception as e:
+            print("Exception: ", e)
+            exc_type, exc_obj, exc_tb = sys.exc_info()
+            fname = os.path.split(exc_tb.tb_frame.f_code.co_filename)[1]
+            print(exc_type, fname, exc_tb.tb_lineno)

@@ -6,13 +6,15 @@ build command: python -m grpc_tools.protoc -I. --python_out=. --grpc_python_out=
 
 // General Messages
 message null {}
-
 message receipt {
     bool received = 1;
 }
 
 // Exoboot Controller Messages
 message pause {
+    bool mybool = 1;
+}
+message log{
     bool mybool = 1;
 }
 message quit {
@@ -23,20 +25,18 @@ message torques {
     float peak_torque_right = 2;
 }
 
-
 // Logging Messages
 message beaver {}
-
 message testmsg {
     string msg = 1;
 }
-
 message subject_info {
     float startstamp = 1;
     string subjectID = 2;
     string trial_type = 3;
     string trial_cond = 4;
     string description = 5;
+    bool usebackup = 6;
 }
 
 // Vickrey Auction Messages
@@ -47,11 +47,13 @@ message result {
     float current_payout = 4;
     float total_winnings = 5;
 }
-
 message survey {
     float t = 1;
     float enjoyment = 2;
     float rpe = 3;
+}
+message walkmsg {
+    float t = 1;
 }
 
 // VAS Messages
@@ -60,13 +62,11 @@ message vas_info {
     float trial = 2;
     float pres = 3;
 }
-
 message slider {
     float pitime = 1;
     repeated float torques = 2;
     repeated float mvs = 3;
 }
-
 message presentation {
     float btn_option = 1;
     float trial = 2;
@@ -77,12 +77,16 @@ message presentation {
 
 // JND Messages
 message comparison {
-    float pres = 1;
-    float prop = 2;
-    float T_ref = 3;
-    float T_comp = 4;
-    float truth = 5;
-    float answer = 6;
+    float walk = 1;
+    float pres = 2;
+    float prop = 3;
+    float T_ref = 4;
+    float T_comp = 5;
+    float truth = 6;
+    float answer = 7;
+}
+message walkmsgjnd {
+    float walk = 1;
 }
 
 // PREF Messages
@@ -96,11 +100,9 @@ message preference {
 message header {
     repeated string names = 1;
 }
-
 message type {
     repeated string types = 1;
 }
-
 message datastream {
     repeated string data = 1;
 }
@@ -116,19 +118,23 @@ service exoboot_over_network {
     // Exoboot Controller Commands
     rpc set_pause (pause) returns (receipt) {}
     rpc set_quit (quit) returns (receipt) {}
+    rpc set_log (log) returns (receipt) {}
     rpc set_torque (torques) returns (receipt) {}
 
     // Vickrey Auction Specific
     rpc call (result) returns (receipt) {};
     rpc question (survey) returns (receipt) {};
+    rpc newwalk (walkmsg) returns (receipt) {};
 
-    //VAS Specific
+    // VAS Specific
     rpc update_vas_info (vas_info) returns (receipt) {};
     rpc slider_update (slider) returns (receipt) {};
     rpc presentation_result (presentation) returns (receipt) {};
+    rpc newpres (vas_info) returns (receipt) {};
 
-    //JND Specific
+    // JND Specific
     rpc comparison_result (comparison) returns (receipt) {};
+    rpc newwalkjnd (walkmsgjnd) returns (receipt) {};
 
     // Pref Specific
     rpc pref_result (preference) returns (receipt) {};

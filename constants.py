@@ -1,27 +1,25 @@
-# Constants file for CONSTANTS
+"""
+Collection of all the constants used throughout exoboot controller
+"""
+
+
+"""Static IP addresses"""
+RTPLOT_IP = '35.3.80.31'    # ip address of server for real time ploting (monitor)
+VICON_IP='141.212.77.30'    # Vicon ip to connect to Bertec Forceplates for streaming
+
+
+"""File Paths on Pi"""
+PORT_CFG_PATH = '/home/pi/VAS_exoboot_controller/ports.yaml' # DEPRECATED
+TR_COEFS_PREFIX = "Transmission_Ratio_Characterization/default_TR_coefs_"
+
 
 """TRIAL TYPES AND CONDITIONS"""
 TRIAL_CONDS_DICT = {'VICKREY': ["WNE", "EPO", "NPO"],
                     'VAS': [],
                     'JND': ['SPLITLEG', 'SAMELEG'],
-                    'PREF': ['SLIDER', 'BTN'],
+                    'PREF': ['SLIDER', 'BUTTON'],
                     'ACCLIMATION': []
                     }
-
-
-
-######### PARAMS TO MODIFY PRIOR TO EACH VAS SESSION ######### 
-# gRPC ip addresses (run in the following order: rtplot, then GUI client, then VAS_MAIN() script)
-PI_IP = f"{'35.3.184.0'}:" f"{'50051'}"   # IP address of the Controller (rPi)
-
-RTPLOT_IP = '35.3.80.31'    # ip address of server for real time ploting (monitor)
-VICON_IP='141.212.77.30'    # Vicon ip to connect to Bertec Forceplates for streaming
-##############################################################  
-
-
-"""File Paths on Pi"""
-PORT_CFG_PATH = '/home/pi/VAS_exoboot_controller/ports.yaml'
-TR_COEFS_PREFIX = "Transmission_Ratio_Characterization/default_TR_coefs_"
 
 
 """LoggingNexus Fields for each thread"""
@@ -35,12 +33,6 @@ RTPLOT_FIELDS = ['pitime_left', 'pitime_right', 'motor_current_left', 'motor_cur
 EXOTHREAD_FIELDS = GENERAL_FIELDS + GAIT_ESTIMATE_FIELDS + SENSOR_FIELDS
 GSETHREAD_FIELDS = GENERAL_FIELDS + BERTEC_FIELDS
 
-# REMOTE_FIELDS = {'VICKREY': {'AUCTION': ['t', 'subject_bid', 'user_win_flag', 'current_payout', 'total_winnings'],
-#                              'SURVEY': ['enjoyment', 'rpe']},
-#                  'VAS': {'PRESENTATION': [],
-#                          'OVERTIME': []},
-#                  'JND': {'RESULT': ['i', 'torque_left', 'torque_right', 'higher']},
-#                  'THERMAL': {'TBD': ['tbd']}}
 
 """Assistance Profile Constants"""
 # Timing Parameters for the 4-Point Spline (CURRENTLY HAVE VARUN'S PREF STUDY PARAMS LOADED FOR FLAT WALKING AT 1.20m/s)
@@ -71,9 +63,14 @@ MAX_CASE_TEMP = 75 # Degree C
 MAX_WINDING_TEMP = 110 # Degree C
 TEMPANTISPIKE = 200 # Degree C
 
+
 """Exothread loop frequencies"""
 EXOTHREAD_MAIN_FREQ = 500 # Hz
 EXOTHREAD_LOGGING_FREQ = 250 # Hz
+
+
+"""Safety Limits"""
+MAX_ALLOWABLE_CURRENT = 27000 # mA
 
 
 """Device Identifiers"""
@@ -92,8 +89,6 @@ DEV_ID_TO_SIDE_DICT = {id: 'right' for id in RIGHT_EXO_DEV_IDS} | {id: 'left' fo
 DEV_ID_TO_ANK_ENC_SIGN_DICT = {id: ANK_ENC_SIGN_RIGHT_EXO for id in RIGHT_EXO_DEV_IDS} | {id: ANK_ENC_SIGN_LEFT_EXO for id in LEFT_EXO_DEV_IDS}
 DEV_ID_TO_MOTOR_SIGN_DICT = {id: MOTOR_SIGN_RIGHT for id in RIGHT_EXO_DEV_IDS} | {id: MOTOR_SIGN_LEFT for id in LEFT_EXO_DEV_IDS}
 
-"""Safety Limits"""
-MAX_ALLOWABLE_CURRENT = 27000 # mA
 
 """Device Attributes"""
 # Unit Conversions (from Dephy Website, Units Section: https://dephy.com/start/#programmable_safety_features)
@@ -106,11 +101,13 @@ EFFICIENCY = 0.9 # 90% efficiency for belt drive
 RES_PHASE = 0.279 # Ohms
 L_PHASE = 0.5 * 138 * 10e-6 # Henrys
 
+
 """Controller Gains"""
 DEFAULT_KP = 40
 DEFAULT_KI = 400
 DEFAULT_KD = 0
 DEFAULT_FF = 128  # 128 is 100% feedforward
+
 
 """IMU/GYRO Constants"""
 # Inferred from https://invensense.tdk.com/products/motion-tracking/6-axis/mpu-6050/ 
@@ -131,8 +128,10 @@ GYROX_SIGN = -1
 GYROY_SIGN = 1
 GYROZ_SIGN = 1  # Remove -1 for EB-51
 
+
 """Filter Constants"""
 GYROZ_W0: float = 1.0105 # Hz
+
 
 """Bertec Thresholds"""
 HS_THRESHOLD = 80

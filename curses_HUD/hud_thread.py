@@ -1,4 +1,4 @@
-import os, sys, json, time, inspect, threading
+import os, sys, json, time, inspect, random, threading
 from typing import Type
 import curses, curses.panel
 
@@ -17,46 +17,82 @@ class HUDWrapper:
         self.availablefuncs = {}
 
     def loadHUD(self, layoutfile):
-        f = open(os.path.join(os.path.dirname(__file__), layoutfile), mode="r")
-        layout = json.load(f)
-
-        settings = layout["settings"]
-        self.debugmode = settings["debugmode"]
-
+        # Load widget and button funcs
         for name, obj in inspect.getmembers(widget_base):
             if inspect.isclass(obj) and issubclass(obj, widget_base.Widget) and obj != widget_base.Widget:
                 self.availablewidgets[name] = obj
-                if self.debugmode:
-                    print(name, obj)
+                # if self.debugmode:
+                #     print(name, obj)
 
         self.availablefuncs = {}
         for name, obj in inspect.getmembers(button_funcs):
             if inspect.isfunction(obj):
                 self.availablefuncs[name] = obj(self.mainwrapper)
-                if self.debugmode:
-                    print(name, obj)
+                # if self.debugmode:
+                #     print(name, obj)
 
-        hudinfo = layout["HUD"]
-        self.hud = HUD(hudinfo["nlines"], hudinfo["ncols"], 0, 0, hudinfo["signature"], **hudinfo["kwargs"], debug=self.debugmode)
-        self.hud.cleanslate()
-        self.hud.widget_dict[hudinfo["signature"]] = self.hud
+        # Open layout file (.json)
+        f = open(os.path.join(os.path.dirname(__file__), layoutfile), mode="r")
+        hudinfo = json.load(f)
+
+        settings = hudinfo["settings"]
+        stylesheet = hudinfo["stylesheet"]
+        layout = hudinfo["layout"]
         
-        parents_link_todo = {}
-        for info in layout["widgets"].values():
-            signature = info["signature"]
+        # Load settings
+        self.debugmode = settings["debugmode"]
 
-            converted_kwargs = {}
-            for k, v in info["kwargs"].items():
+        # Build HUD widget
+        hudwidget = layout["HUD"]
+        self.hud = HUD(hudwidget["nlines"], hudwidget["ncols"], 0, 0, hudwidget["signature"], **hudwidget["kwargs"], debug=self.debugmode)
+        self.hud.cleanslate()
+        self.hud.widget_dict[hudwidget["signature"]] = self.hud
+
+        # Initialize colors
+        color_name_to_num = {}
+        colornum = 16
+        for color_name, info in stylesheet["colors"].items():
+            curses.init_color(colornum, info["rgb"][0], info["rgb"][1], info["rgb"][2])
+            color_name_to_num[color_name] = colornum
+            colornum += 1
+
+        # Create color pairs
+        # Reserved pairnums: 0 as terminal default, 1 as hud default
+        self.hud.colorpairs = {0: 0}
+        colorpairname = hudwidget["colorpair"]
+        fg = color_name_to_num.get(stylesheet["colorpairs"][colorpairname]["colorpair"][0], stylesheet["colorpairs"][colorpairname]["colorpair"][0])
+        bg = color_name_to_num.get(stylesheet["colorpairs"][colorpairname]["colorpair"][1], stylesheet["colorpairs"][colorpairname]["colorpair"][1])
+        curses.init_pair(1, fg, bg)
+
+        colorpair_num = 2
+        for pairname, pairinfo in stylesheet["colorpairs"].items():
+            fg = color_name_to_num.get(pairinfo["colorpair"][0], pairinfo["colorpair"][0])
+            bg = color_name_to_num.get(pairinfo["colorpair"][1], pairinfo["colorpair"][1])
+            curses.init_pair(colorpair_num, fg, bg)
+            self.hud.colorpairs[pairname] = colorpair_num
+            colorpair_num += 1
+        print(self.hud.colorpairs)
+
+        # Build other widgets
+        parents_link_todo = {}
+        for widget in layout["widgets"].values():
+            signature = widget["signature"]
+            colorpair = widget.get("colorpair", 1)
+
+            # Convert kwargs to funcs
+            converted_kwargs = {"colorpair": colorpair}
+            for k, v in widget["kwargs"].items():
                 if k == "onpressfunc":
                     converted_kwargs[k] = self.availablefuncs[v]
                 else:
                     converted_kwargs[k] = v
 
-            newwidget = self.availablewidgets[info["widgettype"]](info["nlines"], info["ncols"], info["l"], info["c"], signature, **converted_kwargs)
+            newwidget = self.availablewidgets[widget["widgettype"]](widget["nlines"], widget["ncols"], widget["l"], widget["c"], signature, **converted_kwargs)
             newwidget.cleanslate()
             self.hud.widget_dict[signature] = newwidget
-            parents_link_todo[signature] = info["parent"]
+            parents_link_todo[signature] = widget["parent"]
 
+        # Link widgets to parents
         for childsignature, parentsignature in parents_link_todo.items():
             self.hud.widget_dict[parentsignature].addwidget(self.hud.widget_dict[childsignature])
 
@@ -82,10 +118,12 @@ class HUDWrapper:
 
 
 class HUDThread(threading.Thread):
-    def __init__(self, mainwrapper, layoutfile, name='hud', daemon=True, pause_event=Type[threading.Event], quit_event=Type[threading.Event]):
+    def __init__(self, mainwrapper, layoutfile, name='hud', napms=10, mouseinterval=10, daemon=True, pause_event=Type[threading.Event], quit_event=Type[threading.Event]):
         super().__init__(name=name)
         self.mainwrapper = mainwrapper
         self.layoutfile = layoutfile
+        self.napms = napms
+        self.mouseinterval = mouseinterval
         self.pause_event = pause_event
         self.quit_event = quit_event
         self.daemon = daemon
@@ -94,6 +132,7 @@ class HUDThread(threading.Thread):
         self.stdscr = curses.initscr()
         curses.noecho()
         curses.cbreak()
+        curses.mouseinterval(self.mouseinterval)
 
         # Setup for inputs
         curses.curs_set(0)
@@ -103,14 +142,7 @@ class HUDThread(threading.Thread):
         curses.start_color()
         curses.use_default_colors()
 
-        # TODO color numbers -1 to 15 are reserved
-        i = 16
-        curses.init_color(i, 1000, 0, 0)
-        curses.init_color(i+1, 0, 1000, 0)
-        curses.init_pair(1, 5, 18)
-        # curses.init_pair(1, i, i+1)
-
-        self.hudwrapper = HUDWrapper(self.mainwrapper, self.stdscr, mouseinterval=10)
+        self.hudwrapper = HUDWrapper(self.mainwrapper, self.stdscr)
         self.hudwrapper.loadHUD(self.layoutfile)
 
     @property
@@ -127,9 +159,11 @@ class HUDThread(threading.Thread):
                 self.hudwrapper.draw()
                 self.hudwrapper.get_input()
                 self.hudwrapper.refresh()
-                curses.napms(10)
-        except:
-            pass
+
+                # Don't use curses.napms <- hogs all processing time :(
+                time.sleep(self.napms/1000)
+        except Exception as e:
+            print("Exception: ", e)
         finally:
             self.stdscr.keypad(0)
             curses.echo()
@@ -153,7 +187,7 @@ if __name__ == "__main__":
     try:
         dumbmainwrapper = DumbMainWrapper()
 
-        hudthread = HUDThread(dumbmainwrapper, "exohud_layout.json", pause_event=dumbmainwrapper.pause_event, quit_event=dumbmainwrapper.quit_event)
+        hudthread = HUDThread(dumbmainwrapper, "exohud_layout.json", napms=10, pause_event=dumbmainwrapper.pause_event, quit_event=dumbmainwrapper.quit_event)
         hudthread.start()
 
         somenum = 0
@@ -177,18 +211,18 @@ if __name__ == "__main__":
                 exostate_text = "Running" if dumbmainwrapper.pause_event.is_set() else "Paused"
                 hudthread.getwidget("ls").settextline(0, exostate_text)
                 hudthread.getwidget("rs").settextline(0, exostate_text)
-                hudthread.getwidget("lpt").settextline(0, "b")
-                hudthread.getwidget("rpt").settextline(0, "b")
-                hudthread.getwidget("lct").settextline(0, "b")
-                hudthread.getwidget("rct").settextline(0, "b")
-                hudthread.getwidget("lcs").settextline(0, "b")
-                hudthread.getwidget("rcs").settextline(0, "c")
+                hudthread.getwidget("lpt").settextline(0, chr(random.randint(36, 160)))
+                hudthread.getwidget("rpt").settextline(0, chr(random.randint(36, 160)))
+                hudthread.getwidget("lct").settextline(0, chr(random.randint(36, 160)))
+                hudthread.getwidget("rct").settextline(0, chr(random.randint(36, 160)))
+                hudthread.getwidget("lcs").settextline(0, chr(random.randint(36, 160)))
+                hudthread.getwidget("rcs").settextline(0, chr(random.randint(36, 160)))
 
-                hudthread.getwidget("batv").settextline(0, "b")
-                hudthread.getwidget("bati").settextline(0, "b")
+                hudthread.getwidget("batv").settextline(0, chr(random.randint(36, 160)))
+                hudthread.getwidget("bati").settextline(0, chr(random.randint(36, 160)))
 
-                hudthread.getwidget("bert").settextline(0, "IDK")
-                hudthread.getwidget("vicon").settextline(0, "TBI")
+                hudthread.getwidget("bert").settextline(0, chr(random.randint(36, 160)))
+                hudthread.getwidget("vicon").settextline(0, chr(random.randint(36, 160)))
             except:
                 pass
         
@@ -199,3 +233,8 @@ if __name__ == "__main__":
 
     except KeyboardInterrupt:
         print("DONE")
+
+# TODO
+#   1) add animation/sequence class for defining time series of frames for a textbox
+#   2) create better button
+#   3) redirect prints to special box?

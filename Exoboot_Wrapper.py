@@ -6,22 +6,19 @@
 # Modified for VAS Vickrey protocol by: Nundini Rawal, John Hutchinson
 # Date: 06/13/2024
 
-import os, sys, csv, time, socket, threading
+import os, sys, time, socket, threading
 
 from flexsea.device import Device
 from rtplot import client
 
-from LoggingClass import LoggingNexus
 from ExoClass_thread import ExobootThread
+from LoggingClass import LoggingNexus, FilingCabinet
 from GaitStateEstimator_thread import GaitStateEstimator
-from exoboot_remote_control import ExobootRemoteServerThread
+from exoboot_remote.exoboot_remote_control import ExobootRemoteServerThread
 from curses_HUD.hud_thread import HUDThread
 
 from SoftRTloop import FlexibleSleeper
-from constants import PI_IP, DEV_ID_TO_SIDE_DICT, DEFAULT_KP, DEFAULT_KI, DEFAULT_KD, DEFAULT_FF, RTPLOT_IP, TRIAL_CONDS_DICT
-
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), "curses_HUD"))
-from curses_HUD import hud_thread
+from constants import DEV_ID_TO_SIDE_DICT, DEFAULT_KP, DEFAULT_KI, DEFAULT_KD, DEFAULT_FF, RTPLOT_IP, TRIAL_CONDS_DICT
 
 thisdir = os.path.dirname(os.path.abspath(__file__))
 sys.path.append(thisdir)
@@ -35,60 +32,68 @@ class MainControllerWrapper:
 
     Allows for high level interaction with flexsea controller
     """
-    def __init__(self, subjectID, trial_type: str, trial_cond: str, description, streamingfrequency=1000, clockspeed=0.2):
-        self.subjectID: str = subjectID
+    def __init__(self, subjectID, trial_type, trial_cond, description, usebackup, streamingfrequency=1000, clockspeed=0.2):
+        # Settings
+        self.streamingfrequency = streamingfrequency
+        self.clockspeed = clockspeed
+
+        # Subject info
+        self.subjectID = subjectID
         self.trial_type = trial_type.upper()
         self.trial_cond = trial_cond.upper()
         self.description = description
-        self.streamingfrequency = streamingfrequency
-        self.clockspeed = clockspeed
-        
-
-        # Dummy mode check TODO implement dummymode
-        if self.subjectID.upper() == "DUMMY":
-            self.dummymode = True
-        else:
-            self.dummymode = False
-
-        # Validate trial_type and trial_cond
-        try:
-            if self.trial_type not in TRIAL_CONDS_DICT.keys():
-                raise Exception("Invalid trial type: {} not in {}".format(self.trial_type,TRIAL_CONDS_DICT.keys()))
-
-            if self.trial_cond not in TRIAL_CONDS_DICT[self.trial_type]:
-                raise Exception("Invalid trial cond: {} not in {}".format(trial_cond, TRIAL_CONDS_DICT[self.trial_type]))
-        except:
-            # TODO only run this section if arguments are incorrect
-            print("\nINCORRECT ARGUMENTS\n")
-            print("How to run: python Exoboot_Wrapper.py subjectID trial_type trial_cond description")
-            print("\tsubjectID: name of subject")
-            print("\ttrial_type: [trial_conds]: pick from VICKREY: [WNE, EPO, NPO], JND: [SPLITLEG, SAMELEG], PREF: [SLIDER, BTN]")
-            print("\t\tother trial_types can have arbitrary trial_cond")
-            print("\tdescription: any additional notes")
-        
+        self.usebackup = usebackup in ["true", "True", "1", "yes", "Yes"]
         self.file_prefix = "{}_{}_{}_{}".format(self.subjectID, self.trial_type, self.trial_cond, self.description)
 
-        # Get own IP address for GRPC     
-        s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-        s.connect(('10.255.255.255', 1))
-        self.myIP = s.getsockname()[0] + ":50051"
-        print("myIP: {}".format(self.myIP))
-        
+        # Thread events
+        self.pause_event = threading.Event()
+        self.log_event = threading.Event()
+        self.quit_event = threading.Event()
+        self.pause_event.clear()
+        self.log_event.clear()
+        self.quit_event.clear()
+        self.startstamp = time.perf_counter() # Timesync logging between all threads
 
-        
-    def make_device(self, port, firmware_version, baud_rate, log_level) -> Device:
-        return Device()
-    
-    def start_streaming(self):
-        for _dev in self.devices:
-            _dev.open()
+        # Intiailize subject
+        self.init_subject()
 
+        # Init FilingCabinet
+        self.filingcabinet = FilingCabinet("subject_data", self.subjectID)
+
+        # Initializing Flexsea devices
+        side_left, device_left, side_right, device_right = self.get_active_ports()
+        
+        # Start device streaming and set gains:
+        device_left.start_streaming(self.streamingfrequency)
+        device_right.start_streaming(self.streamingfrequency)
+        device_left.set_gains(DEFAULT_KP, DEFAULT_KI, DEFAULT_KD, 0, 0, DEFAULT_FF)
+        device_right.set_gains(DEFAULT_KP, DEFAULT_KI, DEFAULT_KD, 0, 0, DEFAULT_FF)
+
+        # Init Exothreads
+        self.exothread_left = ExobootThread(side_left, device_left, self.startstamp, name='exothread_left', daemon=True, pause_event=self.pause_event, quit_event=self.quit_event, log_event=self.log_event)
+        self.exothread_right = ExobootThread(side_right, device_right, self.startstamp, name='exothread_right', daemon=True, pause_event=self.pause_event, quit_event=self.quit_event, log_event=self.log_event)
+        self.gse_thread = GaitStateEstimator(self.startstamp, device_left, device_right, self.exothread_left, self.exothread_right, daemon=True, pause_event=self.pause_event, quit_event=self.quit_event, log_event=self.log_event)
+
+        # Init LoggingNexus with Exothreads
+        self.loggingnexus = LoggingNexus(self.subjectID, self.file_prefix, self.filingcabinet, self.exothread_left, self.exothread_right, self.gse_thread, log_event=self.log_event)
+
+        # Init remote_control
+        self.remote_thread = ExobootRemoteServerThread(self, self.startstamp, self.filingcabinet, usebackup=self.usebackup, pause_event=self.pause_event, quit_event=self.quit_event, log_event=self.log_event)
+        self.remote_thread.set_target_IP(self.myIP)
+
+        # Init HUD
+        self.hud = HUDThread(self, "exohud_layout.json", napms=10, pause_event=self.pause_event, quit_event=self.quit_event)
+        self.hud.getwidget("si").settextline(0, "{}, {}, {}, {}".format(self.subjectID, self.trial_type, self.trial_cond, self.description))
+        self.hud.getwidget("ii").settextline(0, str(self.myIP))
+
+    @staticmethod
     def get_active_ports():
         """
         To use the exos, it is necessary to define the ports they are going to be connected to. 
         These are defined in the ports.yaml file in the flexsea repo
         """
         # port_cfg_path = '/home/pi/VAS_exoboot_controller/ports.yaml'
+        # TODO remove explicit port references
         device_1 = Device(port="/dev/ttyACM0", firmwareVersion="7.2.0", baudRate=230400, logLevel=3)
         device_2 = Device(port="/dev/ttyACM1", firmwareVersion="7.2.0", baudRate=230400, logLevel=3)
         
@@ -111,90 +116,87 @@ class MainControllerWrapper:
         else:
             raise Exception("Invalid sides for devices: Check DEV_ID_TO_SIDE_DICT!")
     
+    def init_subject(self):
+        """
+        Initialize subject info and get IP
+        """
+        # TODO finish dummymode
+        # if self.subjectID == "DUMMY":
+        #     self.dummymode = True
+        # else:
+        #     self.dummymode = False
+
+        # Validate trial_type and trial_cond
+        self.valid_trial_typeconds = TRIAL_CONDS_DICT
+        try:
+            if not self.trial_type in self.valid_trial_typeconds.keys():
+                raise Exception("Invalid trial type: {} not in {}".format(self.trial_type, self.valid_trial_typeconds.keys()))
+
+            valid_conds = self.valid_trial_typeconds[self.trial_type]
+            if valid_conds and self.trial_cond not in valid_conds:
+                raise Exception("Invalid trial cond: {} not in {}".format(trial_cond, valid_conds))
+        except:
+            print("\nINCORRECT ARGUMENTS\n")
+            print("How to run: python Exoboot_Wrapper.py subjectID trial_type trial_cond description")
+            print("See constants for all trial_type/trial_cond pairs")
+        
+        self.file_prefix = "{}_{}_{}_{}".format(self.subjectID, self.trial_type, self.trial_cond, self.description)
+
+        # Get own IP address for GRPC
+        s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        s.connect(('10.255.255.255', 1))
+        self.myIP = s.getsockname()[0] + ":50051"
+        print("myIP: {}".format(self.myIP))
+
     def run(self):
         """
-        Initialize trial information
-        Start All Threads
+        Main controller loop.
+        Receives incoming commands/logging requests from exoboot_remote
+        Updates exoboot state estimates
+        Logs exothread data
+        Updates HUD
         """
+        # Start Threads
+        self.exothread_left.start()
+        self.exothread_right.start()
+        self.gse_thread.start()
+        self.remote_thread.start()
+        self.hud.start()
+
         try:
-            # # Initializing the Exo
-            # side_left, device_left, side_right, device_right = self.get_active_ports()
-            
-            self.devices.append
-            
-            # # Start device streaming and set gains:
-            device_left.start_streaming(self.streamingfrequency)
-            device_right.start_streaming(self.streamingfrequency)
-            device_left.set_gains(DEFAULT_KP, DEFAULT_KI, DEFAULT_KD, 0, 0, DEFAULT_FF)
-            device_right.set_gains(DEFAULT_KP, DEFAULT_KI, DEFAULT_KD, 0, 0, DEFAULT_FF)
-
-            """Initialize Threads"""
-            # Thread events
-            self.pause_event = threading.Event()
-            self.quit_event = threading.Event()
-            self.pause_event.clear() # Start with threads paused
-            self.quit_event.set()
-            self.startstamp = time.perf_counter() # Timesync logging between all threads
-
-            # Thread 1&2: Left and right exoboots
-            self.exothread_left = ExobootThread(side_left, device_left, self.startstamp, name='exothread_left', daemon=True, pause_event=self.pause_event, quit_event=self.quit_event)
-            self.exothread_right = ExobootThread(side_right, device_right, self.startstamp, name='exothread_right', daemon=True, pause_event=self.pause_event, quit_event=self.quit_event)
-            self.exothread_left.start()
-            self.exothread_right.start()
-
-            # Thread 3: Gait State Estimator
-            self.gse_thread = GaitStateEstimator(self.startstamp, device_left, device_right, self.exothread_left, self.exothread_right, daemon=True, pause_event=self.pause_event, quit_event=self.quit_event)
-            self.gse_thread.start()
-
-            # Thread 4: Exoboot Remote Control
-            self.remote_thread = ExobootRemoteServerThread(self, self.startstamp, self.trial_type, pause_event=self.pause_event, quit_event=self.quit_event)
-            self.remote_thread.set_target_IP(self.myIP)
-            self.remote_thread.start()
-
-            # Thread 5: Curses HUD
-            self.hud = HUDThread(self, "exohud_layout.json", pause_event=self.pause_event, quit_event=self.quit_event)
-            self.hud.start()
-
-            # Set hud info
-            self.hud.getwidget("si").settextline(0, "{}, {}, {}, {}".format(self.subjectID, self.trial_type, self.trial_cond, self.description))
-            self.hud.getwidget("ii").settextline(0, str(self.myIP))
-
-            # LoggingNexus
-            self.loggingnexus = LoggingNexus(self.file_prefix, self.exothread_left, self.exothread_right, self.gse_thread, pause_event=self.pause_event)
-
-            # ~~~Main Loop~~~
             self.softrtloop = FlexibleSleeper(period=1/self.clockspeed)
-            self.pause_event.set()
             while self.quit_event.is_set():
                 try:
-                    # Log data. Obeys pause_event
-                    self.loggingnexus.log()
+                    try: # Print if no hud
+                        if not self.hud.isrunning:
+                            print("Peak Torque Left: {}\nPeak Torque Right: {}".format(self.loggingnexus.get(self.exothread_left.name, "peak_torque"), self.loggingnexus.get(self.exothread_right.name, "peak_torque")))
+                            print("Case Temp Left: {}\nCase Temp Right: {}\n".format(self.loggingnexus.get(self.exothread_left.name, "temperature"), self.loggingnexus.get(self.exothread_right.name, "temperature")))
+                            print("Freq Left: {}\nFreq Right: {}\n".format(self.loggingnexus.get(self.exothread_left.name, "thread_freq"), self.loggingnexus.get(self.exothread_right.name, "thread_freq")))
+                    except Exception as e:
+                        # print("Exception: ", e)
+                        pass
 
-                    # try:
-                    #     print("Peak Torque Left: {}\nPeak Torque Right: {}".format(self.loggingnexus.get(self.exothread_left.name, "peak_torque"), self.loggingnexus.get(self.exothread_right.name, "peak_torque")))
-                    #     print("Case Temp Left: {}\nCase Temp Right: {}\n".format(self.loggingnexus.get(self.exothread_left.name, "temperature"), self.loggingnexus.get(self.exothread_right.name, "temperature")))
-                    # except:
-                    #     pass
-
-                    # Update HUD
-                    try:
+                    try: # Update HUD
                         exostate_text = "Running" if self.pause_event.is_set() else "Paused"
                         self.hud.getwidget("ls").settextline(0, exostate_text)
                         self.hud.getwidget("rs").settextline(0, exostate_text)
-                        self.hud.getwidget("lpt").settextline(0, self.loggingnexus.get(self.exothread_left.name, "peak_torque")) # TODO test logginnexus get function
-                        self.hud.getwidget("rpt").settextline(0, self.loggingnexus.get(self.exothread_right.name, "peak_torque"))
-                        self.hud.getwidget("lct").settextline(0, self.loggingnexus.get(self.exothread_left.name, "temperature"))
-                        self.hud.getwidget("rct").settextline(0, self.loggingnexus.get(self.exothread_right.name, "temperature"))
-                        self.hud.getwidget("lcs").settextline(0, self.loggingnexus.get(self.exothread_left.name, "thread_freq"))
-                        self.hud.getwidget("rcs").settextline(0, self.loggingnexus.get(self.exothread_right.name, "thread_freq"))
+                        self.hud.getwidget("lpt").settextline(0, str(self.loggingnexus.get(self.exothread_left.name, "peak_torque")))
+                        self.hud.getwidget("rpt").settextline(0, str(self.loggingnexus.get(self.exothread_right.name, "peak_torque")))
+                        self.hud.getwidget("lct").settextline(0, str(self.loggingnexus.get(self.exothread_left.name, "temperature")))
+                        self.hud.getwidget("rct").settextline(0, str(self.loggingnexus.get(self.exothread_right.name, "temperature")))
+                        self.hud.getwidget("lcs").settextline(0, "{:0.2f}".format(self.loggingnexus.get(self.exothread_left.name, "thread_freq")))
+                        self.hud.getwidget("rcs").settextline(0, "{:0.2f}".format(self.loggingnexus.get(self.exothread_right.name, "thread_freq")))
 
-                        self.hud.getwidget("batv").settextline(0, self.loggingnexus.get(self.exothread_right.name, "battery_voltage"))
-                        self.hud.getwidget("bati").settextline(0, self.loggingnexus.get(self.exothread_right.name, "battery_current"))
-
-                        self.hud.getwidget("bert").settextline(0, "IDK")
-                        self.hud.getwidget("vicon").settextline(0, "TBI")
-                    except:
+                        self.hud.getwidget("batvl").settextline(0, str(self.loggingnexus.get(self.exothread_left.name, "battery_voltage")))
+                        self.hud.getwidget("batvr").settextline(0, str(self.loggingnexus.get(self.exothread_right.name, "battery_voltage")))
+                        self.hud.getwidget("batil").settextline(0, str(self.loggingnexus.get(self.exothread_left.name, "battery_current")))
+                        self.hud.getwidget("batir").settextline(0, str(self.loggingnexus.get(self.exothread_right.name, "battery_current")))
+                    except Exception as e:
+                        # print("Exception: ", e)
                         pass
+
+                    # Log data. Obeys log_event
+                    self.loggingnexus.log()
 
                     # SoftRT pause
                     self.softrtloop.pause()
@@ -209,10 +211,11 @@ class MainControllerWrapper:
             fname = os.path.split(exc_tb.tb_frame.f_code.co_filename)[1]
             print(exc_type, fname, exc_tb.tb_lineno)
 
-        finally:            
-            # Routine to close threads safely
+        finally:
+            print("Closing Please Wait...")
+            # Routine to close threads
             self.pause_event.set()
-            time.sleep(0.5)
+            time.sleep(0.25)
             self.quit_event.clear()
 
             # Stop motors and close device streams
@@ -225,10 +228,15 @@ class MainControllerWrapper:
 
 
 if __name__ == "__main__":
-    """
-    Uses the trial.config file to parse subjectID, trialtype
-    """
-    assert len(sys.argv) == 4 + 1
-    _, subjectID, trial_type, trial_cond, description = sys.argv
-    MainControllerWrapper(subjectID, trial_type, trial_cond, description, streamingfrequency=1000).run()
-    
+    try:
+        assert len(sys.argv) - 1 == 5
+    except:
+        print("\nNOT ENOUGH ARGUMENTS\n")
+        print("How to run: python Exoboot_Wrapper.py subjectID trial_type trial_cond description, usebackup")
+        print("trial_type, trial_cond pairs in constants.py")
+        exit(1)
+
+    _, subjectID, trial_type, trial_cond, description, usebackup = sys.argv
+    mainwrapper = MainControllerWrapper(subjectID, trial_type, trial_cond, description, usebackup, streamingfrequency=1000)
+    input("Initialization finished.\nPress any key to start")
+    mainwrapper.run()

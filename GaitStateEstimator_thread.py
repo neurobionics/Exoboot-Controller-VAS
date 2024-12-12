@@ -19,14 +19,14 @@ from utils import MovingAverageFilter
 from GroundContact import BertecEstimator
 from SoftRTloop import FlexibleTimer, FlexibleSleeper
 
-from constants import RTPLOT_IP, VICON_IP
+from constants import RTPLOT_IP, VICON_IP, EXOTHREAD_MAIN_FREQ
 from constants import DEV_ID_TO_MOTOR_SIGN_DICT, DEV_ID_TO_ANK_ENC_SIGN_DICT, GSETHREAD_FIELDS
 from constants import EFFICIENCY, Kt, ENC_CLICKS_TO_DEG, GYRO_GAIN, ACCEL_GAIN
 
 class GaitStateEstimator(BaseThread):
-    def __init__(self, startstamp, device_left, device_right, thread_left, thread_right, name='GSE', daemon=True, pause_event=Type[threading.Event], quit_event=Type[threading.Event]):
+    def __init__(self, startstamp, device_left, device_right, thread_left, thread_right, name='GSE', daemon=True, pause_event=Type[threading.Event], quit_event=Type[threading.Event], log_event=Type[threading.Event]):
         # Threading
-        super().__init__(name=name, daemon=daemon, pause_event=pause_event, quit_event=quit_event)
+        super().__init__(name=name, daemon=daemon, pause_event=pause_event, quit_event=quit_event, log_event=log_event)
         self.device_left = device_left
         self.device_right = device_right
         self.device_thread_left = thread_left
@@ -48,6 +48,7 @@ class GaitStateEstimator(BaseThread):
         self.link_to_device()
 
     def link_to_device(self):
+        # TODO remove?  
         self.device_left.gse = self
         self.device_right.gse = self
 
@@ -93,11 +94,10 @@ class GaitStateEstimator(BaseThread):
         self.prev_end_time = time.perf_counter()
 
         # Soft real time loop
-        loopFreq = 500 # Hz
-        loop_period = 1 / loopFreq
+        loop_period = 1 / EXOTHREAD_MAIN_FREQ
         self.softRTloop = FlexibleSleeper(period=loop_period)
 
-    def pre_iterate(self, pause_event):
+    def pre_iterate(self):
         """
         Sensor and Bertec reading
         Runs even if threads are paused
@@ -109,7 +109,7 @@ class GaitStateEstimator(BaseThread):
         # self.get_sensor_data()
         # self.get_estimate()
 
-        new_stride_flag_left, new_stride_flag_right, force_left, force_right = self.bertec_estimator.get_estimate(pause_event)
+        new_stride_flag_left, new_stride_flag_right, force_left, force_right = self.bertec_estimator.get_estimate()
 
         # Add forces to data dict
         self.data_dict['forceplate_left'] = force_left
@@ -141,9 +141,9 @@ class GaitStateEstimator(BaseThread):
         self.prev_end_time = end_time
         my_freq = 1/self.period_tracker.average()
 
-        # Log gse freq
+        # Append GSE data into LoggingNexus
         self.data_dict['thread_freq'] = my_freq
-        if self.loggingnexus and self.pause_event.is_set():
+        if self.loggingnexus and self.log_event.is_set():
             self.loggingnexus.append(self.name, copy.deepcopy(self.data_dict))
 
         # soft real-time loop

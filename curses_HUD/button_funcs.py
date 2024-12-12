@@ -8,8 +8,10 @@ def setpauseevent(mainwrapper, **kwargs):
     def func(self, mainwrapper=mainwrapper, **kwargs):
         if not kwargs["togglestate"]:
             mainwrapper.pause_event.clear()
+            self.colorpair = "redbg"
         else:
             mainwrapper.pause_event.set()
+            self.colorpair = "greenbg"
     return func
 
 def setquitevent(mainwrapper, **kwargs):
