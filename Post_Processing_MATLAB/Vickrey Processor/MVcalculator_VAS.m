@@ -10,19 +10,27 @@
 
 clc; close; clear;
 
+%% Set file paths to access data
+
 % ask for path to Vickrey subject file tree
 fprintf("Select Location of the Vickrey File Tree\n");
-title = 'Select Location of the Vickrey File Tree (i.e. all Vickrey subject folders should be viewable';
 path = '/Volumes/me-neurobionics/Lab Members/Students/Nundini Rawal/SUBJECT DATA/Vickrey_Data_Analysis/VAS_Protocol_Data/';
-VA_directory_path = uigetdir(path,title);
+VA_directory_path = uigetdir(path);
 
 % ask for path to subject dictionary file tree
 fprintf("Select Location of the subject dictionary file\n");
-[~,sub_dictionary_file_location] = uigetfile;
+sub_dict_path = '/Volumes/me-neurobionics/Lab Members/Students/Nundini Rawal/SUBJECT DATA/Vickrey_Data_Analysis/';
+[~,sub_dictionary_file_location] = uigetfile(sub_dict_path);
 
-% add Vickrey directory & subject dictionary to path
+% ask for path to figure folder (to save generated figures to)
+fprintf("Select Folder Where you'd like to Save Generated Figures\n");
+fig_gen_path = '/Volumes/me-neurobionics/Lab Members/Students/Nundini Rawal/SUBJECT DATA/Vickrey_Data_Analysis/VAS_Protocol_Data/';
+figure_path = uigetdir(path);
+
+% add Vickrey directory & subject dictionary & figure folder to path
 addpath(genpath(VA_directory_path))
 addpath(genpath(sub_dictionary_file_location))
+addpath(genpath(figure_path))
 
 % loading in subject info from dictionary
 [subject, subject_list] = subject_dictionary_VAS;
@@ -80,8 +88,10 @@ for subj_num = 1:length(subject_list)
                 WNE_fname = subject(subj_num).MV_filenames(file); 
             case 'EPO'
                 EPO_fname = subject(subj_num).MV_filenames(file);
+                EPO_fig_name = string(figure_path)+"/S10"+string(subj_num)+'_Vickrey_EPO.svg';
             case 'NPO'
                 NPO_fname = subject(subj_num).MV_filenames(file);
+                NPO_fig_name = string(figure_path)+"/S10"+string(subj_num)+'_Vickrey_NPO.svg';
         end
     end
 
@@ -111,10 +121,11 @@ for subj_num = 1:length(subject_list)
             
             % Compute MV:
             [b_WNE,k_WNE,b_cond,k_cond, cond_bids, WNE_bids, scaledWNE_t, scaledCond_t, beta_cond, beta_WNE] = lstsqParams(winRateWNE, winRateCond, t_WNE_bids, WNE_bids, t_cond_bids, cond_bids);
-            [MV, diff, linmod_diff, r2_WNE, r2_cond, WNE_integral, cond_integral] = MVgenerator(b_WNE, k_WNE, b_cond, k_cond, gof_type, WNE_fname, WNE_bids, cond_bids, scaledCond_t, scaledWNE_t, winIdxsWNE, winIdxsCond);
+            [MV, dif, linmod_diff, r2_WNE, r2_cond, WNE_integral, cond_integral] = MVgenerator(b_WNE, k_WNE, b_cond, k_cond, gof_type, WNE_fname, WNE_bids, cond_bids, scaledCond_t, scaledWNE_t, winIdxsWNE, winIdxsCond);
+                        
             WNE_price_per_hour = WNE_integral * 2;
             
-            % Store data:
+            % Store data:figure_path+subj_num+'_Vickrey.svg'
             pat = ("EPO"|"NPO");
             cond = extract(comp_names{1,i}, pat);
             
@@ -130,16 +141,21 @@ for subj_num = 1:length(subject_list)
 
             switch cond
                 case 'EPO'
+                    % save the current figure if it doesn't exist
+                    if exist(EPO_fig_name, 'file') == 0
+                        saveas(gcf,EPO_fig_name);
+                    end
+
                     EPO_MVs(subj_num,1) = MV;
                     task_cost_EPO(subj_num,1) = cond_integral;
-                    relative_task_cost_EPO(subj_num,1) = diff;
+                    relative_task_cost_EPO(subj_num,1) = dif;
 
                     %%%%% PER HOUR COSTS: %%%%%
               
                     cost_of_EPO_sys = WNE_price_per_hour * MV/100;
                     fprintf("Monetary Cost of wearing powered sys per hour: $ %.2f% \n", cost_of_EPO_sys);
                     fprintf("\n");
-                    fprintf("Monetary Cost of wearing powered sys relative to WNE per hour: $ %.2f% \n", diff*2);
+                    fprintf("Monetary Cost of wearing powered sys relative to WNE per hour: $ %.2f% \n", dif*2);
 
                     cost_of_EPO_sys_per_hour_LIST(subj_num,1) = cost_of_EPO_sys;
 
@@ -154,16 +170,21 @@ for subj_num = 1:length(subject_list)
 
 
                 case 'NPO'
+                    % save the current figure if it doesn't exist
+                    if exist(NPO_fig_name,'file') == 0
+                        saveas(gcf,NPO_fig_name);
+                    end
+
                     NPO_MVs(subj_num,1) = MV;
                     task_cost_NPO(subj_num,1) = cond_integral;
-                    relative_task_cost_NPO(subj_num,1) = diff;
+                    relative_task_cost_NPO(subj_num,1) = dif;
                     
                     %%%%% PER HOUR COSTS: %%%%%
                     
                     cost_of_NPO_sys = WNE_price_per_hour * MV/100;
                     fprintf("Monetary Cost of wearing unpowered sys per hour: $ %.2f% \n", cost_of_NPO_sys);
                     fprintf("\n");
-                    fprintf("Monetary Cost of wearing unpowered sys relative to WNE per hour: $ %.2f% \n", diff*2);
+                    fprintf("Monetary Cost of wearing unpowered sys relative to WNE per hour: $ %.2f% \n", dif*2);
 
                     cost_of_NPO_sys_per_hour_LIST(subj_num,1) = cost_of_NPO_sys;
                     

@@ -20,12 +20,19 @@ JND_directory_path = uigetdir(path,title);
 
 % ask for path to subject dictionary file tree
 fprintf("Select Location of the subject dictionary file\n");
-[file,sub_dictionary_file_location] = uigetfile;
+sub_dict_path = '/Volumes/me-neurobionics/Lab Members/Students/Nundini Rawal/SUBJECT DATA/Vickrey_Data_Analysis/';
+[~,sub_dictionary_file_location] = uigetfile(sub_dict_path);
+
+% ask for path to figure folder (to save generated figures to)
+fprintf("Select Folder Where you'd like to Save Generated Figures\n");
+fig_gen_path = '/Volumes/me-neurobionics/Lab Members/Students/Nundini Rawal/SUBJECT DATA/Vickrey_Data_Analysis/VAS_Protocol_Data/';
+figure_path = uigetdir(path);
 
 % add Palamedes directory & JND directory & subject dictionary to path
 addpath(genpath(palamedes_path))
 addpath(genpath(JND_directory_path))
 addpath(genpath(sub_dictionary_file_location))
+addpath(genpath(figure_path))
 
 % loading in subject info from dictionary
 [subject, subject_list] = subject_dictionary_VAS;
@@ -196,8 +203,12 @@ end
 
 fields = fieldnames(sub_JND_proportion_data);
 for subs = 1:size(fields,1)
+    sub_num = subj_num(subs);
     for cond = 1:num_of_exo_JNDs    % fitting for ankle & knee exo response data 
         for ref = ref_select
+            
+            % determine figure file name to save as
+            JND_psy_fig_name = string(figure_path)+"/S10"+string(sub_num)+'_JND_PSY_'+string(ref)+'Nm.svg';
         
             NumPos = sub_JND_proportion_data.( fields{subs,1} ).("ref_"+ref).NumPos(cond,:);
             OutofNum = sub_JND_proportion_data.( fields{subs,1} ).("ref_"+ref).OutofNum(cond,:); 
@@ -255,7 +266,13 @@ for subs = 1:size(fields,1)
                 txt = {'JND = ' num2str(JND) '%'};
                 text(0.9,0.9,txt,'FontSize',14)
                 % Add a dynamic title
-                title(['Sub: ', num2str(subs, '%d'), ', Ref: ', num2str(ref, '%.1f')]);
+                % title(['Sub: ', num2str(subs, '%d'), ', Ref: ', num2str(ref, '%.1f')]);
+
+                % save the current figure if it doesn't exist
+                if exist(JND_psy_fig_name,'file') == 0
+                    saveas(gcf,JND_psy_fig_name);
+                end
+
             end
     
             % store paramValues and JNDs
@@ -269,10 +286,14 @@ end
 
 fields = fieldnames(sub_JND_proportion_data);
 for sub = 1:size(fields,1)
+    sub_num = subj_num(sub);
     for cond = 1:num_of_exo_JNDs    
         for ref = ref_select
             for mode = mode_select
 
+                % determine figure file name to save as
+                JND_stair_fig_name = string(figure_path)+"/S10"+string(sub_num)+'_JND_STAIR_'+string(ref)+'Nm_'+string(mode)+'.svg';
+        
                 % extract data from subject JND struct
                 correct_response = sub_JND_proportion_data.( fields{sub,1} ).("ref_"+ref).("mode_"+mode).correct_response(:,cond);
                 T_comp = sub_JND_proportion_data.( fields{sub,1} ).("ref_"+ref).("mode_"+mode).comparison_torque(:,cond);
@@ -331,7 +352,7 @@ for sub = 1:size(fields,1)
                 % Customize plot
                 xlabel('Comparison Number');
                 ylabel('Comparison Torque Magnitude');
-                title(['Responses for Reference Torque: ', num2str(ref)]);
+                % title(['Responses for Reference Torque: ', num2str(ref)]);
                 legend('Correct Response', '', '', '', 'Incorrect Response','Location', 'Best');
                 
                 if (mode == "ascending")
@@ -342,6 +363,11 @@ for sub = 1:size(fields,1)
                 
                 grid on;
                 hold off;
+
+                % save the current figure if it doesn't exist
+                if exist(JND_stair_fig_name,'file') == 0
+                    saveas(gcf,JND_stair_fig_name);
+                end
                 
                 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
                 %%% B). Plot the step size over comparison number %%%
@@ -360,7 +386,7 @@ for sub = 1:size(fields,1)
                 
                 xlabel('Comparison Number');
                 ylabel('Step Size to Update Next Comparison');
-                title(['Staircase Step Sizes and Responses for Reference Torque: ', num2str(ref)]);
+                % title(['Staircase Step Sizes and Responses for Reference Torque: ', num2str(ref)]);
                 % axis([min(pres_number) max(pres_number) 0.5 3]);
                 legend('Correct Response', '', '', '', 'Incorrect Response','Location', 'Best');
             end

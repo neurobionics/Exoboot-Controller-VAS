@@ -16,32 +16,40 @@ VAS_directory_path = uigetdir(path,title);
 
 % ask for path to subject dictionary file tree
 fprintf("Select Location of the subject dictionary file\n");
-[~,sub_dictionary_file_location] = uigetfile;
+sub_dict_path = '/Volumes/me-neurobionics/Lab Members/Students/Nundini Rawal/SUBJECT DATA/Vickrey_Data_Analysis/';
+[~,sub_dictionary_file_location] = uigetfile(sub_dict_path);
+
+% ask for path to figure folder (to save generated figures to)
+fprintf("Select Folder Where you'd like to Save Generated Figures\n");
+fig_gen_path = '/Volumes/me-neurobionics/Lab Members/Students/Nundini Rawal/SUBJECT DATA/Vickrey_Data_Analysis/VAS_Protocol_Data/';
+figure_path = uigetdir(path);
 
 % add VAS directory & subject dictionary to path
 addpath(genpath(VAS_directory_path))
 addpath(genpath(sub_dictionary_file_location))
+addpath(genpath(figure_path))
 
 % loading in subject info from dictionary
 [subject, subject_list] = subject_dictionary_VAS;
 
 % specify subj numbers (remove subjects due to any criteria)
-subj_num = [2 3];
+subj_num = [1 2];
 
 %% Plot Each Trial and Averaged Trajectory for Selected Subjects
 
 for sub_num = subj_num
 
     % load file
-    xls_sheet = subject(sub_num).VASfilename;
+    xls_sheet = subject(sub_num).VAS_filename_4BTN;
     exp_data_sheet = readmatrix(xls_sheet);
     
     % extract data
-    if sub_num == 2
-        rows_2_extract = 1:9;
-    elseif sub_num == 3
-        rows_2_extract = 1:size(exp_data_sheet(1:end,1));
-    end
+    rows_2_extract = 1:size(exp_data_sheet(1:end,1));
+    % if sub_num == 2
+    %     rows_2_extract = 1:9;
+    % elseif sub_num == 3
+    %     rows_2_extract = 1:size(exp_data_sheet(1:end,1));
+    % end
     
     btn_num = exp_data_sheet(rows_2_extract,1);
     trial_num = exp_data_sheet(rows_2_extract,2);
@@ -71,30 +79,45 @@ for sub_num = subj_num
     x = sorted_torques(:,1);
     curve_fit = fit(x,avg_vals,'poly4','normalize','on');
 
+    % Compute shading bounds
+    upper_bound = avg_vals + std_vals;
+    lower_bound = avg_vals - std_vals;
+
     % plot data
     figure()
-    colors = {'b', 'r', 'g'};
+    colors = {"#0072BD", "#D95319", "#EDB120", "#A2142F", "#7E2F8E", "#4DBEEE"};
     for trial = 1:max_trial_num
         plot(sorted_torques(1:total_options,trial),sorted_values(1:total_options,trial),'.','MarkerSize',20, 'color',colors{trial});
         hold on
     end
+
+    % Add shaded region
+    fill([x; flipud(x)], [upper_bound; flipud(lower_bound)], 'k', 'FaceAlpha', 0.2, 'EdgeColor', 'none');
     
     % plot avg points & trajectory
     cfit = plot(curve_fit);
     set(cfit,'color','k','LineWidth',2)
     errorbar(sorted_torques(:,1),avg_vals,std_vals,'.k','MarkerSize', 20);
 
-    if sub_num == 2
-        legend({'trial 1';'trial 2';'trial 3'; 'curve fit'; 'trial averages with std'});
-    elseif sub_num == 3
-        legend({'trial 1';'trial 2';'curve fit'; 'trial averages with std'});
+    if (sub_num == 1) || (sub_num == 2)
+        legend({'trial 1';'trial 2';'trial 3';'trial 4'; 'curve fit'; 'trial averages with std'});
+    else
+        legend({'trial 1';'trial 2';'trial 3';'trial 4';'trial 5'; 'trial 6'; 'curve fit'; 'trial averages with std'});
     end
-        xlabel("Normalized Torque")
+    
+    xlabel("Normalized Torque")
     ylabel("$/Hour")
+
+    % save the current figure if it doesn't exist
+    VAS_fig_name = string(figure_path)+"/S10"+string(sub_num)+'_VAS_4BTN.svg';
+        
+    if exist(VAS_fig_name,'file') == 0
+        saveas(gcf,VAS_fig_name);
+    end
     
 end
 
-%% Plot 12-button Trajectories for Selected Subjects
+%% Plot 10-button Trajectories for Selected Subjects
 
 % specify subj numbers (remove subjects due to any criteria)
 subj_num = [2 3];
