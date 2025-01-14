@@ -389,8 +389,37 @@ for sub = 1:size(fields,1)
                 % title(['Staircase Step Sizes and Responses for Reference Torque: ', num2str(ref)]);
                 % axis([min(pres_number) max(pres_number) 0.5 3]);
                 legend('Correct Response', '', '', '', 'Incorrect Response','Location', 'Best');
+
+
+                % store the average of reversals JND
+                % sub_JND_proportion_data.( fields{subs,1} ).("ref_"+ref).paramsValues(cond,:) = paramsValues;
+                % sub_JND_proportion_data.( fields{subs,1} ).("ref_"+ref).JND(1,cond) = JND;
             end
         end
     end
 end
 
+%% Determine Weber Fraction Trend (should ideally be constant)
+
+JND_18Nm_ascending = [0.68; 4.48];   % S101 is the first entry
+JND_18Nm_descending = [1.57; 5.09]; 
+JND_29Nm_ascending = [2.82; 7.96];
+JND_29Nm_descending = [0.264; 6.78];
+
+
+WF_ref_18Nm = mean([JND_18Nm_ascending JND_18Nm_descending], 2)./ref_select(1); 
+WF_ref_29Nm = mean([JND_29Nm_ascending JND_29Nm_descending], 2)/ref_select(2);
+
+colors = ["#A2142F"; "#0072BD"];
+
+figure()
+for sub_num = 1:length(subj_num)
+    plot(ref_select, [WF_ref_18Nm(sub_num), WF_ref_29Nm(sub_num)], '.','markersize',40,'MarkerFaceColor', colors(sub_num));
+    hold on
+end
+
+xlim([7 40]);
+ylim([0 0.6]);
+xlabel('Reference Torques (Nm)');
+ylabel('Weber Fraction');
+legend('S101', 'S103');
