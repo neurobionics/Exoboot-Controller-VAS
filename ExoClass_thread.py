@@ -6,7 +6,7 @@
 # Modified for VAS Vickrey protocol by: Nundini Rawal
 # Date: 06/13/2024
 
-import os, csv, time, threading
+import os, csv, time, datetime, threading
 from typing import Type
 
 from constants import *
@@ -304,7 +304,7 @@ class ExobootThread(BaseThread):
         Set Startstamp and read sensor data
         """
         # Set starting time stamp
-        self.data_dict['pitime'] = time.perf_counter() - self.startstamp
+        self.data_dict['pitime'] = datetime.datetime.now().timestamp()
 
         # Read sensors
         self.read_sensors()

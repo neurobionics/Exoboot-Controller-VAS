@@ -4,7 +4,7 @@
 # Author: Varun Satyadev Shetty
 # Date: 06/17/2024
 # Sensor reading logic modified based on exoboot structure by Max Shepherd
-import time, copy, threading
+import time, copy, datetime, threading
 from typing import Type
 
 from rtplot import client
@@ -106,7 +106,7 @@ class GaitStateEstimator(BaseThread):
         Runs even if threads are paused
         """
         # Set starting time stamp
-        self.data_dict['pitime'] = time.perf_counter() - self.startstamp
+        self.data_dict['pitime'] = datetime.datetime.now().timestamp()
 
         # TODO IMU Estimation
         # self.get_sensor_data()
