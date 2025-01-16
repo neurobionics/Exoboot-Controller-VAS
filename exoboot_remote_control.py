@@ -1,10 +1,13 @@
-import os, csv, time, grpc, threading
+import os, sys, csv, time, grpc, datetime, threading
 from typing import Type
 from concurrent import futures
 
-import exoboot_remote_pb2 as pb2
-import exoboot_remote_pb2_grpc as pb2_grpc
-from BaseExoThread import BaseThread
+SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+sys.path.append(os.path.dirname(SCRIPT_DIR))
+
+import exoboot_remote.exoboot_remote_pb2 as pb2
+import exoboot_remote.exoboot_remote_pb2_grpc as pb2_grpc
+from shared_files.BaseExoThread import BaseThread
 
 
 class ExobootRemoteClient:
@@ -23,8 +26,6 @@ class ExobootRemoteClient:
         """
         msg = pb2.testmsg(msg="Hello from {}".format(guiname))
         response = self.stub.testconnection(msg)
-        
-        # See response received
         if response:
             print("Connection Successful\n")
         else:
@@ -35,7 +36,7 @@ class ExobootRemoteClient:
         Synchronize logging using startstamp reference from rpi
         """
         startstampmsg = self.stub.set_startstamp(pb2.null)
-        self.startstamp = startstampmsg.time 
+        self.startstamp = startstampmsg.time
 
     def get_subject_info(self):
         """
@@ -53,23 +54,38 @@ class ExobootRemoteClient:
 
 # Exoboot Controller Commands
     def set_quit(self, mybool=False):
+        """
+        Set quit thread event
+        """
         receipt = self.stub.set_quit(pb2.quit(mybool=mybool))
         return receipt
 
     def set_pause(self, mybool=False):
+        """
+        Set pause thread event
+        """
         receipt = self.stub.set_pause(pb2.pause(mybool=mybool))
         return receipt
     
     def set_log(self, mybool=False):
+        """
+        Set log thread event
+        """
         receipt = self.stub.set_log(pb2.log(mybool=mybool))
         return receipt
 
     def set_torques(self, peak_torque_left=0, peak_torque_right=0):
+        """
+        Set exoboot torques
+        """
         torque_msg = pb2.torques(peak_torque_left=peak_torque_left, peak_torque_right=peak_torque_right)
         receipt = self.stub.set_torque(torque_msg)
         return receipt
     
     def getpack(self, thread, field):
+        """
+        Get data from threads given fields
+        """
         req_log = pb2.req_log(thread=thread, field=field)
         ret_val = self.stub.getpack(req_log)
         return ret_val.val
@@ -79,17 +95,19 @@ class ExobootRemoteClient:
         """
         Send results of Vickrey Auction
         """
-        resultmsg = pb2.result(t=t, subject_bid=subject_bid, user_win_flag=user_win_flag,
-                         current_payout=current_payout, total_winnings=total_winnings)
-        response = self.stub.call(resultmsg)
+        datadict = {"t": t, "subject_bid": subject_bid, "user_win_flag": user_win_flag,
+                        "current_payout": current_payout, "total_winnings": total_winnings}
+        msg = gen_msg_encode(datadict)
+        response = self.stub.call(msg)
         return response
     
     def question(self, t, enjoyment, rpe):
         """
         Send post-auction survey results
         """
-        surveymsg = pb2.survey(t=t, enjoyment=enjoyment, rpe=rpe)
-        response = self.stub.question(surveymsg)
+        datadict = {"t": t, "enjoyment": enjoyment, "rpe": rpe}
+        msg = gen_msg_encode(datadict)
+        response = self.stub.question(msg)
         return response
 
 # VAS Specific
@@ -97,9 +115,10 @@ class ExobootRemoteClient:
         """
         Update overtime logging
         """
-        msg = pb2.vas_info(btn_num=btn_num, trial=trial, pres=pres)
-        response = self.stub.update_vas_info(msg)
-        return None
+        datadict = {"btn_num": btn_num, "trial": trial, "pres": pres}
+        msg = gen_msg_encode(datadict)
+        receipt = self.stub.update_vas_info(msg)
+        return receipt
 
     def slider_update(self, pitime, overtime_dict):
         """
@@ -111,34 +130,56 @@ class ExobootRemoteClient:
             torques.append(torque)
             mvs.append(mv)
 
-        msg = pb2.slider(pitime=pitime, torques=torques, mvs=mvs)
-        response = self.stub.slider_update(msg)
-        return response
+        datadict = {"pitime": pitime, "torques": torques, "mvs": mvs}
+        msg = gen_msg_encode(datadict)
+        receipt = self.stub.slider_update(msg)
+        return receipt
 
     def presentation_result(self, btn_option, trial, pres, torques, values):
         """
         Send updated slider info
         """
-        msg = pb2.presentation(btn_option=btn_option, trial=trial, pres=pres, torques=torques, values=values)
-        response = self.stub.presentation_result(msg)
-        return response
+        datadict = {"btn_option": btn_option, "trial": trial, "pres": pres, "torques": torques, "values": values}
+        msg = gen_msg_encode(datadict)
+        receipt = self.stub.presentation_result(msg)
+        return receipt
 
 # JND Specific    
     def comparison_result(self, pres, prop, T_ref, T_comp, truth, answer):
-        compmsg = pb2.comparison(pres=pres, prop=prop, T_ref=T_ref, T_comp=T_comp, truth=truth, answer=answer)
-        response = self.stub.comparison_result(compmsg)
+        """
+        Send comparison result message JND
+        """
+        datadict = {"pres": pres, "prop": prop, "T_ref": T_ref, "T_comp": T_comp, "truth": truth, "answer": answer}
+        msg = gen_msg_encode(datadict)
+        response = self.stub.comparison_result(msg)
         return response
     
     def comparison_result_stair(self, pres, prop, T_ref, T_comp, truth, answer):
-        # TODO: modify grpc msg to server to include stair info
-        compmsg = pb2.comparison_stair(pres=pres, prop=prop, T_ref=T_ref, T_comp=T_comp, truth=truth, answer=answer)
-        response = self.stub.comparison_result_stair(compmsg)
+        """
+        Send comparison result message JND STAIR
+        """
+        datadict = {"pres": pres, "prop": prop, "T_ref": T_ref, "T_comp": T_comp, "truth": truth, "answer": answer}
+        msg = gen_msg_encode(datadict)
+        response = self.stub.comparison_result_stair(msg)
         return response
 
 # PREF Specific
     def pref_result(self, pres, torque):
-        prefmsg = pb2.preference(pres=pres, torque=torque)
-        response = self.stub.pref_result(prefmsg)
+        """
+        Send preference result message
+        """
+        datadict = {"pres": pres, "torque": torque}
+        msg = gen_msg_encode(datadict)
+        response = self.stub.pref_result(msg)
+        return response
+
+# General Message Test
+    def gen_msg_test(self, datadict):
+        """
+        Testing purposes only
+        """
+        msg = self.gen_msg_encode(datadict)
+        response = self.stub.gen_msg_test(msg)
         return response
 
 
@@ -257,12 +298,12 @@ class ExobootCommServicer(pb2_grpc.exoboot_over_networkServicer):
             self.mainwrapper.pause_event.set()
         return pb2.receipt(received=True)
 
-    def set_log(self, log_msg, context):
+    def set_log(self, logmsg, context):
         """
         Exoboot_Thread Command
         Set log event
         """
-        log = log_msg.mybool
+        log = logmsg.mybool
         print("LOG COMMAND: {}".format(log))
         if log:
             self.mainwrapper.log_event.clear()
@@ -270,14 +311,13 @@ class ExobootCommServicer(pb2_grpc.exoboot_over_networkServicer):
             self.mainwrapper.log_event.set()
         return pb2.receipt(received=True)
 
-    def set_torque(self, torque_msg, context):
+    def set_torque(self, torquemsg, context):
         """
         Exoboot_Thread Command
         Sets peak torque of exoboots
         """
-        # Printing out the request from the client
-        peak_torque_left  = torque_msg.peak_torque_left
-        peak_torque_right = torque_msg.peak_torque_right
+        peak_torque_left  = torquemsg.peak_torque_left
+        peak_torque_right = torquemsg.peak_torque_right
 
         # Set torques in GSE
         self.mainwrapper.gse_thread.set_peak_torque_left(peak_torque_left)
@@ -297,11 +337,15 @@ class ExobootCommServicer(pb2_grpc.exoboot_over_networkServicer):
 
 # Vickrey Auction Specific
     def call(self, resultmsg, context):
-        t = resultmsg.t
-        subject_bid = resultmsg.subject_bid
-        user_win_flag = resultmsg.user_win_flag
-        current_payout = resultmsg.current_payout
-        total_winnings = resultmsg.total_winnings
+        """
+        Log auction results
+        """
+        datadict = gen_msg_decode(resultmsg)
+        t = datadict["t"]
+        subject_bid = datadict["subject_bid"]
+        user_win_flag = datadict["user_win_flag"]
+        current_payout = datadict["current_payout"]
+        total_winnings = datadict["total_winnings"]
 
         print("Received auction results: {}, {}, {}, {}, {}".format(t, subject_bid, user_win_flag, current_payout, total_winnings))
         datalist = [t, subject_bid, user_win_flag, current_payout, total_winnings]
@@ -313,9 +357,13 @@ class ExobootCommServicer(pb2_grpc.exoboot_over_networkServicer):
         return pb2.receipt(received=True)
     
     def question(self, surveymsg, context):
-        t = surveymsg.t
-        enjoyment = surveymsg.enjoyment
-        rpe = surveymsg.rpe
+        """
+        Log server results
+        """
+        datadict = gen_msg_decode(surveymsg)
+        t = datadict["t"]
+        enjoyment = datadict["enjoyment"]
+        rpe = datadict["rpe"]
 
         print("Received survey results: {}, {}, {}".format(t, enjoyment, rpe))
         datalist = [t, enjoyment, rpe]
@@ -331,12 +379,13 @@ class ExobootCommServicer(pb2_grpc.exoboot_over_networkServicer):
         """
         Start overtime logging in a new file
         """
-        btn_num = int(vasinfomsg.btn_num)
-        trial = int(vasinfomsg.trial)
-        pres = int(vasinfomsg.pres)
+        datadict = gen_msg_decode(vasinfomsg)
+        btn_num = int(datadict["btn_num"])
+        trial = int(datadict["trial"])
+        pres = int(datadict["pres"])
 
-        print("Received updated vas info: ", btn_num, trial, pres)
-        overtimename = "{}_T{}_P{}_vas_overtime".format(self.file_prefix, trial, pres)
+        print("\nSTARTING PRESENTATION: {} {} {}\n{}\n".format(btn_num, trial, pres, str(datetime.datetime.now())))
+        overtimename = "B{}_T{}_P{}_vas_overtime".format(self.file_prefix, trial, pres)
         overtimepath = self.filingcabinet.newfile(overtimename, "csv", dictkey="overtime")
 
         header = ['pitime']
@@ -353,9 +402,10 @@ class ExobootCommServicer(pb2_grpc.exoboot_over_networkServicer):
         """
         Send updated slider info
         """
-        pitime = slidermsg.pitime
-        torques = slidermsg.torques
-        mvs = slidermsg.mvs
+        datadict = gen_msg_decode(slidermsg)
+        pitime = datadict["pitime"]
+        torques = datadict["torques"]
+        mvs = datadict["mvs"]
 
         datalist = [pitime]
         for torque, mv in zip(torques, mvs):
@@ -372,13 +422,14 @@ class ExobootCommServicer(pb2_grpc.exoboot_over_networkServicer):
         """
         Send updated slider info
         """
-        btn_option = int(presmsg.btn_option)
-        trial = int(presmsg.trial)
-        pres = int(presmsg.pres)
-        torques = presmsg.torques
-        values = presmsg.values
+        datadict = gen_msg_decode(presmsg)
+        btn_option = int(datadict["btn_option"])
+        trial = int(datadict["trial"])
+        pres = int(datadict["pres"])
+        torques = datadict["torques"]
+        values = datadict["values"]
 
-        print("Received presentation results: {}, {}, {}, {}, {}".format(btn_option, trial, pres, torques, values))
+        print("\nFINISHED PRESENTATION: {} {} {}\n{}\n".format(btn_option, trial, pres, str(datetime.datetime.now())))
         datalist = [btn_option, trial, pres]
         for t, mv in zip(torques, values):
             datalist.append(t)
@@ -391,12 +442,16 @@ class ExobootCommServicer(pb2_grpc.exoboot_over_networkServicer):
 
 # JND Specific  
     def comparison_result(self, compmsg, context):
-        pres = compmsg.pres
-        prop = compmsg.prop
-        T_ref = compmsg.T_ref
-        T_comp = compmsg.T_comp
-        truth = compmsg.truth
-        answer = compmsg.answer
+        """
+        Log comparison result for JND
+        """
+        datadict = gen_msg_decode(compmsg)
+        pres = datadict["pres"]
+        prop = datadict["prop"]
+        T_ref = datadict["T_ref"]
+        T_comp = datadict["T_comp"]
+        truth = datadict["truth"]
+        answer = datadict["answer"]
 
         print("Received comparison results: {}, {}, {}, {}, {}, {}".format(pres, prop, T_ref, T_comp, truth, answer))
         datalist = [pres, prop, T_ref, T_comp, truth, answer]
@@ -406,14 +461,17 @@ class ExobootCommServicer(pb2_grpc.exoboot_over_networkServicer):
             csv.writer(f).writerow(datalist)
         return pb2.receipt(received=True)
     
-    # TODO: add in custom grpc msg
     def comparison_result_stair(self, compmsg, context):
-        pres = compmsg.pres
-        prop = compmsg.prop
-        T_ref = compmsg.T_ref
-        T_comp = compmsg.T_comp
-        truth = compmsg.truth
-        answer = compmsg.answer
+        """
+        Log comparison result for JND STAIR
+        """
+        datadict = gen_msg_decode(compmsg)
+        pres = datadict["pres"]
+        prop = datadict["prop"]
+        T_ref = datadict["T_ref"]
+        T_comp = datadict["T_comp"]
+        truth = datadict["truth"]
+        answer = datadict["answer"]
 
         print("Received comparison results: {}, {}, {}, {}, {}, {}".format(pres, prop, T_ref, T_comp, truth, answer))
         datalist = [pres, prop, T_ref, T_comp, truth, answer]   # TODO: change data list to include stair info
@@ -425,8 +483,9 @@ class ExobootCommServicer(pb2_grpc.exoboot_over_networkServicer):
     
 # Pref Specific
     def pref_result(self, prefmsg, context):
-        pres = prefmsg.pres
-        torque = prefmsg.torque
+        datadict = gen_msg_decode(prefmsg)
+        pres = datadict["pres"]
+        torque = datadict["torque"]
 
         print("Received preference results: {}, {}".format(pres, torque))
         datalist = [pres, torque]
@@ -436,6 +495,12 @@ class ExobootCommServicer(pb2_grpc.exoboot_over_networkServicer):
             csv.writer(f).writerow(datalist)
         return pb2.receipt(received=True)
 
+# General Message Test
+    def gen_msg_test(self, gen_msg, context):
+        """
+        Testing purposes only
+        """
+        return pb2.receipt(received=True)
 
 class ExobootRemoteServerThread(BaseThread):
     """
@@ -464,3 +529,73 @@ class ExobootRemoteServerThread(BaseThread):
     def run(self):
         while self.quit_event.is_set():
             self.start_server()
+
+
+def gen_msg_encode(datadict):
+    """
+    Encode a gen_msg with datadicts contents
+    Only accepts string, float, and bool vecs
+    """
+    mygenmsg = pb2.gen_msg()
+    for field, value in datadict.items():
+        if value or isinstance(value, bool) or isinstance(value, int):
+            if isinstance(value, list):
+                exampleval = value[0]
+                if isinstance(exampleval, str):
+                    mygenmsg.stringvecs.add(field=field, value=value)
+                elif isinstance(exampleval, bool):
+                    mygenmsg.boolvecs.add(field=field, value=value)
+                elif isinstance(exampleval, float) or isinstance(exampleval, int):
+                    mygenmsg.floatvecs.add(field=field, value=value)
+            elif isinstance(value, str):
+                mygenmsg.stringsingles.add(field=field, value=value)
+            elif isinstance(value, bool):
+                mygenmsg.boolsingles.add(field=field, value=value)
+            elif isinstance(value, float) or isinstance(value, int):
+                mygenmsg.floatsingles.add(field=field, value=value)
+            else:
+                pass
+    return mygenmsg
+
+def gen_msg_decode(genmsg):
+    """
+    Recreate dict from gen_msg
+    """
+    datadict = {}
+    for instances in [genmsg.stringsingles, genmsg.stringvecs, genmsg.floatsingles, genmsg.floatvecs, genmsg.boolsingles, genmsg.boolvecs]:
+        if instances:
+            for instance in instances:
+                datadict[instance.field] = instance.value
+    return datadict
+
+
+if __name__ == "__main__":
+    """
+    IMPORTANT REMINDER
+    
+    Make sure to convert types back into basic python types
+
+    Example: numpy.int32 will not register in gen_msg_encode
+
+    Need to convert back into python int
+
+    TODO read this reminder
+    """
+    very_important_data = {"pres": 2, "prop": 2, "T_ref": 29, "T_comp": 40, "truth": 1, "answer": 0}
+    print("ORIGINAL: {}".format(very_important_data))
+
+    # Encode dict into gen_msg
+    msg = gen_msg_encode(very_important_data)
+    print("MSG: {}".format(msg))
+
+    # Decode gen_msg back into dict
+    recreated_dict = gen_msg_decode(msg)
+    print("\nRECREATION: {}".format(recreated_dict))
+
+    print("\nCheck Recreation...")
+    print("Should include only string, float, and bool singles and vecs")
+    for field in very_important_data.keys():
+        try:
+            assert recreated_dict[field] == very_important_data[field]
+        except:
+            print("\tMissing: {}".format(field))

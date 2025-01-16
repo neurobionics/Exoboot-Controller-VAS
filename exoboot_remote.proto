@@ -50,72 +50,42 @@ message subject_info {
     bool usebackup = 6;
 }
 
-// Vickrey Auction Messages
-message result {
-    float t = 1;
-    float subject_bid = 2;
-    bool user_win_flag = 3;
-    float current_payout = 4;
-    float total_winnings = 5;
-}
+// General Message
+message gen_msg {
+    message stringsingle {
+        string field = 1;
+        string value = 2;
+    }
+    message stringvec {
+        string field = 1;
+        repeated string value = 2;
+    }
+    message floatsingle {
+        string field = 1;
+        float value = 2;
+    }
+    message floatvec {
+        string field = 1;
+        repeated float value = 2;
+    }
+    message boolsingle {
+        string field = 1;
+        bool value = 2;
+    }
+    message boolvec {
+        string field = 1;
+        repeated bool value = 2;
+    }
+    
+    repeated stringsingle stringsingles = 1;
+    repeated stringvec stringvecs = 2;
 
-message survey {
-    float t = 1;
-    float enjoyment = 2;
-    float rpe = 3;
-}
+    repeated floatsingle floatsingles = 3;
+    repeated floatvec floatvecs = 4;
 
-// VAS Messages
-message vas_info {
-    float btn_num = 1;
-    float trial = 2;
-    float pres = 3;
+    repeated boolsingle boolsingles = 5;
+    repeated boolvec boolvecs = 6;
 }
-
-message slider {
-    float pitime = 1;
-    repeated float torques = 2;
-    repeated float mvs = 3;
-}
-
-message presentation {
-    float btn_option = 1;
-    float trial = 2;
-    float pres = 3;
-    repeated float torques = 4;
-    repeated float values = 5; 
-}
-
-// JND Messages
-message comparison {
-    float pres = 1;
-    float prop = 2;
-    float T_ref = 3;
-    float T_comp = 4;
-    float truth = 5;
-    float answer = 6;
-}
-
-// PREF Messages
-message preference {
-    float pres = 1;
-    float torque = 2;
-}
-
-// Logging Messages 
-// TODO IMPLEMENT GENERAL DICT LOGGING
-message header {
-    repeated string names = 1;
-}
-
-message type {
-    repeated string types = 1;
-}
-
-message datastream {
-    repeated string data = 1;
-}
-
 
 // GRPC Service
 service exoboot_over_network {
@@ -129,20 +99,23 @@ service exoboot_over_network {
     rpc set_pause (pause) returns (receipt) {}
     rpc set_log (log) returns (receipt) {}
     rpc set_torque (torques) returns (receipt) {}
-    rpc getpack (req_log) returns (ret_val) {}
+    rpc getpack (req_log) returns (ret_val) {} // make general version using gen_msg
 
     // Vickrey Auction Specific
-    rpc call (result) returns (receipt) {};
-    rpc question (survey) returns (receipt) {};
+    rpc call (gen_msg) returns (receipt) {};
+    rpc question (gen_msg) returns (receipt) {};
 
-    //VAS Specific
-    rpc update_vas_info (vas_info) returns (receipt) {};
-    rpc slider_update (slider) returns (receipt) {};
-    rpc presentation_result (presentation) returns (receipt) {};
+    // VAS Specific
+    rpc update_vas_info (gen_msg) returns (receipt) {};
+    rpc slider_update (gen_msg) returns (receipt) {};
+    rpc presentation_result (gen_msg) returns (receipt) {};
 
-    //JND Specific
-    rpc comparison_result (comparison) returns (receipt) {};
+    // JND Specific
+    rpc comparison_result (gen_msg) returns (receipt) {};
 
     // Pref Specific
-    rpc pref_result (preference) returns (receipt) {};
+    rpc pref_result (gen_msg) returns (receipt) {};
+
+    // General Message
+    rpc gen_msg_test (gen_msg) returns (receipt) {};
 }
