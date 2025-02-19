@@ -1,0 +1,943 @@
+%% 2024-25 Vickrey VAS Study - Determining Value Landscape
+% This code determines a participant's Value Landscape when using the Dephy 
+% Ankle Exoskeletons and a Research Prototype Knee Exoskeleton.
+%
+% Script should be run from the Exoboot-Controller-VAS/Post_Processing_MATLAB/VAS Processor directory
+% Author: Nundini Rawal
+% Date: 9/21/2024
+
+clc; close; clearvars -except subject subject_list compiled_data
+
+%% ask for path to Vickrey subject file tree
+
+prompt = "Operating with Dropbox or Lab Drive? (db/lab): \n";
+path_ans = input(prompt,"s");
+
+if path_ans == "db"
+    base_path = '/Users/nrawal/University of Michigan Dropbox/Nundini Rawal/Vickrey Auction Project/Value Landscape Study/';
+else
+    base_path = '/Volumes/me-neurobionics/Lab Members/Students/Nundini Rawal/SUBJECT DATA/Vickrey_Data_Analysis/';
+end
+
+fprintf("Select Location of the VAS File Tree\n");
+title = 'Select Location of the VAS File Tree (i.e. all VAS subject folders should be viewable';
+path = append(base_path,'VAS_Protocol_Data/');
+VAS_directory_path = uigetdir(path,title);
+
+% ask for path to subject dictionary file tree
+fprintf("Select Location of the subject dictionary file\n");
+sub_dict_path = base_path;
+[~,sub_dictionary_file_location] = uigetfile(sub_dict_path);
+
+% ask for path to figure folder (to save generated figures to)
+fprintf("Select Folder Where you'd like to Save Generated Figures\n");
+fig_gen_path = append(base_path,'VAS_Protocol_Data/');
+figure_path = uigetdir(path);
+
+% add VAS directory & subject dictionary to path
+addpath(genpath(VAS_directory_path))
+addpath(genpath(sub_dictionary_file_location))
+addpath(genpath(figure_path))
+
+% add path to Jace's directory for testing only
+jace_path = append(base_path, 'VAS_Protocol_Data/VAS Data/Pilot');
+addpath(genpath(jace_path))
+
+% loading in subject info from dictionary
+[subject, subject_list] = subject_dictionary_VAS;
+
+% specify subj numbers (remove subjects due to any criteria)
+subj_num = [5];
+
+%% instantiate utils
+utils = VAS_processor_utils();
+
+
+%% Create a struct with compiled subject-by-subject data
+compiled_data = struct();
+
+for sub_num = subj_num
+    per_sub_data_files = subject(sub_num).VAS_filenames;
+
+    for file_idx = 1:length(per_sub_data_files)
+        
+        xls_sheet = per_sub_data_files(file_idx);
+
+        if ~exist(xls_sheet, 'file')
+          sprintf('Warning: file does not exist:\n%s', xls_sheet);
+          continue
+        end
+        
+        % load file
+        exp_data_sheet = readtable(xls_sheet);
+        sheet_rows = size(exp_data_sheet,1);
+
+        % if session/group # doesn't exist, 
+        if ~any("session" == string(exp_data_sheet.Properties.VariableNames))
+            session_number = extract(extract(xls_sheet, regexpPattern("(?i)session\d+")), digitsPattern);
+            group_number = extract(extract(xls_sheet, regexpPattern("(?i)group\d+")),digitsPattern);
+            
+            % insert session & group # as cols into table based on filename
+            sesh_col = repelem(str2num(session_number),sheet_rows)';
+            group_col = repelem(str2num(group_number),sheet_rows)';
+            exp_data_sheet = addvars(exp_data_sheet,sesh_col,group_col,'Before',1,'NewVariableNames',{'session','group'});
+        end
+
+        % delete any cols that have trial naming
+        if any("trial" == string(exp_data_sheet.Properties.VariableNames))
+            exp_data_sheet.trial = [];
+        end
+
+        % set Table Headers
+        exp_data_sheet = utils.set_Header(exp_data_sheet);
+
+        % extract unique btn options in that particular file
+        btn_num_types = unique(exp_data_sheet.btn_option);
+
+        % loop through those unique buttons & fill struct
+        for btn_num = 1:length(btn_num_types)
+            
+            % extract data from main table depending on btn option
+            split_exp_data_sheet = rmmissing( exp_data_sheet(exp_data_sheet.btn_option == btn_num_types(btn_num),:), 2);
+               
+            % extract btn option descriptors
+            group_num = split_exp_data_sheet.group;
+            pres_num = split_exp_data_sheet.pres;
+            max_group_num = length(unique(group_num));
+            max_pres_num = max(pres_num);
+            total_options = max_pres_num*btn_num_types(btn_num);
+    
+            torques = table2array(split_exp_data_sheet(:, contains(split_exp_data_sheet.Properties.VariableNames, 'torque')));
+            values = table2array(split_exp_data_sheet(:, contains(split_exp_data_sheet.Properties.VariableNames, 'mv')));
+    
+            if (size(torques,2) ~= max_group_num)
+                % reshape/compile torques & values into columns for each group
+                % i.e. each column is a distinct group, with presentations in
+                % order (every 4 OR 10 torque values is a new presentation)
+                reshaped_torques = reshape(torques', total_options, max_group_num);
+                reshaped_values = reshape(values', total_options, max_group_num);
+            else
+                reshaped_torques = torques;
+                reshaped_values = values;
+            end
+    
+            % create fieldnames dynamically for struct
+            btn_num_type_field = "VAS_filename_" + btn_num_types(btn_num) + "BTN";
+            subject_field = "S10" + sub_num;
+            
+            % if subject field doesn't exist, initialize empty struct
+            if ~isfield(compiled_data, subject_field)
+                compiled_data.(subject_field) = struct();
+            end
+
+            % If btn_num_type_field exists, append new data
+            if isfield(compiled_data.(subject_field), btn_num_type_field)
+
+                compiled_data.(subject_field).(btn_num_type_field).reshaped_torques = ...
+                    [compiled_data.(subject_field).(btn_num_type_field).reshaped_torques, reshaped_torques];
+            
+                compiled_data.(subject_field).(btn_num_type_field).reshaped_values = ...
+                    [compiled_data.(subject_field).(btn_num_type_field).reshaped_values, reshaped_values];
+
+                compiled_data.(subject_field).(btn_num_type_field).max_group_num = ...
+                    compiled_data.(subject_field).(btn_num_type_field).max_group_num + max_group_num;
+            
+            else
+                % First-time assignment
+                compiled_data.(subject_field).(btn_num_type_field) = struct('reshaped_torques', reshaped_torques, ...
+                                                                            'reshaped_values', reshaped_values, ...
+                                                                            'total_options', total_options, ...
+                                                                            'max_group_num', max_group_num);
+            end
+        end
+    end
+end
+
+%% Plot Raw Data of all subjects (TODO: Enable Selection of which button to plot)
+subj_num = [5];
+colors = {"#0072BD", "#D95319", "#EDB120", "#A2142F", "#7E2F8E", "#4DBEEE"};
+
+prompt = "Operate with Normalized Data? (y/n): \n";
+answer = input(prompt,"s");
+
+prompt_fig = "All subs in one fig? (y/n): \n";
+answer_fig = input(prompt_fig,"s");
+
+prompt_scatter = "Scatter plot? (y/n): \n";
+answer_scatter = input(prompt_scatter,"s");
+
+if answer_fig == "y"
+    figure
+end
+
+compiled_slopes = zeros(length(subj_num));
+compiled_intercepts = zeros(length(subj_num));
+compiled_value_var = zeros(length(subj_num),1);
+
+for sub_num = subj_num
+
+    % unpackage struct vars
+    if isfield(compiled_data.("S10" + sub_num), 'VAS_filename_4BTN')
+        [reshaped_torques, reshaped_values, total_options, ...
+                max_group_num] = utils.unpack_4BTN(compiled_data, sub_num);
+    else
+        continue
+    end
+
+    % normalize data
+    if answer == "y"
+        torques = utils.normalize_data(reshaped_torques);
+        values = utils.normalize_data(reshaped_values);
+    else
+        torques = reshaped_torques;
+        values = reshaped_values;
+    end
+
+    if answer_fig == "n"
+        figure
+    end
+
+    % plot raw data
+    for i = 1:max_group_num
+        if answer_scatter == "y"
+            scatter(torques(:,1),values(:,i),"filled",'MarkerFaceColor',colors{i});
+            hold on
+        else
+            f = fit(torques(:,i),values(:,i),'poly1');
+            plotted = plot(f,torques(:,i),values(:,i));
+            set(plotted,"color",colors{i})
+            hold on
+
+            % tally linear fit params
+            compiled_slopes(i,sub_num) = f.p1;
+            compiled_intercepts(i,sub_num) = f.p2;
+        end
+    end
+
+    if answer_scatter ~= "y"
+        % tally variances of values
+        [sorted_torques,sort_idxs] = sort(torques);
+        sorted_values = [];
+        for i = 1:size(values,2)
+            sorted_values(:,i) = values(sort_idxs(:,i),i);
+        end
+        compiled_value_var(sub_num,1) = mean(std(sorted_values,0,2));
+    end
+
+    legend('trial 1', 'fit t1','trial 2','fit t2', 'trial 3', 'fit 3','trial 4', 'fit t4');
+
+    if answer_fig == "n"
+        %legend(append('S10',num2str(sub_num)));
+        if answer == "y"
+            xlabel("Normalized Torque")
+            ylabel("Normalized $/Hour")
+        else
+            xlabel("Normalized Torque")
+            ylabel("$/Hour")
+        end
+    end
+
+end
+
+if answer_fig == "n"
+    legend({'S101';'';'';'';...
+            'S102';'';'';'';...
+            'S103';'';'';'';});
+end
+
+if answer == "y"
+    xlabel("Normalized Torque")
+    ylabel("Normalized $/Hour")
+else
+    xlabel("Normalized Torque")
+    ylabel("$/Hour")
+end
+
+%% Compute statistics on compiled_slopes for power analysis
+
+% compute effect size (avg slope across all subjects & trials)
+effect_size = mean(compiled_slopes,"all");
+fprintf("effect size is %d\n", effect_size);
+
+% compute avg y-intercept (across all subjects & trials)
+intercept = mean(compiled_intercepts,"all"); 
+sd_intercept = mean(std(compiled_intercepts)); % avg within-sub intercept variance
+fprintf("intercept is: %d\n", intercept);
+
+% compute variability in slope across subjects
+sd_between_subjects = mean(std(compiled_slopes,0,2));
+fprintf("slope std across subs is: %d\n", sd_between_subjects);
+
+% compute variability in slope within subjects (trial-to-trial)
+sd_within_subjects = mean(std(compiled_slopes)); 
+fprintf("slope std within subs is: %d\n", sd_within_subjects);
+
+% compute avg noise in values
+sd_error = mean(compiled_value_var); 
+fprintf("value std across subs is: %d\n", sd_within_subjects);
+
+%% Plot 4-button Curves with Preference-Normalized Torques
+
+subj_num = [5];
+colors = {"#0072BD", "#D95319", "#EDB120", "#A2142F", "#7E2F8E", "#4DBEEE"};
+
+prompt_fig = "All subs in one fig? (y/n): \n";
+answer_fig = input(prompt_fig,"s");
+
+if answer_fig == "y"
+    figure
+end
+
+for sub_num = subj_num
+
+    % unpackage struct vars
+    if isfield(compiled_data.("S10" + sub_num), 'VAS_filename_4BTN')
+        [reshaped_torques, reshaped_values, total_options, ...
+                max_trial_num] = utils.unpack_4BTN(compiled_data, sub_num);
+    else
+        continue
+    end
+
+    % preference-normalize torques (% change from most value/preffered torque)
+    preferred_torque = subject(sub_num).acclim_pref_torque;
+    torques = (reshaped_torques-preferred_torque)./preferred_torque*100;
+
+    % min-max normalize values
+    values = utils.normalize_data(reshaped_values);
+
+    if answer_fig == "n"
+        figure
+    end
+
+    % plot raw data
+    for i = 1:size(torques,2)
+        f = fit(torques(:,i),values(:,i),'poly2');
+        plotted = plot(f,torques(:,i),values(:,i));
+        set(plotted,"color",colors{i})
+        hold on
+    end
+    
+    if answer_fig == "n"
+        [t,s] = title(['Subject: ',append('S10',num2str(sub_num))],'Preference-Normalized Torque Plot','Color','k');
+        t.FontSize = 16;
+        s.FontAngle = 'italic';
+        legend('trial 1', 'fit t1','trial 2','fit t2');
+    end
+    xlabel("Deviation from Preferred Torque(%)")
+    ylabel("Normalized $/Hour")
+end
+
+clear title
+%% Plot 4-button Raw Data & Curve fit (weighted nonlinear regression)
+
+subj_num = [5];
+colors = {"#0072BD", "#D95319", "#EDB120", "#A2142F", "#7E2F8E", "#4DBEEE"};
+
+prompt = "Operate with Normalized Data? (y/n): \n";
+answer = input(prompt,"s");
+
+modelFunctions = {@(b, x) b(1)*x.^4+b(2)*x.^3+b(3)*x.^2+b(4)*x+b(5),... % n=4 polynomial
+                  @(b, x) b(1)./(1+exp(-b(2)*(x-b(3))))+b(4),...        % sigmoid
+                  };
+
+for sub_num = subj_num
+
+    % unpackage struct vars
+    if isfield(compiled_data.("S10" + sub_num), 'VAS_filename_4BTN')
+        [reshaped_torques, reshaped_values, total_options, ...
+                max_trial_num] = utils.unpack_4BTN(compiled_data, sub_num);
+    else
+        continue
+    end
+
+    % normalize data
+    if answer == "y"
+        torques = utils.normalize_data(reshaped_torques);
+        values = utils.normalize_data(reshaped_values);
+    else
+        torques = reshaped_torques;
+        values = reshaped_values;
+    end
+
+    % plot raw data
+    figure
+    scatter(torques,values,"filled",'MarkerFaceColor',colors{sub_num});
+    hold on
+
+    % sort torque cols into ascending order & apply sort filter to values
+    [sorted_torques,sort_idxs] = sort(torques);
+    sorted_values = [];
+    for i = 1:size(values,2)
+        sorted_values(:,i) = values(sort_idxs(:,i),i);
+    end
+
+    % reshape data for fitnlm
+    x_vec = reshape(sorted_torques, [], 1);
+    y_vec = reshape(sorted_values, [], 1);
+
+    starts = {[0, 0, 0, 0, 0],...                       % n=4 polynomial
+          [max(y_vec), 1, mean(x_vec), min(y_vec)],...  % sigmoid
+          };
+
+    % Compute weights as the inverse of variance within each subject
+    row_variance = var(sorted_values, 0, 2); % Variance of repeated measures for each subject
+    weights = repelem(1 ./ row_variance, size(sorted_values, 2)); % Repeat weights for each measurement
+
+    % Specify nonlinear function
+    modelFun = modelFunctions{2};
+    
+    % Initial guesses for the parameters
+    start = starts{2};
+
+    % Perform nlm
+    wnlm = fitnlm(x_vec,y_vec,modelFun,start,'Weight',weights);
+    disp(wnlm);
+
+    % Plot curve fit
+    xx = linspace(0,1,1000)';
+    coefficients = wnlm.Coefficients.Estimate;
+    yfitted = modelFun(coefficients, xx);
+    
+    line(xx,yfitted,'color','k','LineWidth',2)
+    hold on
+
+    % Plot confidence interval
+    [~,conf_intv] = predict(wnlm,xx,'Simultaneous',true);
+    plot(xx,conf_intv,'r:','LineWidth',1.5)
+    
+    legend(append('S10',num2str(sub_num)),'', '','','',...
+        'Weighted Fit', '95% Confidence Limits');
+    xlabel("Normalized Torque")
+    ylabel("Normalized $/Hour")
+
+    % observe residuals
+    figure
+    r = wnlm.Residuals.Standardized;
+    plot(x_vec,r,'b^')
+    xlabel('x')
+    ylabel('Standardized Residuals')
+end
+
+%%  Plot 4-button Raw Data & Curve fit (TODO: nonlinear mixed-effects regression)
+
+subj_num = [5];
+colors = {"#0072BD", "#D95319", "#EDB120", "#A2142F", "#7E2F8E", "#4DBEEE"};
+
+prompt = "Operate with Normalized Data? (y/n): \n";
+answer = input(prompt,"s");
+
+modelFunctions = {@(b, x) b(1)*x.^4+b(2)*x.^3+b(3)*x.^2+b(4)*x+b(5),...    % n=4 polynomial
+                  @(PHI,t)(PHI(:,1))./(1+exp(-(t-PHI(:,2))./PHI(:,3))),... % logistic growth
+                  };
+
+starts = {[0, 0, 0, 0, 0],...                           % n=4 polynomial
+          [100 100 100],...                             % logistic growth
+          };
+
+for sub_num = subj_num
+
+    % unpackage struct vars
+    if isfield(compiled_data.("S10" + sub_num), 'VAS_filename_4BTN')
+        [reshaped_torques, reshaped_values, total_options, ...
+                max_trial_num] = utils.unpack_4BTN(compiled_data, sub_num);
+    else
+        continue
+    end
+
+    LMEM_full_table = utils.LMEM_VAS_constructor(subj_num, compiled_data, answer);
+
+    lme_inter_trial = fitlme(LMEM_filt_table, 'values ~ torques*trials + (1 + torques|participants)');
+
+    % plot raw data
+    figure
+    scatter(torques,values,"filled",'MarkerFaceColor',colors{sub_num});
+    hold on
+
+    % reshape data for fitnlm
+    x_vec = reshape(torques, [], 1);
+    y_vec = reshape(values, [], 1);
+
+    % Compute weights as the inverse of variance within each subject
+    row_variance = var(values, 0, 2); % Variance of repeated measures for each subject
+    weights = repelem(1 ./ row_variance, size(values, 2)); % Repeat weights for each measurement
+
+    % Specify nonlinear function
+    modelFun = modelFunctions{2};
+    
+    % Initial guesses for the parameters
+    start = starts{1};
+
+    % Perform nlm
+    wnlm = fitnlm(x_vec,y_vec,modelFun,start,'Weight',weights);
+    disp(wnlm);
+
+    % Plot curve fit
+    xx = linspace(0,1,1000)';
+    coefficients = wnlm.Coefficients.Estimate;
+    yfitted = modelFun(coefficients, xx);
+    
+    line(xx,yfitted,'color','k','LineWidth',2)
+    hold on
+
+    % Plot confidence interval
+    [~,conf_intv] = predict(wnlm,xx,'Simultaneous',true);
+    plot(xx,conf_intv,'r:','LineWidth',1.5)
+    
+    legend(append('S10',num2str(sub_num)),'', '','','',...
+        'Weighted Fit', '95% Confidence Limits');
+    xlabel("Normalized Torque")
+    ylabel("Normalized $/Hour")
+
+    % observe residuals
+    figure
+    r = wnlm.Residuals.Standardized;
+    plot(x_vec,r,'b^')
+    xlabel('x')
+    ylabel('Standardized Residuals')
+end
+
+%% Plot Each 4-button Trial and Averaged Trajectory for Selected Subjects
+subj_num = [5];
+avg_traj_4btn_y = zeros(20,length(subj_num));
+
+prompt = "Operate with Normalized Data? (y/n): \n";
+answer = input(prompt,"s");
+
+prompt_gof = "Plot GOF Figures? (y/n): \n";
+answer_gof = input(prompt_gof,"s");
+
+for sub_num = subj_num
+
+    % unpackage struct vars
+    if isfield(compiled_data.("S10" + sub_num), 'VAS_filename_4BTN')
+        [reshaped_torques, reshaped_values, total_options, ...
+                max_trial_num] = utils.unpack_4BTN(compiled_data, sub_num);
+    else
+        continue
+    end
+
+    % normalize data
+    if answer == "y"
+        torques = utils.normalize_data(reshaped_torques);
+        values = utils.normalize_data(reshaped_values);
+    else
+        torques = reshaped_torques;
+        values = reshaped_values;
+    end
+       
+    % sort torque cols into ascending order & apply sort filter to values
+    [sorted_torques,sort_idxs] = sort(torques);
+    sorted_values = [];
+    for i = 1:size(values,2)
+        sorted_values(:,i) = values(sort_idxs(:,i),i);
+    end
+
+    % find average $-values
+    avg_vals = mean(sorted_values(1:total_options,:),2);
+    std_vals = std(sorted_values(1:total_options,:),0,2);
+
+    % Fit best-fit curve
+    x_avg = sorted_torques(:,1);
+    [curve_fit,gof,output] = fit(x_avg,avg_vals,'poly4','normalize','on');
+
+    % store for each subject
+    avg_traj_4btn_y(:,sub_num) = avg_vals;
+
+    % Compute shading bounds
+    upper_bound_4btn = avg_vals + std_vals;
+    lower_bound_4btn = avg_vals - std_vals;
+
+    % plot raw data & interpolated points
+    figure()
+    colors = {"#0072BD", "#D95319", "#EDB120", "#A2142F", "#7E2F8E", "#4DBEEE"};
+    xq = linspace(0,1,1000);
+    for trial = 1:max_trial_num
+        x = sorted_torques(1:total_options,trial);
+        v = sorted_values(1:total_options,trial);
+        plot(x,v,'o','color',colors{trial});
+        hold on
+
+        vq = interp1(x,v,xq);
+        plot(xq,vq,'--','color',colors{trial});
+        hold on
+    end
+
+    % Add shaded region
+    fill([x; flipud(x)], [upper_bound_4btn; flipud(lower_bound_4btn)], 'r', 'FaceAlpha', 0.1, 'EdgeColor', 'none');
+    
+    % plot avg points & trajectory
+    cfit = plot(curve_fit);
+    set(cfit,'color','k','LineWidth',2)
+    hold on
+    plot(x_avg,avg_vals,'.k','MarkerSize', 20);
+    % errorbar(sorted_torques(:,1),avg_vals,std_vals,'.k','MarkerSize', 20);
+
+    if (sub_num == 1) || (sub_num == 2)
+        legend({'trial 1';'';'trial 2';'';'trial 3';'';'trial 4';'';'std'; 'curve fit thru trial avgs'});
+    elseif (sub_num == 3) || (sub_num == 5)
+        legend({'trial 1';'';'trial 2';'';'trial 3';'';'trial 4';'';'trial 5';'';'std'; 'curve fit thru trial avgs'});
+    else
+        legend({'trial 1';'trial 2';'trial 3';'trial 4';'trial 5'; 'trial 6'; 'std'; 'curve fit thru trial avgs'});
+    end
+    
+    xlabel("Normalized Torque")
+    ylabel("Normalized $/Hour")
+
+    if answer_gof == "y"
+        % evaluate GOF using residuals of fittype
+        figure()
+        subplot(2,1,1)
+        plot(curve_fit,x_avg,avg_vals,"residuals")
+        xlabel("Normalized Torque")
+        ylabel("Residuals")
+    
+        subplot(2,1,2)
+        residuals = output.residuals;
+        plot(avg_vals,residuals,".")
+        xlabel("$/Hour")
+        ylabel("Residuals")
+    
+        % To ID Max Postiive Change in Value over Normalized Torque
+        figure()
+        diff_traj = diff(avg_vals);
+        plot(x_avg, [0; diff_traj], "ob")
+        xlabel("Normalized Torque")
+        ylabel("Delta ($/Hour)")
+    end
+
+    % save the current figure if it doesn't exist
+    VAS_fig_name = string(figure_path)+"/S10"+string(sub_num)+'_VAS_4BTN.svg';
+
+    if exist(VAS_fig_name,'file') == 0
+        saveas(gcf,VAS_fig_name);
+    end
+    
+end
+
+%% Plot 4-button Average Trajectories all together for selected subjects
+subj_num = [5];
+
+figure()
+colors = {"#0072BD", "#D95319", "#EDB120", "#A2142F", "#7E2F8E", "#4DBEEE"};
+for sub_num = subj_num
+    y4 = avg_traj_4btn_y(:,sub_num);
+    plot(x_avg,y4,'color',colors{sub_num}, 'LineWidth',2);
+    hold on
+end
+xlabel("Normalized Torque")
+ylabel("Normalized $/Hour")
+legend('S101', 'S102', 'S103')
+% title('4 Button GUI: Average Value Trajectories Across Subjects');
+
+%% Plot 10-button Trajectories for Selected Subjects
+
+% specify subj numbers (remove subjects due to any criteria)
+subj_num = [5];
+avg_traj_10btn_y = zeros(10,length(subj_num));
+prompt = "Operate with Normalized Data? (y/n): \n";
+answer = input(prompt,"s");
+
+for sub_num = subj_num
+
+    % unpackage struct vars
+    if isfield(compiled_data.("S10" + sub_num), 'VAS_filename_10BTN')
+        [reshaped_torques, reshaped_values, total_options, ...
+            max_trial_num] = utils.unpack_10BTN(compiled_data, sub_num);
+    else
+        continue
+    end
+
+    % normalize data
+    if answer == "y"
+        torques = utils.normalize_data(reshaped_torques);
+        values = utils.normalize_data(reshaped_values);
+    else
+        torques = reshaped_torques;
+        values = reshaped_values;
+    end 
+
+    % sort torque cols into ascending order & apply sort filter to values
+    [sorted_torques,sort_idxs] = sort(torques);
+    sorted_values = [];
+    for i = 1:size(values,2)
+        sorted_values(:,i) = values(sort_idxs(:,i),i);
+    end
+
+    % find average $-values
+    avg_vals = mean(sorted_values(1:total_options,:),2);
+    std_vals = std(sorted_values(1:total_options,:),0,2);
+
+    % Compute shading bounds
+    upper_bound_10btn = avg_vals + std_vals;
+    lower_bound_10btn = avg_vals - std_vals;
+
+    % store for each subject
+    avg_traj_10btn_y(:,sub_num) = avg_vals;
+
+    % Fit best-fit curve
+    x = sorted_torques(:,1);
+    curve_fit = fit(x,avg_vals,'poly4','normalize','on');
+
+    % plot data
+    figure()
+    colors = {"#0072BD", "#D95319", "#EDB120", "#A2142F", "#7E2F8E", "#4DBEEE"};
+    for trial = 1:max_trial_num
+        plot(sorted_torques(1:total_options,trial),sorted_values(1:total_options,trial),'.','MarkerSize',20, 'color',colors{trial});
+        hold on
+    end
+    
+    % plot avg points & trajectory
+    cfit = plot(curve_fit);
+    set(cfit,'color','k','LineWidth',2)
+    errorbar(sorted_torques(:,1),avg_vals,std_vals,'.k','MarkerSize', 20);
+
+    if sub_num == 2
+        legend({'trial 1';'curve fit'; 'trial averages with std'});
+    elseif sub_num == 3
+        legend({'trial 1';'trial 2'; 'curve fit'; 'trial averages with std'});
+    elseif sub_num == 5
+        legend({'trial 1';'trial 2';'trial 3';'trial 4';'trial 5'; 'curve fit'; 'trial averages with std'});
+    end
+    xlabel("Normalized Torque")
+    ylabel("Normalized $/Hour")
+    
+end
+
+%% Plot 10-button Average Trajectories all together for selected subjects
+subj_num = [5];
+
+figure()
+colors = {"#0072BD", "#D95319", "#EDB120", "#A2142F", "#7E2F8E", "#4DBEEE"};
+for sub_num = subj_num
+    y10 = avg_traj_10btn_y(:,sub_num);
+
+    % Fit best-fit curve
+    plot(x,y10,'.','color',colors{sub_num}, 'MarkerSize',20);
+    hold on
+
+    curve_fit = fit(x,y10,'poly4','normalize','on');
+    cfit = plot(curve_fit);
+    set(cfit,'color',colors{sub_num},'LineWidth',2)
+    hold on
+    
+end
+xlabel("Normalized Torque")
+ylabel("Normalized $/Hour")
+legend('S102 Data', 'S102 Curve Fit','S103 Data', 'S103 Curve Fit')
+% title('Ten Button GUI: Average Value Trajectories Across Subjects');
+
+
+%% Plot 1-button Trajectories for Selected Subjects
+
+% specify subj numbers (remove subjects due to any criteria)
+subj_num = [5];
+avg_traj_1btn_y = zeros(20,length(subj_num));
+prompt = "Operate with Normalized Data? (y/n): \n";
+answer = input(prompt,"s");
+
+for sub_num = subj_num
+
+    % unpackage struct vars
+    if isfield(compiled_data.("S10" + sub_num), 'VAS_filename_1BTN')
+        [reshaped_torques, reshaped_values, total_options, ...
+            max_trial_num] = utils.unpack_1BTN(compiled_data, sub_num);
+    else
+        continue
+    end
+
+    % normalize data
+    if answer == "y"
+        torques = utils.normalize_data(reshaped_torques);
+        values = utils.normalize_data(reshaped_values);
+    else
+        torques = reshaped_torques;
+        values = reshaped_values;
+    end 
+
+    % sort torque cols into ascending order & apply sort filter to values
+    [sorted_torques,sort_idxs] = sort(torques);
+    sorted_values = [];
+    for i = 1:size(values,2)
+        sorted_values(:,i) = values(sort_idxs(:,i),i);
+    end
+
+    % find average $-values
+    avg_vals = mean(sorted_values(1:total_options,:),2);
+    std_vals = std(sorted_values(1:total_options,:),0,2);
+
+    % Compute shading bounds
+    upper_bound_1btn = avg_vals + std_vals;
+    lower_bound_1btn = avg_vals - std_vals;
+
+    % store for each subject
+    avg_traj_1btn_y(:,sub_num) = avg_vals;
+
+    % Fit best-fit curve
+    x1 = sorted_torques(:,1);
+    curve_fit = fit(x1,avg_vals,'poly4','normalize','on');
+
+    % plot data
+    figure()
+    colors = {"#0072BD", "#D95319", "#EDB120", "#A2142F", "#7E2F8E", "#4DBEEE"};
+    for trial = 1:max_trial_num
+        plot(sorted_torques(1:total_options,trial),sorted_values(1:total_options,trial),'.','MarkerSize',20, 'color',colors{trial});
+        hold on
+    end
+    
+    % plot avg points & trajectory
+    cfit = plot(curve_fit);
+    set(cfit,'color','k','LineWidth',2)
+    errorbar(sorted_torques(:,1),avg_vals,std_vals,'.k','MarkerSize', 20);
+
+    if sub_num == 2
+        legend({'trial 1';'curve fit'; 'trial averages with std'});
+    elseif sub_num == 3
+        legend({'trial 1';'trial 2'; 'curve fit'; 'trial averages with std'});
+    elseif sub_num == 5
+        legend({'trial 1';'trial 2';'trial 3';'trial 4';'trial 5';'curve fit'; 'trial averages with std'});
+    end
+    xlabel("Normalized Torque")
+    ylabel("Normalized $/Hour")
+    
+end
+
+%% Plot 1-button Average Trajectories all together for selected subjects
+subj_num = [5];
+
+figure()
+colors = {"#0072BD", "#D95319", "#EDB120", "#A2142F", "#7E2F8E", "#4DBEEE"};
+for sub_num = subj_num
+    y1 = avg_traj_1btn_y(:,sub_num);
+
+    % Fit best-fit curve
+    plot(x1,y1,'.','color',colors{sub_num}, 'MarkerSize',20);
+    hold on
+
+    curve_fit = fit(x,y10,'poly4','normalize','on');
+    cfit = plot(curve_fit);
+    set(cfit,'color',colors{sub_num},'LineWidth',2)
+    hold on
+    
+end
+xlabel("Normalized Torque")
+ylabel("Normalized $/Hour")
+legend('S102 Data', 'S102 Curve Fit','S103 Data', 'S103 Curve Fit')
+% title('One Button GUI: Average Value Trajectories Across Subjects');
+
+%% Overlayed 1 btn vs 4 btn vs 10-button average trajectories
+
+subj_num = [5];
+
+figure()
+colors = {"#0072BD", "#D95319", "#EDB120", "#A2142F", "#7E2F8E", "#4DBEEE"};
+for sub_num = subj_num
+    y1 = avg_traj_1btn_y(:,sub_num);    
+    [curve_fit,gof,output] = fit(x1,y1,'poly4','normalize','on');    
+    cfit = plot(curve_fit);
+    set(cfit,'color',colors{sub_num},'LineWidth',2, 'Linestyle',':')
+    % fill([x_avg; flipud(x_avg)], [upper_bound_4btn; flipud(lower_bound_4btn)], 'r', 'FaceAlpha', 0.1, 'EdgeColor', 'none');
+    hold on
+    
+    y4 = avg_traj_4btn_y(:,sub_num);    
+    [curve_fit,gof,output] = fit(x_avg,y4,'poly4','normalize','on');    
+    cfit = plot(curve_fit);
+    set(cfit,'color',colors{sub_num},'LineWidth',2, 'Linestyle','--')
+    % fill([x_avg; flipud(x_avg)], [upper_bound_4btn; flipud(lower_bound_4btn)], 'r', 'FaceAlpha', 0.1, 'EdgeColor', 'none');
+    hold on
+
+    y10 = avg_traj_10btn_y(:,sub_num);
+    [curve_fit,gof,output] = fit(x,y10,'poly4','normalize','on');    
+    cfit = plot(curve_fit);
+    set(cfit,'color',colors{sub_num},'LineWidth',2)
+    % fill([x; flipud(x)], [upper_bound_10btn; flipud(lower_bound_10btn)], 'r', 'FaceAlpha', 0.1, 'EdgeColor', 'none');
+    hold on
+
+end
+xlabel("Normalized Torque")
+ylabel("Normalized $/Hour")
+legend('S102 1btn','S102 4btn','S102 10btn')
+
+
+%% Perform LMEM to understand whether selection of the surrounding torque options impacts the value trajectory
+prompt = "Operate with Normalized Data? (y/n): \n";
+answer = input(prompt,"s");
+
+subj_num = [1 2 3];
+
+LMEM_full_table = utils.LMEM_VAS_constructor(subj_num, compiled_data, answer);
+
+%=====================================================%
+%=========== LMEM #1: Inter-Subject, Trial ===========%
+%=====================================================%
+% Purpose: Evaluate impact of torques on user values 
+%   due to trial groupings across participants 
+for trial = 1:4
+    LMEM_filt_table = utils.LMEM_table_shifter(LMEM_full_table,...
+        analysis_type = "intersubject", filt_type = "trial", trial_or_pres = trial);
+
+    lme_inter_trial = fitlme(LMEM_filt_table, 'values ~ torques*trials + (1 + torques|participants)');
+    disp(lme_inter_trial); 
+end
+
+%%
+%====================================================%
+%=========== LMEM #2: Inter-Subject, Pres ===========%
+%====================================================%
+% Purpose: Evaluate impact of torques on user values 
+%   due to presentation groupings across participants (per trial)
+
+for trial = 1:4
+    LMEM_filt_table = utils.LMEM_table_trial_filterer(LMEM_full_table,trial);
+    for pres = 1:5
+
+        % circshift the table by trial
+        if pres == 2
+            shift_amnt = -4*(pres-1);
+            LMEM_filt_table = circshift(LMEM_filt_table,shift_amnt);
+        elseif pres > 2
+            LMEM_filt_table = circshift(LMEM_filt_table,-4);
+        end
+    
+        lme_inter_pres = fitlme(LMEM_filt_table, 'values ~ torques*presentations + (1 + torques|participants)');
+        disp(lme_inter_pres); 
+    end
+end
+
+%compare(lme_simple, lme_complex);
+
+%%
+%=====================================================%
+%=========== LMEM #3: Intra-Subject, Trial ===========%
+%=====================================================%
+% Purpose: Evaluate impact of torques on user values 
+%   due to trial groupings within each participant
+
+for sub = subj_num
+    for trial = 1:4
+        fprintf("\n~~~~~Subject: %d, Trial: %d ~~~~~\n", sub, trial);
+        LMEM_participant_specific_table = utils.LMEM_table_shifter(LMEM_full_table,...
+            analysis_type = "intrasubject", filt_type = "trial", ...
+            trial_or_pres = trial, sub = sub);
+    
+        lme_intra_trial = fitlme(LMEM_participant_specific_table, 'values ~ torques*trials');
+        disp(lme_intra_trial); 
+    end
+end
+
+%%
+%====================================================%
+%=========== LMEM #3: Intra-Subject, Pres ===========%
+%====================================================%
+% Purpose: Evaluate impact of torques on user values 
+%   due to presentation groupings within each participant 
+
+for sub = subj_num
+    for pres = 1:5
+        LMEM_participant_specific_table = utils.LMEM_table_filterer(LMEM_full_table,...
+            analysis_type = "intrasubject", filt_type = "pres", ...
+            trial_or_pres = pres, sub = sub);
+    
+        lme_intra_pres = fitlme(LMEM_participant_specific_table, 'values ~ torques*presentations');
+        disp(lme_intra_pres); 
+    end
+end
