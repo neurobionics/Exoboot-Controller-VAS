@@ -72,7 +72,7 @@ b_NPOlist = default_buffer_size;
 k_NPOlist = default_buffer_size;
 
 %% Compute MV
-for subj_num = 5%1:length(subject_list)
+for subj_num = 6:7%1:length(subject_list)
     WNE_fname = '';
     EPO_fname = '';
     NPO_fname = '';

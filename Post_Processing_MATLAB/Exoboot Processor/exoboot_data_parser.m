@@ -1,4 +1,4 @@
-%% 2024-25 Vickrey VAS Study - Determining $-Value over Time
+%% 2024-25 Vickrey VAS Study - Unzip Exo Sensor Data files & package into struct
 % 
 % This code unzips exo-sensor files, stores data in struct, and saves to 
 % .mat files for easy processing by exoboot_processor.m script.

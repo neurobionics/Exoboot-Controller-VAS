@@ -47,7 +47,7 @@ addpath(genpath(jace_path))
 [subject, subject_list] = subject_dictionary_VAS;
 
 % specify subj numbers (remove subjects due to any criteria)
-subj_num = [5];
+subj_num = [5,6];
 
 %% instantiate utils
 utils = VAS_processor_utils();
@@ -154,7 +154,7 @@ for sub_num = subj_num
 end
 
 %% Plot Raw Data of all subjects (TODO: Enable Selection of which button to plot)
-subj_num = [5];
+subj_num = [5, 6];
 colors = {"#0072BD", "#D95319", "#EDB120", "#A2142F", "#7E2F8E", "#4DBEEE"};
 
 prompt = "Operate with Normalized Data? (y/n): \n";
@@ -497,7 +497,7 @@ for sub_num = subj_num
 end
 
 %% Plot Each 4-button Trial and Averaged Trajectory for Selected Subjects
-subj_num = [5];
+subj_num = [5,6];
 avg_traj_4btn_y = zeros(20,length(subj_num));
 
 prompt = "Operate with Normalized Data? (y/n): \n";
@@ -538,7 +538,7 @@ for sub_num = subj_num
 
     % Fit best-fit curve
     x_avg = sorted_torques(:,1);
-    [curve_fit,gof,output] = fit(x_avg,avg_vals,'poly4','normalize','on');
+    [curve_fit,gof,output] = fit(x_avg,avg_vals,'poly6','normalize','on');
 
     % store for each subject
     avg_traj_4btn_y(:,sub_num) = avg_vals;
@@ -615,7 +615,7 @@ for sub_num = subj_num
 end
 
 %% Plot 4-button Average Trajectories all together for selected subjects
-subj_num = [5];
+subj_num = [5,6];
 
 figure()
 colors = {"#0072BD", "#D95319", "#EDB120", "#A2142F", "#7E2F8E", "#4DBEEE"};
@@ -632,7 +632,7 @@ legend('S101', 'S102', 'S103')
 %% Plot 10-button Trajectories for Selected Subjects
 
 % specify subj numbers (remove subjects due to any criteria)
-subj_num = [5];
+subj_num = [5,6];
 avg_traj_10btn_y = zeros(10,length(subj_num));
 prompt = "Operate with Normalized Data? (y/n): \n";
 answer = input(prompt,"s");
@@ -695,7 +695,7 @@ for sub_num = subj_num
         legend({'trial 1';'curve fit'; 'trial averages with std'});
     elseif sub_num == 3
         legend({'trial 1';'trial 2'; 'curve fit'; 'trial averages with std'});
-    elseif sub_num == 5
+    elseif sub_num == 5 || sub_num == 6
         legend({'trial 1';'trial 2';'trial 3';'trial 4';'trial 5'; 'curve fit'; 'trial averages with std'});
     end
     xlabel("Normalized Torque")
@@ -704,7 +704,7 @@ for sub_num = subj_num
 end
 
 %% Plot 10-button Average Trajectories all together for selected subjects
-subj_num = [5];
+subj_num = [5,6];
 
 figure()
 colors = {"#0072BD", "#D95319", "#EDB120", "#A2142F", "#7E2F8E", "#4DBEEE"};
@@ -730,7 +730,7 @@ legend('S102 Data', 'S102 Curve Fit','S103 Data', 'S103 Curve Fit')
 %% Plot 1-button Trajectories for Selected Subjects
 
 % specify subj numbers (remove subjects due to any criteria)
-subj_num = [5];
+subj_num = [5,6];
 avg_traj_1btn_y = zeros(20,length(subj_num));
 prompt = "Operate with Normalized Data? (y/n): \n";
 answer = input(prompt,"s");
@@ -793,7 +793,7 @@ for sub_num = subj_num
         legend({'trial 1';'curve fit'; 'trial averages with std'});
     elseif sub_num == 3
         legend({'trial 1';'trial 2'; 'curve fit'; 'trial averages with std'});
-    elseif sub_num == 5
+    elseif sub_num == 5 || sub_num == 6
         legend({'trial 1';'trial 2';'trial 3';'trial 4';'trial 5';'curve fit'; 'trial averages with std'});
     end
     xlabel("Normalized Torque")
@@ -802,7 +802,7 @@ for sub_num = subj_num
 end
 
 %% Plot 1-button Average Trajectories all together for selected subjects
-subj_num = [5];
+subj_num = [5,6];
 
 figure()
 colors = {"#0072BD", "#D95319", "#EDB120", "#A2142F", "#7E2F8E", "#4DBEEE"};
@@ -826,7 +826,7 @@ legend('S102 Data', 'S102 Curve Fit','S103 Data', 'S103 Curve Fit')
 
 %% Overlayed 1 btn vs 4 btn vs 10-button average trajectories
 
-subj_num = [5];
+subj_num = [6];
 
 figure()
 colors = {"#0072BD", "#D95319", "#EDB120", "#A2142F", "#7E2F8E", "#4DBEEE"};
