@@ -43,7 +43,7 @@ end
 subj_num = [5];
 
 %% Add relevant paths:
-addpath(genpath('exoboot_analyzer_utils/'));
+addpath(genpath(exoboot_analyzer_utils/))
 
 %% Parse data into % Gait Cycle and add to exoboot_data struct
 
@@ -160,12 +160,12 @@ for sub_num = subj_num
         exo_time = struct_base_path.(gname).left.pitime;
         accel_y = struct_base_path.(gname).left.accel_y;
         peak_torque = struct_base_path.(gname).left.peak_torque;
+
+        % compute torque using torque model
         curr_Amp_left = abs(struct_base_path.(gname).left.motor_current/mA_to_A);
         N_left = struct_base_path.(gname).left.N;
         exo_time_left = struct_base_path.(gname).left.pitime;
-
-        % compute torque using torque model
-        calculated_torque_left = torque_calculator(curr_Amp_left, N_left, kt);
+        calculated_torque_left = kt*curr_Amp_left.*N_left;
         
         % compute derivative of accely using avg exothread logging period
         thread_freq = struct_base_path.(gname).left.thread_freq;
@@ -182,10 +182,10 @@ for sub_num = subj_num
 
         % begin ID'ing TO & HS events based on stride period and max filtered ddx_accel_y
         
-        
         % sample the stride period
         avg_stride_period = mean(struct_base_path.(gname).left.stride_period);
         avg_samples_in_stride = mean(thread_freq)*avg_stride_period;
+        
         window_size = avg_samples_in_stride;
 
         figure; hold on;

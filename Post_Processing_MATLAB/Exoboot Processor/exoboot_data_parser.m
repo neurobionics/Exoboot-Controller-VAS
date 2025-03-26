@@ -43,6 +43,8 @@ parser_util = exoboot_parser_utils();
 
 if sesh_2_parse == "VAS"
     exoboot_compiled_data = parser_util.VAS_exoboot_data_packager(subj_num, subject);
+elseif sesh_2_parse == "VAS_level"
+    exoboot_compiled_data = parser_util.VAS_level_exoboot_data_packager(subj_num, subject);
 elseif sesh_2_parse == "Vickrey"
     exoboot_compiled_data = parser_util.Vickrey_exoboot_data_packager(subj_num, subject);
 elseif sesh_2_parse == "Pref"
