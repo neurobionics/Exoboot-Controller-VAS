@@ -20,7 +20,7 @@
 % Author: Nundini Rawal
 % Date: 2/10/2025
 
-clc; close; clearvars -except subject subject_list exoboot_compiled_data
+clc; close; clearvars -except subject subject_list
 
 %% Set Exoboot Params
 
@@ -32,258 +32,395 @@ kt = 0.146;
 eta = 0.9;  % efficiency of belt drive
 mA_to_A = 1000;
 scale_2_view_fp = 1/10;
+scale_2_view_accel = 10;
 
-%% Load in the exoboot_compiled_data struct from it's .mat file
-if exist('VAS_exoboot_data.mat', 'file') ~= 0
-    exoboot_data = load("VAS_exoboot_data.mat");
-else
-    unzip('zipped_VAS_exoboot_data.zip')
-end
+%% Select subject(s)
 
 subj_num = [5];
+
+%% Load in the exoboot_compiled_data struct from it's .mat file
+
+for sub_num = subj_num
+    mat_name = "S10" + sub_num + "_VAS_exoboot_data.mat";
+    zip_name = "S10" + sub_num + "_zipped_VAS_exoboot_data.zip";
+    
+    if exist(mat_name, 'file') ~= 0
+        raw_exoboot_data = load(mat_name);
+    else
+        unzip(zip_name)
+        raw_exoboot_data = load(mat_name);
+    end
+end
 
 %% Add relevant paths:
 addpath(genpath('exoboot_analyzer_utils/'));
 
-%% Parse data into % Gait Cycle and add to exoboot_data struct
+%% Visualize raw timeseries data from GSE and Exothread files
+
+colors = {"#0072BD", "#D95319", "#EDB120", "#A2142F", "#7E2F8E", "#4DBEEE"};
+leg_identifiers = {'left', 'right'};
+
+prompt = "Plot left & right leg data in same figure? (y/n): \n";
+leg_ans = input(prompt,"s");
 
 for sub_num = subj_num
+
     subject_field = "S10" + sub_num;
-    struct_base_path = exoboot_data.(subject_field);
-    detected_fields = fieldnames( struct_base_path );  % determine fields 
+    struct_base_path = raw_exoboot_data.(subject_field);
+    detected_fields = fieldnames( struct_base_path );
 
     tot_groups = size(detected_fields,1);
     for group = 1:tot_groups
         gname = detected_fields{group};
-        
-        fp_left = struct_base_path.(gname).GSE.forceplate_left;
-        fp_right = struct_base_path.(gname).GSE.forceplate_right;
-        pitime = struct_base_path.(gname).GSE.pitime;
+        per_group_data = struct_base_path.(gname);
+   
+        if leg_ans == "y"
+            figure; hold on;
+        end
 
-        % Determine stance phases (1 = stance, 0 = swing)
-        stance_left = fp_left >= 40;
-        stance_right = fp_right >= 40;
+        for leg_i = 1:numel(leg_identifiers)
+            leg = leg_identifiers{leg_i};
 
-        % Detect Heel Strikes (HS) and Toe Offs (TO)
-        HS_left = find(diff(stance_left) == 1) + 1;  % Swing → Stance transition
-        TO_left = find(diff(stance_left) == -1) + 1; % Stance → Swing transition
-        HS_right = find(diff(stance_right) == 1) + 1;
-        TO_right = find(diff(stance_right) == -1) + 1;
+            % extract relevant data
+            [fp, gse_time, ank_ang, accel_x, accel_y, accel_z, ...
+                gyro_x, gyro_y, gyro_z, peak_torque, mot_curr, N, curr_cmd, ...
+                exo_time, thread_freq, stride_period] = extract_data_per_leg(leg,per_group_data);
 
-        % Determine the corresponding pitimes using TO and HS idxs
-        pitime_HS_left = pitime(HS_left);
-        pitime_TO_left = pitime(TO_left);
-        pitime_HS_right = pitime(HS_right);
-        pitime_TO_right = pitime(TO_right);
+            % compute torque using torque model
+            calculated_torque = torque_calculator(mot_curr, N, kt);
 
-        % Segment strides
-        num_strides = min(length(HS_left), length(HS_right)); % Ensure matching strides
-        strides = struct();
+            % Synchronization (Interpolate force plate data to match IMU timestamps)
+            fp_interp = interp1(gse_time, fp, exo_time, 'linear', 'extrap');
 
-        for i = 1:num_strides - 1
+                                % START SECTION
+            %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+            %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+            % ID Heel-strike and Toe-off events
+            fp_threshold = 20; 
+            [HS_idx, TO_idx] = detect_gait_events(fp_interp, fp_threshold);
 
-            % find the closest pitimes in the exothread files
-            % [~,idxMatch] = find(a==interp1(a,a,29,'next'),1);
+            % ignore everything until the first peak torque cmd > 0 arrives
+            start_event_ID_idx = find(peak_torque > 0,1);
 
-            % TODO: ID the leading foot
-            leading_leg = min(HS_left(i,1), HS_right(i,1));
-            
-            if leading_leg == 1
-                % Define stride start & end
-                stride_start = HS_left(i);
-                stride_end = HS_left(i+1); % Next HS defines stride end
-            else
-                % Define stride start & end
-                stride_start = HS_right(i);
-                stride_end = HS_right(i+1); % Next HS defines stride end
+            % truncate HS & TO idx events to be after assistance start
+            HS_idx = HS_idx(HS_idx > start_event_ID_idx);
+
+            % ensure there exists HS and TO events
+            if length(HS_idx) < 2 || isempty(TO_idx)
+                warning('Not enough heel strikes or toe-offs detected for valid gait cycles.');
+                continue;
             end
-                        
-            % Extract force data for this stride
-            stride_time = time(stride_start:stride_end) - time(stride_start); % Normalize time
-            stride_fp_left = fp_left(stride_start:stride_end);
-            stride_fp_right = fp_right(stride_start:stride_end);
 
-            % Normalize stride to 100 points for visualization
-            norm_time = linspace(0, 100, length(stride_time)); % Percentage gait cycle
-            norm_fp_left = interp1(stride_time, stride_fp_left, linspace(0, stride_time(end), 100));
-            norm_fp_right = interp1(stride_time, stride_fp_right, linspace(0, stride_time(end), 100));
+             % Compute % gait cycle for each HS-HS segment & find mapping to N
+             [N_rep_curve, percent_gc] = percent_gait_AND_N_mapper(HS_idx, N, exo_time);
 
-            % Store in structure
-            strides(i).time = norm_time;
-            strides(i).fp_left = norm_fp_left;
-            strides(i).fp_right = norm_fp_right;
+             % Compute theoretical torque
+             theoretical_torque = kt*curr_cmd/mA_to_A.*N_rep_curve;
+
+            %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+            %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+                                % END SECTION
+
+
+
+
+
+                                % START SECTION
+            %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+            %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+            % data_cut_idxs = find(round(exo_time,2) == 1007.11);
+            % data_cut_idx = data_cut_idxs(2);
+            % 
+            % 
+            % new_exo_time = exo_time(data_cut_idx:end);
+            % new_theoretical_torque = theoretical_torque(data_cut_idx:end);
+            % new_peak_torque = peak_torque(data_cut_idx:end);
+            % 
+            % % find the avg peak torque for each peak torque setpt
+            % torque_list = [10.47, 20.89, 7.0, 13.94, 17.42, 24.36, 34.78, ...
+            %     38.26, 27.84, 31.31, -87.12];
+            % for torque_setpt = torque_list
+            %     setpt_idxs = find(round(new_peak_torque,2) == torque_setpt);
+            % 
+            %     setpt_start = setpt_idxs(1);
+            %     setpt_end = setpt_idxs(end);
+            %     setpt_theoretical_torques = new_theoretical_torque(setpt_start:setpt_end);
+            %     setpt_cut_exo_time = new_exo_time(setpt_start:setpt_end);
+            % 
+            %     % remove irrelevant peak idxs:
+            %     % removal_idxs = find(round(new_peak_torque,2) == torque_setpt);
+            %     % IDd_peak_torque_idxs(IDd_peak_torque_idxs == ) = [];
+            % 
+            %     IDd_peak_torque_idxs = findpeaks(setpt_theoretical_torques,setpt_cut_exo_time,'MinPeakDistance',1.2);
+            %     findpeaks(setpt_theoretical_torques,setpt_cut_exo_time,'MinPeakDistance',1.2);
+            % 
+            % end
+
+            %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+            %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+                                % END SECTION
+
+            if leg_ans == "y"
+                plot(exo_time, fp_interp*scale_2_view_fp,'-','Color',colors{leg_i},'LineWidth',1.5); hold on
+                plot(exo_time, ank_ang,':','Color',colors{leg_i},'LineWidth',1.5); hold on
+                plot(exo_time, peak_torque,'*','Color',colors{leg_i},'LineWidth',1.5); hold on
+                plot(exo_time, calculated_torque,'--','Color',colors{leg_i},'LineWidth',1.5); hold on
+                plot(exo_time, N,'-.','Color',colors{leg_i},'LineWidth',1.5); hold on
+               
+                grid on   
+                xlabel('pitime');
+                ylabel('Data');
+                legend('GRF','ank ang','peak torque setpt','calculated torque','N');
+            else
+                % ank angle data
+                figure; hold on;
+                plot(gse_time, fp*scale_2_view_fp,'-b','LineWidth',1.5); hold on
+                % plot(exo_time, fp_interp*scale_2_view_fp,'--b','LineWidth',1.5); hold on
+                plot(exo_time, ank_ang,'-r','LineWidth',1.5); hold on
+                plot(exo_time, peak_torque,'-g','LineWidth',1.5); hold on
+                plot(exo_time, calculated_torque,'--g','LineWidth',1.5); hold on
+                plot(exo_time, N,'--k','LineWidth',1.5); hold on
+                % plot(exo_time, curr_cmd/mA_to_A,'-c','LineWidth',1.5); hold on
+                % plot(exo_time, percent_gc*50,'-m','LineWidth',1.5); hold on
+                % plot(exo_time, N_rep_curve,'-.k','LineWidth',1.5); hold on
+                grid on   
+                xlabel('pitime');
+                ylabel('° Data');
+                legend('forceplate','ank ang','peak torque setpt','calculated torque','N');
+                % legend('forceplate','ank ang','peak torque setpt','calculated torque','N', 'exo current cmd', 'percent GC','representative N');
+
+                                % START SECTION                
+            %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+            %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+                % % theoretical torque 
+                % figure; hold on;
+                % plot(gse_time, fp*scale_2_view_fp,'-b','LineWidth',1.5); hold on
+                % plot(exo_time, ank_ang,'-r','LineWidth',1.5); hold on
+                % plot(exo_time, N,'--k','LineWidth',1.5); hold on
+                % plot(exo_time, N_rep_curve,'-.k','LineWidth',1.5); hold on
+                % 
+                % plot(exo_time, peak_torque,'-g','LineWidth',1.5); hold on
+                % plot(exo_time, calculated_torque,'--g','LineWidth',1.5); hold on
+                % plot(exo_time, theoretical_torque,'-.b','LineWidth',1.5); hold on
+                % plot(exo_time, curr_cmd/mA_to_A,'-c','LineWidth',1.5); hold on
+                % plot(exo_time, percent_gc*50,'-m','LineWidth',1.5); hold on
+                % 
+                % grid on   
+                % xlabel('pitime');
+                % ylabel('Data');
+                % legend('forceplate','ank ang','N','represenative N',...
+                %     'peak torque setpt','calculated torque',...
+                %     'theoretical torque', 'exo current cmd', 'percent GC');
+            %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+            %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+                                 % END SECTION
+
+                % gyro data
+                figure; hold on;
+                plot(gse_time, fp*scale_2_view_fp,'-b','LineWidth',1.5); hold on
+                plot(exo_time, gyro_x,'-r','LineWidth',1.5); hold on
+                plot(exo_time, gyro_y,'-k','LineWidth',1.5); hold on
+                plot(exo_time, gyro_z,'-c','LineWidth',1.5); hold on
+                plot(exo_time, peak_torque,'-g','LineWidth',1.5); hold on
+                plot(exo_time, calculated_torque,'--g','LineWidth',1.5); hold on
+                grid on   
+                xlabel('pitime');
+                ylabel('gyro data');
+                legend('forceplate','gyrox','gyroy','gyroz','peak torque setpt','calculated torque');
+
+                   
+                % accelerometer data
+                figure; hold on;
+                plot(gse_time, fp*scale_2_view_fp,'-b','LineWidth',1.5); hold on
+                plot(exo_time, ank_ang,'-r','LineWidth',1.5); hold on
+                plot(exo_time, accel_x*scale_2_view_accel,'-r','LineWidth',1.5); hold on
+                plot(exo_time, accel_y*scale_2_view_accel,'-k','LineWidth',1.5); hold on
+                plot(exo_time, accel_z*scale_2_view_accel,'-c','LineWidth',1.5); hold on
+                plot(exo_time, peak_torque,'-g','LineWidth',1.5); hold on
+                plot(exo_time, calculated_torque,'--g','LineWidth',1.5); hold on
+                grid on    
+                xlabel('pitime');
+                ylabel('accelerometer data');
+                legend('forceplate','accelx','accely','accelz','peak torque setpt','calculated torque');
+
+            end
         end
-
-        % Visualization
-        figure;
-        hold on;
-        for i = 1:length(strides)
-            plot(strides(i).time, strides(i).fp_left, 'b', 'LineWidth', 1);  % Blue for left foot
-            plot(strides(i).time, strides(i).fp_right, 'r', 'LineWidth', 1); % Red for right foot
-        end
-        xlabel('% Gait Cycle');
-        ylabel('Force (N)');
-        title('Force Plate Data Over Multiple Strides');
-        legend('Left Foot', 'Right Foot');
-        hold off;
-
-    end
+    end  
 end
-
-%% (1) Forceplate data & Ankle angle vs Time
-
-colors = {"#0072BD", "#D95319", "#EDB120", "#A2142F", "#7E2F8E", "#4DBEEE"};
+%% Segment data into gait cycles 
+leg_identifiers = {'left', 'right'};
 
 for sub_num = subj_num
-    % figure; hold on;
+
+    subject_field = "S10" + sub_num;
+    struct_base_path = raw_exoboot_data.(subject_field);
+    detected_fields = fieldnames( struct_base_path );
+
+    tot_groups = size(detected_fields,1);
+    for group = 1:tot_groups
+        gname = detected_fields{group};
+        per_group_data = struct_base_path.(gname);
+   
+        for leg_i = 1:numel(leg_identifiers)
+            leg = leg_identifiers{leg_i};
+
+            % extract relevant data
+            [fp, gse_time, ank_ang, accel_x, accel_y, accel_z, ...
+                gyro_x, gyro_y, gyro_z, peak_torque, mot_curr, N, ...
+                exo_unix_time, thread_freq, stride_period] = extract_data_per_leg(leg,per_group_data);
+
+            avg_exo_freq = mean(thread_freq);
+            avg_stride_period = mean(stride_period);
+            if leg_i == 1
+                min_stride_period = min(stride_period);
+                max_stride_period = max(stride_period);
+            end
+            exo_time = exo_unix_time - exo_unix_time(1);
+
+            % compute torque using torque model
+            calculated_torque = torque_calculator(mot_curr, N, kt);
+
+            % synchronize fp data to match exo timestamps
+            fp_interp = interp1(gse_time, fp, exo_time, 'linear', 'extrap');
+
+            % ID Heel-strike and Toe-off events
+            fp_threshold = 20; 
+            [HS_idx, TO_idx] = detect_gait_events(fp_interp, fp_threshold);
+
+            % ignore everything until the first peak torque cmd > 0 arrives
+            start_event_ID_idx = find(peak_torque > 0,1);
+
+            % truncate HS & TO idx events to be after assistance start
+            HS_idx = HS_idx(HS_idx > start_event_ID_idx);
+            
+            % ensure there exists HS and TO events
+            if length(HS_idx) < 2 || isempty(TO_idx)
+                warning('Not enough heel strikes or toe-offs detected for valid gait cycles.');
+                continue;
+            end
+
+           % Visualization
+            figure; hold on;
+            plot(exo_time, fp_interp, '-b', 'DisplayName', 'Force Plate Data'); hold on
+            plot(exo_time(HS_idx), fp_interp(HS_idx), 'go', 'DisplayName', 'Heel Strike'); hold on
+            plot(exo_time(TO_idx), fp_interp(TO_idx), 'ro', 'DisplayName', 'Toe Off'); hold on
+            plot(exo_time, ank_ang, 'k', 'DisplayName', 'ankle angles'); hold on
+            legend();
+            
+            % segment into gait cycles and store in struct
+            per_gait_cycle = gait_cycle_segmenter(HS_idx, ...
+                min_stride_period, max_stride_period, fp_interp, ank_ang, ...
+                accel_x, accel_y, accel_z, gyro_x, gyro_y, gyro_z, peak_torque, ...
+                mot_curr, N, exo_time, TO_idx, calculated_torque);
+
+            % create a new struct that contains gait cycle segmented data
+            leg_field = "percent_GC_"+leg;
+            gc_segmented_exoboot_data.(subject_field).(gname).(leg_field) = per_gait_cycle;
+        end
+    end  
+end
+
+%% For each peak torque set point, plot calculated torque and std vs % gait cycle - fig per leg
+
+leg_identifiers = {'left', 'right'};
+
+% for each subject
+for sub_num = subj_num
+    % access subject specific data
+    subject_field = "S10" + sub_num;
+    struct_base_path = gc_segmented_exoboot_data.(subject_field);
+    detected_fields = fieldnames( struct_base_path );
+
+    % for each group
+    tot_groups = size(detected_fields,1);
+    for group = 1:tot_groups
     
-    % [t,s] = title(['Subject: ',append('S10',num2str(sub_num))],'Forceplate vs. Ankle Angle Plot','Color','k');
-    % t.FontSize = 16;
-    % s.FontAngle = 'italic';
-
-    subject_field = "S10" + sub_num;
-    struct_base_path = exoboot_data.(subject_field);
-    detected_fields = fieldnames( struct_base_path );  % determine fields 
-
-    tot_groups = size(detected_fields,1);
-    for group = 1:tot_groups
-        figure; hold on;
-        gname = "group" + group;
-        % subplot(tot_groups,1,group);
-
-        % obtain forceplate data
-        fp = struct_base_path.(gname).GSE.forceplate_left;
-        gse_time = struct_base_path.(gname).GSE.pitime;
-
-        % obtain exothread data
-        ank_ang = struct_base_path.(gname).left.ankle_angle;
-        exo_time = struct_base_path.(gname).left.pitime;
-        accel_y = struct_base_path.(gname).left.accel_y;
-        peak_torque = struct_base_path.(gname).left.peak_torque;
-        curr_Amp_left = abs(struct_base_path.(gname).left.motor_current/mA_to_A);
-        N_left = struct_base_path.(gname).left.N;
-        exo_time_left = struct_base_path.(gname).left.pitime;
-
-        % compute torque using torque model
-        calculated_torque_left = torque_calculator(curr_Amp_left, N_left, kt);
+        % access group specific data
+        gname = detected_fields{group};
+        per_group_data = struct_base_path.(gname);
         
-        % compute derivative of accely using avg exothread logging period
-        thread_freq = struct_base_path.(gname).left.thread_freq;
-        incr = 1/mean(thread_freq);
-        ddx_accel_y = ddt(accel_y,incr);
+        % for each leg
+        for leg_i = 1:numel(leg_identifiers)
+            leg = leg_identifiers{leg_i};
 
-        filtd_ddx_accel_y = exoboot_data_filterer(ddx_accel_y,thread_freq,140, 0e4);
+            figure;
+            subplott = tiledlayout('flow', 'TileSpacing', 'compact', 'Padding', 'compact');
 
-        % ignore everything until the first peak torque signal > 0 arrives
-        start_event_ID_idx = find(peak_torque > 0,1);
+            % access leg specific data from gc_segmented_exoboot_data
+            leg_field = "percent_GC_"+leg;
+            per_gait_cycle = gc_segmented_exoboot_data.(subject_field).(gname).(leg_field);
 
-        cut_filtd_ddx_accel_y = filtd_ddx_accel_y(start_event_ID_idx:end);
-        cut_exo_time = exo_time(start_event_ID_idx:end);
+            % extract the peak torque variable
+            peak_torques_cell_array = per_gait_cycle.peak_torque;
 
-        % begin ID'ing TO & HS events based on stride period and max filtered ddx_accel_y
-        
-        
-        % sample the stride period
-        avg_stride_period = mean(struct_base_path.(gname).left.stride_period);
-        avg_samples_in_stride = mean(thread_freq)*avg_stride_period;
-        window_size = avg_samples_in_stride;
+            % ID peak torque setpoints for each gait cycle
+            pk_torque_per_GC_list = cellfun(@unique,peak_torques_cell_array,'UniformOutput',false);
+            
+            % ID and remove 2x1 double cells (transitional torques)
+            remove_torque_transitions = cellfun(@(cell_i) isequal(size(cell_i), [2, 1]), pk_torque_per_GC_list);
 
-        figure; hold on;
-        findpeaks(cut_filtd_ddx_accel_y,1:length(cut_filtd_ddx_accel_y),'MinPeakDistance',avg_samples_in_stride)
+            % set those transitions to empty
+            pk_torque_per_GC_list(remove_torque_transitions) = {[]};
 
+            % ID all unique peak torque setpoints
+            unique_pk_torque_list = unique(cell2mat(pk_torque_per_GC_list));
 
-        figure; hold on;
-       
-        % plot time series data in same figure with different colors for each group
-        plot(gse_time - gse_time(1),fp*scale_2_view_fp,'Color',colors{group},'LineWidth',1.5);
-        hold on
-        plot(exo_time - exo_time(1), ank_ang,'-r','LineWidth',1.5);
-        hold on
-        plot(exo_time - exo_time(1), accel_y,'-k','LineWidth',1.5);
-        hold on
-        plot(exo_time - exo_time(1), ddx_accel_y/10,'-m','LineWidth',1.5);
-        hold on
-        plot(exo_time - exo_time(1), filtd_ddx_accel_y/5,'-c','LineWidth',1.5);
-        hold on
-        plot(exo_time - exo_time(1), peak_torque,'-g','LineWidth',1.5);
-        hold on
-        plot(exo_time - exo_time(1),calculated_torque_left,'--g','LineWidth',1.5);
-        grid on    
-        
+            % if 0 Nm is part of the unique pk torque list, remove it
+            unique_pk_torque_list(unique_pk_torque_list == 0) = [];
 
-        ylim([0 100]);
-        xlabel('pitime');
-        ylabel('Data');
-        
-        if group == 1
-            legend('forceplate','ank ang');
+            % create dictionary mapping unique peak torques to the cells containing them
+            torque_dict = dictionary();
+            stride_count_per_torque_opt = zeros(length(unique_pk_torque_list),1);
+            for i = 1:length(unique_pk_torque_list)
+                pk_torque = unique_pk_torque_list(i);
+
+                % find cells containing this specific torque
+                mapped_cells = find(cellfun(@(x) any(x == pk_torque), pk_torque_per_GC_list));
+                stride_count_per_torque_opt(i) = length(mapped_cells);
+                torque_dict(pk_torque) = {mapped_cells};
+            end
+                       
+            % for each unique peak torque
+            for pk_torque_i = 1:length(unique_pk_torque_list)
+                pk_torque = unique_pk_torque_list(pk_torque_i);
+                extracted_cells = torque_dict(pk_torque);
+                mapped_cells = extracted_cells{1};        
+                
+                % add a subplot for that particular peak torque
+                nexttile
+                
+                % for each cell/gait cycle in the dictionary
+                for sel_cell_i = 1:length(mapped_cells)
+                    sel_cell = mapped_cells(sel_cell_i);
+                    % extract the exo time
+                    time = per_gait_cycle.time{sel_cell,1};
+                    % extract the mot current
+                    mot_curr = per_gait_cycle.mot_curr{sel_cell,1};
+                    % extract N
+                    N = per_gait_cycle.N{sel_cell,1};
+
+                    % compute calculated torque
+                    calculated_torque = torque_calculator(mot_curr, N, kt);
+                    
+                    % rescale exo time to be from 0-100%
+                    percent_time = (time - time(1)) / (time(end) - time(1)) * 100;
+
+                    % plot the calculated torque vs gait cycle in the current subplot
+                    hold on
+                    plot(percent_time, calculated_torque);
+                    hold on
+                end
+
+                title("Torque Setpoint: " + pk_torque + "Nm")
+                ylim([0 pk_torque + 2]);
+                hold on
+
+            end
+
+            title(subplott, ['Peak Torque Profiles for ', leg, ' leg'])
+            xlabel(subplott,'Gait Cycle (%)')
+            ylabel(subplott,'Torque (Nm)')
         end
-        
     end
-        
 end
 
-%% (2) Torque setpoint & Torque profile from current vs Time
-colors = {"#0072BD", "#D95319", "#EDB120", "#A2142F", "#7E2F8E", "#4DBEEE"};
-
-for sub_num = subj_num
-
-    subject_field = "S10" + sub_num;
-    struct_base_path = exoboot_data.(subject_field);
-    detected_fields = fieldnames( struct_base_path );  % determine fields 
-
-    tot_groups = size(detected_fields,1);
-    for group = 1:tot_groups
-        figure;
-        [t,s] = title(['Subject: ',append('S10',num2str(sub_num))],'Torque Setpoint vs. Current-Calculated Torque','Color','k');
-        t.FontSize = 16;
-        s.FontAngle = 'italic';
-
-        gname = "group" + group;
-
-        curr_Amp_left = abs(struct_base_path.(gname).left.motor_current/mA_to_A);
-        N_left = struct_base_path.(gname).left.N;
-        exo_time_left = struct_base_path.(gname).left.pitime;
-
-        curr_Amp_right = abs(struct_base_path.(gname).right.motor_current/mA_to_A);
-        N_right = struct_base_path.(gname).right.N;
-        exo_time_right = struct_base_path.(gname).right.pitime;
-
-        torque_setpt_left = struct_base_path.(gname).left.torque_command;
-        torque_setpt_right = struct_base_path.(gname).right.torque_command;
-        calculated_torque_left = kt*curr_Amp_left.*N_left;
-        calculated_torque_right = kt*curr_Amp_right.*N_right;
-
-        % plot time series data in same figure with different colors for each group
-        % plot()
-        % hold on
-
-        plot(exo_time_left,torque_setpt_left,'-r','LineWidth',2);
-        hold on
-        plot(exo_time_right,torque_setpt_right,'-g','LineWidth',2);
-        hold on
-        plot(exo_time_left,calculated_torque_left,'--r','LineWidth',1);
-        hold on
-        plot(exo_time_right,calculated_torque_right,'--g','LineWidth',1);
-        grid on    
-
-       
-
-        ylim([0 40]);
-        xlabel('pitime');
-        ylabel('Torque (Nm)');
-    end
-        
-end
-
-%% (2.1) For each torque setpt, compile corresponding 
-
-%% (3) Stride Period vs Time
-
-%% (4) Ankle angle & Transmission ratio vs Time
-
-%% (5) Case temperature vs Time
-
-%% (6) Motor Current & Ankle ankle vs Time
-
-%% (7) Ensure Symmetry in Functionality between both sides

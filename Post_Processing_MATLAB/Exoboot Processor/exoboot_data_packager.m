@@ -3,8 +3,8 @@
 % This code unzips exo-sensor files, stores data in struct, and saves to 
 % .mat files for easy processing by exoboot_processor.m script.
 % Separate .mat files are generated for each session type: Vickrey EPO,
-% Preference, VAS I/II/III. Struct fieldnames include: left_exo, right_exo,
-% GSE.
+% Preference, VAS I/II/III AS WELL AS FOR EACH SUBJECT. 
+% Struct fieldnames include: left_exo, right_exo, GSE.
 % 
 % Script should be run from the Exoboot-Controller-VAS/Post_Processing_MATLAB/Exoboot Processor directory
 % Author: Nundini Rawal
@@ -35,20 +35,23 @@ addpath(genpath(sub_dictionary_file_location))
 % loading in subject info from dictionary
 [subject, subject_list] = subject_dictionary_VAS;
 
-%% specify subj numbers (remove subjects due to any criteria) & parser util
-subj_num = [5];
-parser_util = exoboot_parser_utils();
+%% specify subj number & parser util
 
+% REMEMBER: ONLY 1 subject's data can be packaged at a time
+subj_num = [5];
+
+% Add relevant paths:
+addpath(genpath('exoboot_data_packager_utils/'));
 %% Parse selected session type
 
 if sesh_2_parse == "VAS"
-    exoboot_compiled_data = parser_util.VAS_exoboot_data_packager(subj_num, subject);
+    exoboot_compiled_data = VAS_exoboot_data_packager(subj_num, subject);
 elseif sesh_2_parse == "VAS_level"
-    exoboot_compiled_data = parser_util.VAS_level_exoboot_data_packager(subj_num, subject);
+    exoboot_compiled_data = VAS_level_exoboot_data_packager(subj_num, subject);
 elseif sesh_2_parse == "Vickrey"
-    exoboot_compiled_data = parser_util.Vickrey_exoboot_data_packager(subj_num, subject);
+    exoboot_compiled_data = Vickrey_exoboot_data_packager(subj_num, subject);
 elseif sesh_2_parse == "Pref"
-    exoboot_compiled_data = parser_util.Pref_exoboot_data_packager(subj_num, subject);
+    exoboot_compiled_data = Pref_exoboot_data_packager(subj_num, subject);
 else
     fprintf("Session type DNE")
 end

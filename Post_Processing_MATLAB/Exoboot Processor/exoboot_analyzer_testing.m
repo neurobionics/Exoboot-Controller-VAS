@@ -20,7 +20,7 @@
 % Author: Nundini Rawal
 % Date: 2/10/2025
 
-clc; close; clearvars -except subject subject_list exoboot_compiled_data
+clc; close; clearvars -except subject subject_list
 
 %% Set Exoboot Params
 
@@ -43,7 +43,7 @@ end
 subj_num = [5];
 
 %% Add relevant paths:
-addpath(genpath(exoboot_analyzer_utils/))
+addpath(genpath('exoboot_analyzer_utils/'));
 
 %% Parse data into % Gait Cycle and add to exoboot_data struct
 
@@ -130,95 +130,91 @@ for sub_num = subj_num
     end
 end
 
-%% (1) Forceplate data & Ankle angle vs Time
+%% Parse data into % Gait Cycle and add to exoboot_data struct -- REDO
 
 colors = {"#0072BD", "#D95319", "#EDB120", "#A2142F", "#7E2F8E", "#4DBEEE"};
+leg_identifiers = {'left', 'right'};
 
 for sub_num = subj_num
-    % figure; hold on;
-    
-    % [t,s] = title(['Subject: ',append('S10',num2str(sub_num))],'Forceplate vs. Ankle Angle Plot','Color','k');
-    % t.FontSize = 16;
-    % s.FontAngle = 'italic';
 
     subject_field = "S10" + sub_num;
     struct_base_path = exoboot_data.(subject_field);
-    detected_fields = fieldnames( struct_base_path );  % determine fields 
+    detected_fields = fieldnames( struct_base_path );
 
     tot_groups = size(detected_fields,1);
     for group = 1:tot_groups
-        figure; hold on;
-        gname = "group" + group;
-        % subplot(tot_groups,1,group);
+        gname = detected_fields{group};
+        per_group_data = struct_base_path.(gname);
+   
+        for leg_i = 1:numel(leg_identifiers)
+            leg = leg_identifiers{leg_i};
 
-        % obtain forceplate data
-        fp = struct_base_path.(gname).GSE.forceplate_left;
-        gse_time = struct_base_path.(gname).GSE.pitime;
+            % extract relevant data
+            [fp, gse_time, ank_ang, accel_y, peak_torque, mot_curr, N, ...
+                exo_time,thread_freq, stride_period] = extract_data_per_leg(leg,per_group_data);
 
-        % obtain exothread data
-        ank_ang = struct_base_path.(gname).left.ankle_angle;
-        exo_time = struct_base_path.(gname).left.pitime;
-        accel_y = struct_base_path.(gname).left.accel_y;
-        peak_torque = struct_base_path.(gname).left.peak_torque;
+            % compute torque using torque model
+            calculated_torque = torque_calculator(mot_curr, N, kt);
 
-        % compute torque using torque model
-        curr_Amp_left = abs(struct_base_path.(gname).left.motor_current/mA_to_A);
-        N_left = struct_base_path.(gname).left.N;
-        exo_time_left = struct_base_path.(gname).left.pitime;
-        calculated_torque_left = kt*curr_Amp_left.*N_left;
-        
-        % compute derivative of accely using avg exothread logging period
-        thread_freq = struct_base_path.(gname).left.thread_freq;
-        incr = 1/mean(thread_freq);
-        ddx_accel_y = ddt(accel_y,incr);
+            % ignore everything until the first peak torque cmd > 0 arrives
+            start_event_ID_idx = find(peak_torque > 0,1);
 
-        filtd_ddx_accel_y = exoboot_data_filterer(ddx_accel_y,thread_freq,140, 0e4);
+            % align GSE & exothread segments
+            cut_fp = fp(1:length(exo_time));
+            cut_fp(1:start_event_ID_idx-1) = 0;
+            cut_gse_time = gse_time(1:length(exo_time));
 
-        % ignore everything until the first peak torque signal > 0 arrives
-        start_event_ID_idx = find(peak_torque > 0,1);
+            % Identify points above the threshold
+            above_thresh = cut_fp >= 40;
+            
+            % Find rising edges (crossing above threshold)
+            gait_event_idxs = find(diff([0; above_thresh]) == 1);
+            event_times = exo_time(gait_event_idxs);
 
-        cut_filtd_ddx_accel_y = filtd_ddx_accel_y(start_event_ID_idx:end);
-        cut_exo_time = exo_time(start_event_ID_idx:end);
+            % compute derivative of accely using avg exothread logging period
+            % avg_thread_freq = mean(thread_freq);
+            % ddx_accel_y = ddt(accel_y,1/avg_thread_freq);
+    
+            % filtd_ddx_accel_y = exoboot_data_filterer(ddx_accel_y,thread_freq,140,0e4);
+    
+            % begin ID'ing TO & HS events based on stride period and max filtered ddx_accel_y
+            
+    
+            % sample the stride period
+            avg_stride_period = mean(stride_period);
+            avg_samples_in_stride = avg_thread_freq*avg_stride_period;
+            window_size = avg_samples_in_stride;
+    
+            figure; hold on;
+            % findpeaks(cut_filtd_ddx_accel_y,1:length(cut_filtd_ddx_accel_y),'MinPeakDistance',avg_samples_in_stride)
+           
+            % plot time series data in same figure with different colors for each group
+            plot(gse_time - gse_time(1),fp*scale_2_view_fp,'Color',colors{group},'LineWidth',1.5);
+            hold on
+            plot(cut_gse_time - cut_gse_time(1),cut_fp*scale_2_view_fp,'-c','LineWidth',1.5);
+            hold on
+            plot(exo_time - exo_time(1), ank_ang,'-r','LineWidth',1.5);
+            hold on
+            plot(exo_time - exo_time(1), accel_y,'-k','LineWidth',1.5);
+            hold on
+            plot(exo_time - exo_time(1), peak_torque,'-g','LineWidth',1.5);
+            hold on
+            plot(exo_time - exo_time(1),calculated_torque,'--g','LineWidth',1.5);
+            hold on
+            xline(event_times,'-');
+            grid on    
+            
+    
+            ylim([0 100]);
+            xlabel('pitime');
+            ylabel('Data');
+            
+            if group == 1
+                legend('forceplate','ank ang');
+            end
 
-        % begin ID'ing TO & HS events based on stride period and max filtered ddx_accel_y
-        
-        % sample the stride period
-        avg_stride_period = mean(struct_base_path.(gname).left.stride_period);
-        avg_samples_in_stride = mean(thread_freq)*avg_stride_period;
-        
-        window_size = avg_samples_in_stride;
-
-        figure; hold on;
-        findpeaks(cut_filtd_ddx_accel_y,1:length(cut_filtd_ddx_accel_y),'MinPeakDistance',avg_samples_in_stride)
-
-
-        figure; hold on;
-       
-        % plot time series data in same figure with different colors for each group
-        plot(gse_time - gse_time(1),fp*scale_2_view_fp,'Color',colors{group},'LineWidth',1.5);
-        hold on
-        plot(exo_time - exo_time(1), ank_ang,'-r','LineWidth',1.5);
-        hold on
-        plot(exo_time - exo_time(1), accel_y,'-k','LineWidth',1.5);
-        hold on
-        plot(exo_time - exo_time(1), ddx_accel_y/10,'-m','LineWidth',1.5);
-        hold on
-        plot(exo_time - exo_time(1), filtd_ddx_accel_y/5,'-c','LineWidth',1.5);
-        hold on
-        plot(exo_time - exo_time(1), peak_torque,'-g','LineWidth',1.5);
-        hold on
-        plot(exo_time - exo_time(1),calculated_torque_left,'--g','LineWidth',1.5);
-        grid on    
-        
-
-        ylim([0 100]);
-        xlabel('pitime');
-        ylabel('Data');
-        
-        if group == 1
-            legend('forceplate','ank ang');
         end
-        
+     
     end
         
 end
@@ -251,7 +247,7 @@ for sub_num = subj_num
 
         torque_setpt_left = struct_base_path.(gname).left.torque_command;
         torque_setpt_right = struct_base_path.(gname).right.torque_command;
-        calculated_torque_left = kt*curr_Amp_left.*N_left;
+        calculated_torque = kt*curr_Amp_left.*N_left;
         calculated_torque_right = kt*curr_Amp_right.*N_right;
 
         % plot time series data in same figure with different colors for each group
@@ -262,7 +258,7 @@ for sub_num = subj_num
         hold on
         plot(exo_time_right,torque_setpt_right,'-g','LineWidth',2);
         hold on
-        plot(exo_time_left,calculated_torque_left,'--r','LineWidth',1);
+        plot(exo_time_left,calculated_torque,'--r','LineWidth',1);
         hold on
         plot(exo_time_right,calculated_torque_right,'--g','LineWidth',1);
         grid on    

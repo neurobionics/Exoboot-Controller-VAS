@@ -18,7 +18,16 @@ function exoboot_compiled_data = VAS_exoboot_data_packager(subj_num, subject)
                 % unzip the folder
                 per_sub_data_fnames = unzip(per_sub_data_zip_name{zip_idx}, 'local_temp_processing_folder');
                 addpath(genpath('local_temp_processing_folder/'));
-                per_sub_data_fnames = per_sub_data_fnames(1,2:end);
+
+                % remove .DS_Store
+                index = find(contains(per_sub_data_fnames,'.DS_Store'));
+
+                if isempty(index)
+                    per_sub_data_fnames = per_sub_data_fnames(1,2:end);
+                else
+                    per_sub_data_fnames = per_sub_data_fnames(1,index+1:end);
+                end
+                
             else
                 addpath(genpath('local_temp_processing_folder/'));
     
@@ -81,12 +90,15 @@ function exoboot_compiled_data = VAS_exoboot_data_packager(subj_num, subject)
         end
     end
     
+    mat_fname = "S10" + subj_num + "_VAS_exoboot_data.mat";
+    zip_fname = "S10" + subj_num + "_zipped_VAS_exoboot_data";
+
     % save the struct in a .mat file for easy loading in the future
-    save('VAS_exoboot_data.mat', '-struct', 'exoboot_compiled_data');
+    save(mat_fname, '-struct', 'exoboot_compiled_data');
 
     % compress the file
-    zip('zipped_VAS_exoboot_data','VAS_exoboot_data.mat');
+    zip(zip_fname, mat_fname);
 
     % remove the unzipped struct
-    delete VAS_exoboot_data.mat
+    delete (mat_fname)
 end
