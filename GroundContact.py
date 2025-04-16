@@ -134,68 +134,70 @@ class BertecEstimator:
         fp_l = self.prev_fp_l if (fp_l == '') else float(fp_l)
         fp_r = self.prev_fp_r if (fp_r == '') else float(fp_r)
         
-        """Left Side"""
-        new_stride_flag_left = False
-        if self.contact_left:
-            if fp_l < TO_THRESHOLD:
-                in_contact_left = False # Leaving contact
-
-                self.TO_left = time.perf_counter()
-                new_stance_period_left = self.TO_left - self.HS_left
-                stance_estimate_left = self.stance_period_filter_l.average()
-                
-                # New period is within +/-ACCEPT_STANCE_THRESHOLD of estimate and thread is not paused
-                if abs((new_stance_period_left - stance_estimate_left) / stance_estimate_left) < ACCEPT_STANCE_THRESHOLD and updatefilters:
-                    self.stance_period_filter_l.update(new_stance_period_left)
-            else:
-                in_contact_left = True  # Still in contact
-        else:
-            if fp_l >= HS_THRESHOLD: #there is a heel strike if force is greater than 50 N 
-                in_contact_left = True
-                new_stride_flag_left = True
-
-                new_HS_left = time.perf_counter()
-                new_stride_period_left = new_HS_left - self.HS_left
-                stride_period_estimate_left = self.stride_period_filter_r.average()
-
-                # New period is within +/-ACCEPT_STRIDE_THRESHOLD of estimate and thread is not paused
-                if abs((new_stride_period_left - stride_period_estimate_left) / stride_period_estimate_left) < ACCEPT_STRIDE_THRESHOLD and updatefilters:
-                    self.stride_period_filter_l.update(new_stride_period_left)
-                    
-                self.HS_left = new_HS_left
-            else:
-                in_contact_left = False        
         
-        """Right Side"""
-        new_stride_flag_right = False
-        if self.contact_right:
-            if fp_r < TO_THRESHOLD:
-                in_contact_right = False # Leaving contact
+        # TODO FIX THIS NOT GOOD
+        # """Left Side"""
+        # new_stride_flag_left = False
+        # if self.contact_left:
+        #     if fp_l < TO_THRESHOLD:
+        #         in_contact_left = False # Leaving contact
 
-                self.TO_right = time.perf_counter()
-                new_stance_period_right = self.TO_right - self.HS_right
-                stance_estimate_right = self.stance_period_filter_l.average()
+        #         self.TO_left = time.perf_counter()
+        #         new_stance_period_left = self.TO_left - self.HS_left
+        #         stance_estimate_left = self.stance_period_filter_l.average()
                 
-                # make sure stance period is appropriate before appending to averaging list:
-                if abs((new_stance_period_right - stance_estimate_right) / stance_estimate_right) < ACCEPT_STANCE_THRESHOLD and updatefilters:
-                    self.stance_period_filter_l.update(new_stance_period_right)
-            else:
-                in_contact_right = True  # Still in contact
-        else:
-            if fp_r >= HS_THRESHOLD: #there is a heel strike if force is greater than 50 N 
-                in_contact_right = True
-                new_stride_flag_right = True
+        #         # New period is within +/-ACCEPT_STANCE_THRESHOLD of estimate and thread is not paused
+        #         if abs((new_stance_period_left - stance_estimate_left) / stance_estimate_left) < ACCEPT_STANCE_THRESHOLD and updatefilters:
+        #             self.stance_period_filter_l.update(new_stance_period_left)
+        #     else:
+        #         in_contact_left = True  # Still in contact
+        # else:
+        #     if fp_l >= HS_THRESHOLD: #there is a heel strike if force is greater than 50 N 
+        #         in_contact_left = True
+        #         new_stride_flag_left = True
 
-                new_HS_right = time.perf_counter()
-                new_stride_period_right = new_HS_right - self.HS_right
-                stride_period_estimate_right = self.stride_period_filter_r.average()
-                # make sure stride_period is appropriate before appending to averaging list:
-                if abs((new_stride_period_right - stride_period_estimate_right) / stride_period_estimate_right) < ACCEPT_STRIDE_THRESHOLD and updatefilters:
-                    self.stride_period_filter_l.update(new_stride_period_right)
+        #         new_HS_left = time.perf_counter()
+        #         new_stride_period_left = new_HS_left - self.HS_left
+        #         stride_period_estimate_left = self.stride_period_filter_r.average()
+
+        #         # New period is within +/-ACCEPT_STRIDE_THRESHOLD of estimate and thread is not paused
+        #         if abs((new_stride_period_left - stride_period_estimate_left) / stride_period_estimate_left) < ACCEPT_STRIDE_THRESHOLD and updatefilters:
+        #             self.stride_period_filter_l.update(new_stride_period_left)
                     
-                self.HS_right = new_HS_right
-            else:
-                in_contact_right = False
+        #         self.HS_left = new_HS_left
+        #     else:
+        #         in_contact_left = False        
+        
+        # """Right Side"""
+        # new_stride_flag_right = False
+        # if self.contact_right:
+        #     if fp_r < TO_THRESHOLD:
+        #         in_contact_right = False # Leaving contact
+
+        #         self.TO_right = time.perf_counter()
+        #         new_stance_period_right = self.TO_right - self.HS_right
+        #         stance_estimate_right = self.stance_period_filter_l.average()
+                
+        #         # make sure stance period is appropriate before appending to averaging list:
+        #         if abs((new_stance_period_right - stance_estimate_right) / stance_estimate_right) < ACCEPT_STANCE_THRESHOLD and updatefilters:
+        #             self.stance_period_filter_l.update(new_stance_period_right)
+        #     else:
+        #         in_contact_right = True  # Still in contact
+        # else:
+        #     if fp_r >= HS_THRESHOLD: #there is a heel strike if force is greater than 50 N 
+        #         in_contact_right = True
+        #         new_stride_flag_right = True
+
+        #         new_HS_right = time.perf_counter()
+        #         new_stride_period_right = new_HS_right - self.HS_right
+        #         stride_period_estimate_right = self.stride_period_filter_r.average()
+        #         # make sure stride_period is appropriate before appending to averaging list:
+        #         if abs((new_stride_period_right - stride_period_estimate_right) / stride_period_estimate_right) < ACCEPT_STRIDE_THRESHOLD and updatefilters:
+        #             self.stride_period_filter_l.update(new_stride_period_right)
+                    
+        #         self.HS_right = new_HS_right
+        #     else:
+        #         in_contact_right = False
         
         # Update value histories
         self.contact_left = in_contact_left
