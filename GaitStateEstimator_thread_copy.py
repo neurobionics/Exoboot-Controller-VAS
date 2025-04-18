@@ -7,7 +7,7 @@
 import time, copy, threading
 from typing import Type
 
-from rtplot import client
+#from rtplot import client
 from Reference_Scripts_Bertec_Sync.ZMQ_PubSub import Subscriber
 from BaseExoThread import BaseThread
 from utils import MovingAverageFilter
