@@ -13,7 +13,7 @@ from rtplot import client
 
 from validator import Validator
 from ExoClass_thread import ExobootThread
-from GaitStateEstimator_thread import GaitStateEstimator
+from GaitStateEstimator_thread_copy import GaitStateEstimator
 from exoboot_remote_control import ExobootRemoteServerThread
 from LoggingClass import LoggingNexus, FilingCabinet
 from curses_HUD.hud_thread import HUDThread
@@ -65,25 +65,29 @@ class MainControllerWrapper:
         These are defined in the ports.yaml file in the flexsea repo
         """
         # port_cfg_path = '/home/pi/VAS_exoboot_controller/ports.yaml'
-        device_1 = Device(port="/dev/ttyACM0", firmwareVersion="7.2.0", baudRate=230400, logLevel=3)
-        device_2 = Device(port="/dev/ttyACM1", firmwareVersion="7.2.0", baudRate=230400, logLevel=3)
-        
-        # Establish a connection between the computer and the device    
-        device_1.open()
-        device_2.open()
+        try:
+            device_1 = Device(port="/dev/ttyACM0", firmwareVersion="7.2.0", baudRate=230400, logLevel=3)
+            device_1.open()
+        except:
+            print("dev1")
+        # try:
+        #     device_2 = Device(port="/dev/ttyACM1", firmwareVersion="7.2.0", baudRate=230400, logLevel=3)
+        #     device_2.open()
+        # except:
+        #     print("dev2")
 
         # Get side from side_dict
         side_1 = DEV_ID_TO_SIDE_DICT[device_1.id]
-        side_2 = DEV_ID_TO_SIDE_DICT[device_2.id]
+        # side_2 = DEV_ID_TO_SIDE_DICT[device_2.id]
 
         print("Device 1: {}, {}".format(device_1.id, side_1))
-        print("Device 2: {}, {}".format(device_2.id, side_2))
+        # print("Device 2: {}, {}".format(device_2.id, side_2))
 
         # Always assign first pair of outputs to left side
         if side_1 == 'left':
-            return side_1, device_1, side_2, device_2
+            return side_1, device_1, None, None
         elif side_1 == 'right':
-            return side_2, device_2, side_1, device_1
+            return None, None, side_1, device_1
         else:
             raise Exception("Invalid sides for devices: Check DEV_ID_TO_SIDE_DICT!")
     
@@ -95,12 +99,13 @@ class MainControllerWrapper:
         try:
             # Initializing the Exo
             side_left, device_left, side_right, device_right = self.get_active_ports()
+            print(side_left, device_left, side_right, device_right)
 
             # Start device streaming and set gains:
             device_left.start_streaming(self.streamingfrequency)
-            device_right.start_streaming(self.streamingfrequency)
+            # device_right.start_streaming(self.streamingfrequency)
             device_left.set_gains(DEFAULT_KP, DEFAULT_KI, DEFAULT_KD, 0, 0, DEFAULT_FF)
-            device_right.set_gains(DEFAULT_KP, DEFAULT_KI, DEFAULT_KD, 0, 0, DEFAULT_FF)
+            # device_right.set_gains(DEFAULT_KP, DEFAULT_KI, DEFAULT_KD, 0, 0, DEFAULT_FF)
 
             """Initialize Threads"""
             # Thread events
@@ -114,12 +119,10 @@ class MainControllerWrapper:
 
             # Thread 1/2: Left and right exoboots
             self.exothread_left = ExobootThread(side_left, device_left, self.startstamp, "exothread_left", True, self.quit_event, self.pause_event, self.log_event, self.overridedefaultcurrentbounds, ZERO_CURRENT, MAX_ALLOWABLE_CURRENT, FLEXSEA_AND_EXOTHREAD_FREQ)
-            self.exothread_right = ExobootThread(side_right, device_right, self.startstamp, "exothread_right", True,  self.quit_event, self.pause_event, self.log_event, self.overridedefaultcurrentbounds, ZERO_CURRENT, MAX_ALLOWABLE_CURRENT, FLEXSEA_AND_EXOTHREAD_FREQ)
             self.exothread_left.start()
-            self.exothread_right.start()
 
             # Thread 3: Gait State Estimator
-            self.gse_thread = GaitStateEstimator(self.startstamp, device_left, device_right, self.exothread_left, self.exothread_right, filter_size=5, daemon=True, continuousmode=self.continuousmode, quit_event=self.quit_event, pause_event=self.pause_event, log_event=self.log_event)
+            self.gse_thread = GaitStateEstimator(self.startstamp, device_left, self.exothread_left, filter_size=5, daemon=True, continuousmode=self.continuousmode, quit_event=self.quit_event, pause_event=self.pause_event, log_event=self.log_event)
             self.gse_thread.start()
 
             # Thread 4: Exoboot Remote Control
@@ -127,14 +130,8 @@ class MainControllerWrapper:
             self.remote_thread.set_target_IP(self.myIP)
             self.remote_thread.start()
 
-            # Thread 5: Curses HUD
-            # self.hud = HUDThread(self, "exohud_layout.json", napms=25, pause_event=self.pause_event, quit_event=self.quit_event)
-            # self.hud.getwidget("si").settextline(0, "{}, {}, {}, {}".format(self.subjectID, self.trial_type, self.trial_cond, self.description))
-            # self.hud.getwidget("ii").settextline(0, str(self.myIP))
-            # self.hud.start()
-
             # LoggingNexus
-            self.loggingnexus = LoggingNexus(self.subjectID, self.file_prefix, self.filingcabinet, self.exothread_left, self.exothread_right, self.gse_thread)
+            self.loggingnexus = LoggingNexus(self.subjectID, self.file_prefix, self.filingcabinet, self.exothread_left, self.gse_thread)
 
             # ~~~Main Loop~~~
             self.softrtloop = FlexibleSleeper(period=1/self.clockspeed)
@@ -145,31 +142,11 @@ class MainControllerWrapper:
                     # Print if no hud
                     try:
                         # if not self.hud.isrunning:
-                        print("Peak Torque Left/Right: ({}, {})".format(self.loggingnexus.get(self.exothread_left.name, "peak_torque"), self.loggingnexus.get(self.exothread_right.name, "peak_torque")))
-                        print("Case Temp Left/Right: ({}, {})".format(self.loggingnexus.get(self.exothread_left.name, "temperature"), self.loggingnexus.get(self.exothread_right.name, "temperature")))
-                        print("BattV Left/Right: ({}, {})\n".format(self.loggingnexus.get(self.exothread_left.name, "battery_voltage"), self.loggingnexus.get(self.exothread_right.name, "battery_voltage")))
+                        print("Peak Torque Left: {}".format(self.loggingnexus.get(self.exothread_left.name, "peak_torque")))
+                        print("Case Temp Left: {}".format(self.loggingnexus.get(self.exothread_left.name, "temperature")))
+                        print("BattV Left: {}\n".format(self.loggingnexus.get(self.exothread_left.name, "battery_voltage")))
                     except:
                         pass
-
-                    # Update HUD
-                    # try:
-                    #     exostate_text = "Running" if self.pause_event.is_set() else "Paused"
-                    #     self.hud.getwidget("ls").settextline(0, exostate_text)
-                    #     self.hud.getwidget("rs").settextline(0, exostate_text)
-                    #     self.hud.getwidget("lpt").settextline(0, str(self.loggingnexus.get(self.exothread_left.name, "peak_torque")))
-                    #     self.hud.getwidget("rpt").settextline(0, str(self.loggingnexus.get(self.exothread_right.name, "peak_torque")))
-                    #     self.hud.getwidget("lct").settextline(0, str(self.loggingnexus.get(self.exothread_left.name, "temperature")))
-                    #     self.hud.getwidget("rct").settextline(0, str(self.loggingnexus.get(self.exothread_right.name, "temperature")))
-                    #     self.hud.getwidget("lcs").settextline(0, "{:0.2f}".format(self.loggingnexus.get(self.exothread_left.name, "thread_freq")))
-                    #     self.hud.getwidget("rcs").settextline(0, "{:0.2f}".format(self.loggingnexus.get(self.exothread_right.name, "thread_freq")))
-
-                    #     self.hud.getwidget("batv").settextline(0, str(self.loggingnexus.get(self.exothread_right.name, "battery_voltage")))
-                    #     self.hud.getwidget("bati").settextline(0, str(self.loggingnexus.get(self.exothread_right.name, "battery_current")))
-
-                    #     self.hud.getwidget("bert").settextline(0, "IDK")
-                    #     self.hud.getwidget("vicon").settextline(0, "TBI")
-                    # except Exception as e:
-                    #     print("Exception: ", e)
 
                     # Log data. Obeys log_event
                     if self.log_event.is_set():
@@ -195,11 +172,9 @@ class MainControllerWrapper:
             self.quit_event.clear()
 
             # Stop motors and close device streams
-            self.exothread_left.flexdevice.stop_motor() 
-            self.exothread_right.flexdevice.stop_motor()
+            self.exothread_left.flexdevice.stop_motor()
 
             self.exothread_left.flexdevice.close()
-            self.exothread_right.flexdevice.close()
             print("Goodbye")
 
 

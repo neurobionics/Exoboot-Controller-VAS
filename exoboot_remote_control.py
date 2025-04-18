@@ -336,7 +336,7 @@ class ExobootCommServicer(pb2_grpc.exoboot_over_networkServicer):
         pres = int(vasinfomsg.pres)
 
         print("Received updated vas info: ", btn_num, trial, pres)
-        overtimename = "{}_T{}_P{}_vas_overtime".format(self.file_prefix, trial, pres)
+        overtimename = "{}_overtime_B{}_T{}_P{}".format(self.file_prefix, btn_num, trial, pres)
         overtimepath = self.filingcabinet.newfile(overtimename, "csv", dictkey="overtime")
 
         header = ['pitime']

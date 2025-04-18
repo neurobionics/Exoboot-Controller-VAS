@@ -19,7 +19,8 @@ TRIAL_CONDS_DICT = {"VICKREY": {"COND": ["WNE", "EPO", "NPO"], "DESC": []},
                     "VAS": {"COND": [], "DESC": []},
                     "JND": {"COND": ["SPLITLEG", "SAMELEG"], "DESC": ["UNIFORM", "STAIR"]},
                     "PREF": {"COND": ["SLIDER", "BUTTON", "DIAL"], "DESC": []},
-                    "ACCLIMATION": {"COND": [], "DESC": []}
+                    "ACCLIMATION": {"COND": [], "DESC": []},
+                    "CONTROLPANEL": {"COND": [], "DESC": []}
                     }
 
 
@@ -43,12 +44,12 @@ TR_DATE_FORMATTER = "%Y_%m_%d_%H_%M"
 
 
 """Assistance Profile Constants"""
-# Timing Parameters for the 4-Point Spline (CURRENTLY HAVE VARUN'S PREF STUDY PARAMS LOADED FOR FLAT WALKING AT 1.20m/s)
+# Timing Parameters for the 4-Point Spline 
 
-# Flat Walking
+# Flat Walking (Varun's Pref Optimized Params for 1.20m/s)
 # P_RISE = 27.9		# stance from t_peak
 # P_PEAK = 53.3       # stance from heel strike
-# P_FALL = 10	        # stance from t_peak
+# P_FALL = 7	        # stance from t_peak
 # P_TOE_OFF = 65		# stance from heel strike
 
 # Incline Walking
@@ -73,13 +74,13 @@ TEMPANTISPIKE = 200 # Degree C
 
 
 """Exothread loop frequencies"""
-EXOTHREAD_MAIN_FREQ = 500 # Hz
+FLEXSEA_AND_EXOTHREAD_FREQ = 500 # Hz
 EXOTHREAD_LOGGING_FREQ = 250 # Hz
 
 
 """Safety Limits"""
 ZERO_CURRENT = 0 # mA
-MAX_ALLOWABLE_CURRENT = 27000 # mA
+MAX_ALLOWABLE_CURRENT = 17000 # mA
 
 
 """Device Identifiers"""

@@ -20,7 +20,7 @@ from TransmissionRatioGenerator import TransmissionRatioGenerator
 
 
 class ExobootThread(BaseThread):
-    def __init__(self, side, flexdevice, startstamp, name='exobootthread', daemon=True, quit_event=Type[threading.Event], pause_event=Type[threading.Event], log_event=Type[threading.Event], overridedefaultcurrentbounds=False, min_current=0, max_current=27500):
+    def __init__(self, side, flexdevice, startstamp, name='exobootthread', daemon=True, quit_event=Type[threading.Event], pause_event=Type[threading.Event], log_event=Type[threading.Event], overridedefaultcurrentbounds=False, min_current=0, max_current=27500, on_pause_triggers=-1, threadfrequency=FLEXSEA_AND_EXOTHREAD_FREQ):
         """
         TODO make overview
         """
@@ -28,6 +28,7 @@ class ExobootThread(BaseThread):
         # Necessary Inputs for Exo Class
         self.side = side
         self.flexdevice = flexdevice # In ref to flexsea Device class
+        self.threadfrequency = threadfrequency
         
         # Motor and ankle signs
         """TEST TO ENSURE CORRECT DIRECTIONS BEFORE RUNNING IN FULL"""
@@ -78,6 +79,15 @@ class ExobootThread(BaseThread):
             self.min_current = BIAS_CURRENT
             self.max_current = MAX_ALLOWABLE_CURRENT
 
+        # Trigger on_pause once or every loop
+        self.on_pause_triggers = on_pause_triggers
+        self.pause_triggered = on_pause_triggers
+
+        if self.on_pause_triggers == -1:
+            self.run = self.run_pause_trigger_always
+        else:
+            self.run = self.run_pause_triggers
+
     def getval(self, what):
         """
         Return value from data_dict given what
@@ -86,7 +96,7 @@ class ExobootThread(BaseThread):
 
     def spool_belt(self):
         self.flexdevice.command_motor_current(self.motor_sign * BIAS_CURRENT)
-        time.sleep(0.5)
+        # time.sleep(0.5)
         
     def zeroProcedure(self):
         """
@@ -242,9 +252,9 @@ class ExobootThread(BaseThread):
         if measured_temp >= self.max_case_temperature:
             self.exo_safety_shutoff_flag = True
             print("Case Temperature has exceed 75°C soft limit. Exiting Gracefully")
-        if winding_temperature >= self.max_winding_temperature:
-            self.exo_safety_shutoff_flag = True
-            print("Winding Temperature has exceed 115°C soft limit. Exiting Gracefully")
+        # if winding_temperature >= self.max_winding_temperature:
+        #     self.exo_safety_shutoff_flag = True
+        #     print("Winding Temperature has exceed 115°C soft limit. Exiting Gracefully")
 
         # using Jianping's thermal model to project winding & case temperature
         # using the updated case temperature and setting shut-off flag
@@ -290,7 +300,7 @@ class ExobootThread(BaseThread):
         self.prev_end_time = time.perf_counter()
 
         # Soft real time loop
-        self.softRTloop = FlexibleSleeper(period=1/EXOTHREAD_MAIN_FREQ)
+        self.softRTloop = FlexibleSleeper(period=1/self.threadfrequency)
         
     def on_pause(self):
         """
@@ -298,6 +308,7 @@ class ExobootThread(BaseThread):
         """
         # Send bias current
         self.flexdevice.command_motor_current(self.motor_sign * self.min_current)
+        # print("ON_PAUSE")
 
     def pre_iterate(self):
         """
@@ -361,7 +372,7 @@ class ExobootThread(BaseThread):
         # Soft real-time loop
         self.softRTloop.pause()
 
-    def run(self):
+    def run_pause_trigger_always(self):
         """
         Main Loop
         """
@@ -373,3 +384,27 @@ class ExobootThread(BaseThread):
             else:
                 self.on_pause()
             self.post_iterate()
+
+    def run_pause_triggers(self):
+        """
+        Main Loop
+        """
+        self.on_pre_run()
+        while self.quit_event.is_set():
+            self.pre_iterate()
+
+            if self.pause_event.is_set():
+                self.iterate()
+                self.pause_triggered = self.on_pause_triggers
+            else:
+                if self.pause_triggered > 0:
+                    self.on_pause()
+                    self.pause_triggered -= 1
+
+            self.post_iterate()
+
+    def run(self):
+        """
+        Determined by pause_trigger_once
+        """
+        pass

@@ -5,12 +5,41 @@ from time import sleep
 
 from flexsea.device import Device
 
-from SoftRTloop import FlexibleSleeper
+# from SoftRTloop import FlexibleSleeper
 
 sys.path.insert(0, '/home/pi/VAS_exoboot_controller/')
 
-
 from constants import *
+
+TR_FILE_PREFIX = "default_TR"
+TR_COEFS_PREFIX = "{}_coefs".format(TR_FILE_PREFIX)
+TR_FULLDATA_PREFIX = "{}_fulldata".format(TR_FILE_PREFIX)
+TR_DATE_FORMATTER = "%Y_%m_%d_%H_%M"
+BIAS_CURRENT = 500
+
+class FlexibleSleeper():
+    """
+    Inactive timer using sleep by delay
+    """
+    def __init__(self, period):
+        self.period = period
+        self.last_stop_time = time.perf_counter()
+
+    def pause(self):
+        current_time = time.perf_counter()
+        delay = max(self.period - (current_time - self.last_stop_time), 0)
+        time.sleep(delay)
+        self.stop_time = time.perf_counter()
+        self.last_stop_time = self.stop_time
+
+    def pause_return(self):
+        current_time = time.perf_counter()
+        delay = max(self.period - (current_time - self.last_stop_time), 0)
+        time.sleep(delay)
+        self.stop_time = time.perf_counter()
+        period = self.stop_time - self.last_stop_time 
+        self.last_stop_time = self.stop_time
+        return period
 
 
 def get_active_ports():
