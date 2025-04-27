@@ -29,7 +29,7 @@ from flexsea import fxEnums as fxe
 import sys
 sys.path.insert(0, '/home/pi/VAS_exoboot_controller/')
 from ExoClass import ExoObject
-from SoftRTloop import FlexibleTimer
+from src.utils.SoftRTloop import FlexibleTimer
 import config
 
 def get_active_ports(fxs):

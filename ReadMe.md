@@ -59,9 +59,8 @@ This package is structured as follows:
                 JIM_characterization/
                     JIM_testing_current_cmd.py
     
-            tests/
+            debugging_scripts/
                 __init__.py
-                test_scripts/    # Unit tests and integration tests
     
             hud/
                 __init__.py

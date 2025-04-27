@@ -8,11 +8,11 @@ import time, copy, threading
 from typing import Type
 
 #from rtplot import client
-from Reference_Scripts_Bertec_Sync.ZMQ_PubSub import Subscriber
-from BaseExoThread import BaseThread
-from utils import MovingAverageFilter
-from GroundContact import BertecEstimator
-from SoftRTloop import FlexibleSleeper
+from src.exo.gait_state_estimator.forceplate.ZMQ_PubSub import Subscriber
+from src.exo.BaseExoThread import BaseThread
+from src.utils.utils import MovingAverageFilter
+from src.exo.gait_state_estimator.forceplate.GroundContact import BertecEstimator
+from src.utils.SoftRTloop import FlexibleSleeper
 
 from constants import VICON_IP, GSETHREAD_FIELDS
 
@@ -20,10 +20,12 @@ class GaitStateEstimator(BaseThread):
     """
     Description
     """
-    def __init__(self, startstamp, device_left, thread_left, name='GSE', filter_size=10, daemon=True, continuousmode=False, quit_event=Type[threading.Event], pause_event=Type[threading.Event], log_event=Type[threading.Event]):
+    def __init__(self, startstamp, device_left, device_right, thread_left, thread_right, name='GSE', filter_size=10, daemon=True, continuousmode=False, quit_event=Type[threading.Event], pause_event=Type[threading.Event], log_event=Type[threading.Event]):
         super().__init__(name, daemon, quit_event, pause_event, log_event)
         self.device_left = device_left
+        self.device_right = device_right
         self.device_thread_left = thread_left
+        self.device_thread_right = thread_right
 
         # Filter size
         self.filter_size = filter_size
@@ -48,6 +50,7 @@ class GaitStateEstimator(BaseThread):
 
     def link_to_device(self):
         self.device_left.gse = self
+        self.device_right.gse = self
 
     def set_peak_torque_left(self, T):
         self.peak_torque_left = T
@@ -55,7 +58,9 @@ class GaitStateEstimator(BaseThread):
             self.device_thread_left.peak_torque = self.peak_torque_left
 
     def set_peak_torque_right(self, T):
-        pass
+        self.peak_torque_right = T
+        if self.continuousmode:
+            self.device_thread_right.peak_torque = self.peak_torque_right
 
     def get_sensor_data(self):
         """TODO implement"""
@@ -125,6 +130,9 @@ class GaitStateEstimator(BaseThread):
             HS_l, stride_period_l, in_swing_l = self.bertec_estimator.return_estimate_left()
             self.device_thread_left.set_state_estimate(HS_l, stride_period_l, self.peak_torque_left, in_swing_l)
 
+        if new_stride_flag_right:
+            HS_r, stride_period_r, in_swing_r = self.bertec_estimator.return_estimate_right()
+            self.device_thread_right.set_state_estimate(HS_r, stride_period_r, self.peak_torque_right, in_swing_r)
         
     def post_iterate(self):
         """

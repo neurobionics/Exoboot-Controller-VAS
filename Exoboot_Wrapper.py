@@ -11,14 +11,14 @@ import os, sys, csv, time, socket, threading
 from flexsea.device import Device
 from rtplot import client
 
-from validator import Validator
+from src.debugging_scripts.validator import Validator
 from ExoClass_thread import ExobootThread
 from GaitStateEstimator_thread import GaitStateEstimator
 from exoboot_remote_control import ExobootRemoteServerThread
-from LoggingClass import LoggingNexus, FilingCabinet
-from curses_HUD.hud_thread import HUDThread
+from src.logging.LoggingClass import LoggingNexus, FilingCabinet
+from HUD.hud_thread import HUDThread
 
-from SoftRTloop import FlexibleSleeper
+from src.utils.SoftRTloop import FlexibleSleeper
 from constants import *
 
 thisdir = os.path.dirname(os.path.abspath(__file__))

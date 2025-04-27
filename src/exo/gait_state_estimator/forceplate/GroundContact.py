@@ -1,6 +1,6 @@
 import time
 import numpy as np
-from utils import MovingAverageFilter
+from src.utils.utils import MovingAverageFilter
 from constants import HS_THRESHOLD, TO_THRESHOLD, ACCEPT_STRIDE_THRESHOLD, ACCEPT_STANCE_THRESHOLD
 
 class GroundContact: 

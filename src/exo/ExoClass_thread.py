@@ -11,12 +11,12 @@ from typing import Type
 
 from constants import *
 
-from thermal import ThermalModel
-from BaseExoThread import BaseThread
-from SoftRTloop import FlexibleSleeper
-from utils import MovingAverageFilter, TrueAfter
+from src.exo.thermal import ThermalModel
+from src.exo.BaseExoThread import BaseThread
+from src.utils.SoftRTloop import FlexibleSleeper
+from src.utils.utils import MovingAverageFilter, TrueAfter
 from AssistanceGenerator_new import AssistanceGenerator
-from TransmissionRatioGenerator import TransmissionRatioGenerator
+from src.exo.TransmissionRatioGenerator import TransmissionRatioGenerator
 
 
 class ExobootThread(BaseThread):
