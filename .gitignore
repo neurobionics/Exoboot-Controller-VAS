@@ -1,3 +1,5 @@
 *.csv
 *.pyc
 *.log
+py39-venv/
+py311-venv/
