@@ -7,7 +7,7 @@ import argparse
 from flexsea.device import Device
 from rtplot import client 
 from constants import ZERO_CURRENT, MAX_ALLOWABLE_CURRENT, DEV_ID_TO_SIDE_DICT,DEFAULT_KP, DEFAULT_KI, DEFAULT_KD, DEFAULT_FF, TR_DATE_FORMATTER, MAX_CASE_TEMP
-from src.logging.LoggingClass import LoggingNexus, FilingCabinet
+from src.custom_logging.LoggingClass import LoggingNexus, FilingCabinet
 from ExoClass_thread import ExobootThread
 
 

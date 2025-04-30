@@ -74,7 +74,7 @@ TEMPANTISPIKE = 200 # Degree C
 
 
 """Exothread loop frequencies"""
-FLEXSEA_AND_EXOTHREAD_FREQ = 500 # Hz
+FLEXSEA_FREQ = 1000 # Hz
 EXOTHREAD_LOGGING_FREQ = 250 # Hz
 
 
@@ -93,6 +93,7 @@ ANK_ENC_SIGN_LEFT_EXO = 1
 # Motor signs
 MOTOR_SIGN_RIGHT = -1
 MOTOR_SIGN_LEFT = -1
+KNOWN_PORTS = ["/dev/ttyACM0", "/dev/ttyACM1"]
 
 # USE THESE DICTS
 DEV_ID_TO_SIDE_DICT = {id: 'right' for id in RIGHT_EXO_DEV_IDS} | {id: 'left' for id in LEFT_EXO_DEV_IDS}
@@ -104,6 +105,9 @@ DEV_ID_TO_MOTOR_SIGN_DICT = {id: MOTOR_SIGN_RIGHT for id in RIGHT_EXO_DEV_IDS} |
 # Unit Conversions (from Dephy Website, Units Section: https://dephy.com/start/#programmable_safety_features)
 ENC_CLICKS_TO_DEG = 1 / (2**14 / 360)
 BAUD_RATE: int =  230400
+LOG_LEVEL: int = 3
+
+
 
 """Motor Attributes"""
 Kt = 0.000146 #mA/Nm
