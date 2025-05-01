@@ -104,9 +104,6 @@ if __name__ == '__main__':
     
     with exo:
         
-        if len(exo.active_sides) != len(exo.active_device_ids):
-            raise Exception("Mismatch between sides and device IDs")
-        
         for side, device_id in zip(exo.active_sides, exo.active_device_ids):
             exo.fxs.start_streaming(device_id, FLEXSEA_FREQ, False)    
             print("started streaming for device: ", device_id)
