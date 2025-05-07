@@ -86,7 +86,7 @@ MAX_ALLOWABLE_CURRENT = 17000 # mA
 """Device Identifiers"""
 # Exo Device IDS
 RIGHT_EXO_DEV_IDS = [77, 17584]  # for EB-51
-LEFT_EXO_DEV_IDS = [888, 48390]  # for EB-51
+LEFT_EXO_DEV_IDS = [888, 48390, 1013]  # for EB-51
 # Ankle encoder signs (plantar -> increasing angle)
 ANK_ENC_SIGN_RIGHT_EXO = -1
 ANK_ENC_SIGN_LEFT_EXO = 1
