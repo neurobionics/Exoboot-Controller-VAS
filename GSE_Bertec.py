@@ -25,13 +25,18 @@ class Bertec_Estimator:
 
     def return_estimate(self):
         """
-        Return most recent state of estimator (a, b, c)
+        Return a dictionary of the most recent state of estimator {a, b, c}
             a) most recent heel strike time
             b) average stride period
             c) in swing
             
         """
-        return self.HS, self.stride_period_tracker.average(), not self.contact
+        state_dict = {"HS": self.HS, 
+                      "stride_period": self.stride_period_tracker.average(), 
+                      "in_swing": not self.contact
+                      }
+
+        return state_dict
 
     def update(self):
         """
