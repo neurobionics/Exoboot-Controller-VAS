@@ -3,6 +3,9 @@ import time
 from src.utils.utils import MovingAverageFilter
 
 class Bertec_Estimator:
+    """
+    Stride phase estimation using forceplate thresholding
+    """
     def __init__(self, zmq_subscriber, stride_period_init=1.2, filter_size=10, HS_THRESHOLD = 50, TO_THRESHOLD = 20):
         
         # ZMQ subscriber
@@ -28,7 +31,6 @@ class Bertec_Estimator:
             c) in swing
             
         """
-        
         return self.HS, self.stride_period_tracker.average(), not self.contact
 
     def update(self):
