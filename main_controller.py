@@ -42,8 +42,8 @@ def track_variables_for_logging(logger: Logger) -> None:
     logger.track_variable(lambda: exoboots.left.motor_encoder_counts, "encoder_counts")
     logger.track_variable(lambda: exoboots.left.case_temperature, "case_temp_C")
     
-    # tracked_vars = logger.get_tracked_variables()
-    # print("Tracked variables:", tracked_vars)
+    tracked_vars = logger.get_tracked_variables()
+    print("Tracked variables:", tracked_vars)
     
 
 if __name__ == '__main__':
@@ -56,7 +56,7 @@ if __name__ == '__main__':
         sensors=sensors
     )
 
-    clock = SoftRealtimeLoop(dt = 1 / FLEXSEA_FREQ/100) 
+    clock = SoftRealtimeLoop(dt = 1 / 1) 
     
     log_path, file_name = get_logging_info(use_input_flag=False)
     logger = Logger(log_path=log_path, file_name=file_name, buffer_size=10*FLEXSEA_FREQ, file_level = LogLevel.DEBUG, stream_level = LogLevel.INFO)
@@ -75,7 +75,7 @@ if __name__ == '__main__':
                 
                 # record current values to buffer, log to file, then flush the buffer
                 logger.update()
-                # logger.flush_buffer()
+                logger.flush_buffer()
                 
             except KeyboardInterrupt:
                 print("Keyboard interrupt detected. Exiting...")
