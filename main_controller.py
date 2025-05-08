@@ -15,13 +15,36 @@ Date: 04/29/2025
 Author(s): Nundini Rawal
 """
 
+from opensourceleg.logging import Logger, LogLevel
 from opensourceleg.utilities import SoftRealtimeLoop
-from exoboots import DephyExoboots, create_actuators
+
+from exoboots import DephyExoboots
+from src.utils.actuator_utils import create_actuators
+from src.utils.filing_utils import get_logging_info
 from src.settings.constants import(
     BAUD_RATE,
     FLEXSEA_FREQ,
     LOG_LEVEL
 )
+
+def track_variables_for_logging(logger: Logger) -> None:
+    """
+    Track various variables for logging.
+    """
+    dummy_grpc_value = 5.0
+    ankle_torque_setpt = 20
+    logger.track_variable(lambda: dummy_grpc_value, "dollar_value")
+    logger.track_variable(lambda: ankle_torque_setpt, "torque_setpt_Nm")
+    
+    logger.track_variable(lambda: exoboots.left.accelx, "accelx_mps2")
+    logger.track_variable(lambda: exoboots.left.motor_current, "current_mA")
+    logger.track_variable(lambda: exoboots.left.motor_position, "position_rad")
+    logger.track_variable(lambda: exoboots.left.motor_encoder_counts, "encoder_counts")
+    logger.track_variable(lambda: exoboots.left.case_temperature, "case_temp_C")
+    
+    # tracked_vars = logger.get_tracked_variables()
+    # print("Tracked variables:", tracked_vars)
+    
 
 if __name__ == '__main__':
     actuators = create_actuators(1, BAUD_RATE, FLEXSEA_FREQ, LOG_LEVEL)
@@ -33,22 +56,33 @@ if __name__ == '__main__':
         sensors=sensors
     )
 
-    clock = SoftRealtimeLoop(dt = 1 / FLEXSEA_FREQ) 
-
+    clock = SoftRealtimeLoop(dt = 1 / FLEXSEA_FREQ/100) 
+    
+    log_path, file_name = get_logging_info(use_input_flag=False)
+    logger = Logger(log_path=log_path, file_name=file_name, buffer_size=10*FLEXSEA_FREQ, file_level = LogLevel.DEBUG, stream_level = LogLevel.INFO)
+    track_variables_for_logging(logger)
+    
     with exoboots:
         
         exoboots.setup_control_modes()
             
-        for t in clock:
+        for _t in clock:
             try:
-                print(f"Time: {t:.2f} seconds")
+                # update robot sensor states
+                exoboots.update()
                 
                 # TODO: Add control logic here
                 
+                # record current values to buffer, log to file, then flush the buffer
+                logger.update()
+                # logger.flush_buffer()
+                
             except KeyboardInterrupt:
                 print("Keyboard interrupt detected. Exiting...")
+                logger.close()
                 break
             
             except Exception as err:
                 print("Unexpected error in executing main controller:", err)
+                logger.close()
                 break

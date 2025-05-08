@@ -38,7 +38,7 @@ class DephyExoboots(RobotBase[DephyLegacyActuator, SensorBase]):
         """
         Update the exoskeleton.
         """
-        print(f"Updating exoskeleton robot: {self.tag}")
+        # print(f"Updating exoskeleton robot: {self.tag}")
         super().update()
       
     def setup_control_modes(self) -> None:
