@@ -41,7 +41,7 @@ class DephyExoboots(RobotBase[DephyLegacyActuator, SensorBase]):
         print(f"Updating exoskeleton robot: {self.tag}")
         super().update()
       
-    def setup_controller(self) -> None:
+    def setup_control_modes(self) -> None:
         """
         Call the setup_controller method for all actuators.
         This method selects current control mode and sets PID gains for each actuator.
@@ -68,6 +68,7 @@ class DephyExoboots(RobotBase[DephyLegacyActuator, SensorBase]):
         return self.actuators["right"]
   
     
+# DEMO:
 if __name__ == "__main__":
     
     # define dictionary of actuators & sensors
@@ -88,7 +89,7 @@ if __name__ == "__main__":
     with exoboots:
         
         # setup the exo controller
-        exoboots.setup_controller()
+        exoboots.setup_control_modes()
             
         # run the main control loop
         for t in clock:

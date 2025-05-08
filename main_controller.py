@@ -33,11 +33,11 @@ if __name__ == '__main__':
         sensors=sensors
     )
 
-    clock = SoftRealtimeLoop(dt = 1 / 100) 
+    clock = SoftRealtimeLoop(dt = 1 / FLEXSEA_FREQ) 
 
     with exoboots:
         
-        exoboots.setup_controller()
+        exoboots.setup_control_modes()
             
         for t in clock:
             try:
