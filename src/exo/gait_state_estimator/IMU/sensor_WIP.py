@@ -7,7 +7,7 @@ from collections import deque
 from constants import *
 from filters import LowPassFilter
 
-from src.utils.utils import MovingAverageFilter
+from utils.filter_utils import MovingAverageFilter
 
 class Sensor(threading.Thread):
     def __init__(self, fxs, devices: list, name:str='sensor', quit_event=Type[threading.Event]):

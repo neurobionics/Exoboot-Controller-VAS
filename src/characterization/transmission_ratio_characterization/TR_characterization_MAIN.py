@@ -9,7 +9,7 @@ from flexsea.device import Device
 
 sys.path.insert(0, '/home/pi/VAS_exoboot_controller/')
 
-from constants import *
+from src.settings.constants import *
 
 TR_FILE_PREFIX = "default_TR"
 TR_COEFS_PREFIX = "{}_coefs".format(TR_FILE_PREFIX)
@@ -40,7 +40,6 @@ class FlexibleSleeper():
         period = self.stop_time - self.last_stop_time 
         self.last_stop_time = self.stop_time
         return period
-
 
 def get_active_ports():
     """

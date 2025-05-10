@@ -1,6 +1,6 @@
 import sys, glob, serial
-from opensourceleg.actuators.dephy import DephyLegacyActuator
-from src.settings.constants import DEV_ID_TO_SIDE_DICT
+from dephyEB51 import DephyEB51Actuator
+from src.utils import CONSOLE_LOGGER
 
 def get_active_ports()->list:
     """
@@ -14,6 +14,7 @@ def get_active_ports()->list:
     elif sys.platform.startswith("win"):
         ports = ["COM%s" % (i + 1) for i in range(256)]
     else:
+        CONSOLE_LOGGER.info("Unsupported platform.")
         raise OSError("Unsupported platform.")
 
     serial_ports = []
@@ -22,7 +23,8 @@ def get_active_ports()->list:
             s = serial.Serial(port)
             s.close()
             serial_ports.append(port)
-        except (OSError, serial.SerialException):
+        except (OSError, serial.SerialException) as err:
+            CONSOLE_LOGGER.info(f"Exception raised: {err}")
             pass
 
     return serial_ports
@@ -36,49 +38,29 @@ def create_actuators(gear_ratio:float, baud_rate:int, freq:int, debug_level:int)
     
     # get active ports ONLY
     active_ports = get_active_ports()
-    print(f"Active ports: {active_ports}")
+    CONSOLE_LOGGER.info(f"Active ports: {active_ports}")
     
     # create an actuator instance for each active port (which also opens the port)
     actuators = {}
     for port in active_ports:
-        try:
-            actuator = DephyLegacyActuator(
-                port=port,
-                gear_ratio=gear_ratio,
-                baud_rate=baud_rate,
-                frequency=freq,
-                debug_level=debug_level
-            )
-            
-            # get device ID of the actuator
-            dev_id = actuator.report_dev_id()
-            print(f"Device ID: {dev_id}")
-            
-            # get the corresponding side of the actuator
-            active_side = assign_id_to_side(dev_id)
-            print(f"Active side: {active_side}")
-            
-            # assign the actuator in a dict according to side
-            actuator._tag = active_side
-            actuators[active_side] = actuator
-            
-            print(f"Actuator created for: {port, active_side}")
-        except:
-            print(f"DEVICE NOT FOUND for port: {port}, so failed to create {active_side} actuator.")
+        actuator = DephyEB51Actuator(
+            port=port,
+            baud_rate=baud_rate,
+            frequency=freq,
+            debug_level=debug_level
+        )
         
-        # exit if no devices are connected
-        if not actuators:
-            sys.exit("NO DEVICES: CONNECT AND POWER ON AT LEAST 1 EXOBOOT")
+        # log device ID of the actuator
+        CONSOLE_LOGGER.info(f"Device ID: {actuator.dev_id}")
+                
+        # assign the actuator in a dict according to side
+        actuator.tag = actuator.side
+        actuators[actuator.side] = actuator
+        CONSOLE_LOGGER.info(f"Actuator created for: {port, actuator.side}")
+        CONSOLE_LOGGER.info(f"      MOTOR SIGN: {actuator.motor_sign}")
+        CONSOLE_LOGGER.info(f"      ANKLE SIGN: {actuator.ank_enc_sign}")
         
-        print(" ~~ FlexSEA connection initialized, streaming & exo actuators created ~~ ")
+        
+        CONSOLE_LOGGER.info(" ~~ FlexSEA connection initialized, streaming & exo actuators created ~~ ")
         
         return actuators
-    
-def assign_id_to_side(dev_id: int)-> str:
-    """
-    Determines side (left/right) of the actuator based on previously mapped device ID number.
-    """
-    side = DEV_ID_TO_SIDE_DICT[dev_id]
-    
-    return side
-    

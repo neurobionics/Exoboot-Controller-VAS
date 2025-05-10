@@ -14,9 +14,9 @@ from constants import *
 from src.exo.thermal import ThermalModel
 from src.exo.BaseExoThread import BaseThread
 from src.utils.SoftRTloop import FlexibleSleeper
-from src.utils.utils import MovingAverageFilter, TrueAfter
+from utils.filter_utils import MovingAverageFilter, TrueAfter
 from AssistanceGenerator_new import AssistanceGenerator
-from src.exo.TransmissionRatioGenerator import TransmissionRatioGenerator
+from exo.variable_transmission_ratio import TransmissionRatioGenerator
 
 
 class ExobootThread(BaseThread):

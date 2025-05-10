@@ -10,7 +10,7 @@ from typing import Type
 #from rtplot import client
 from src.exo.gait_state_estimator.forceplate.ZMQ_PubSub import Subscriber
 from src.exo.BaseExoThread import BaseThread
-from src.utils.utils import MovingAverageFilter
+from utils.filter_utils import MovingAverageFilter
 from src.exo.gait_state_estimator.forceplate.GroundContact import BertecEstimator
 from src.utils.SoftRTloop import FlexibleSleeper
 

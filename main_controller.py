@@ -32,7 +32,6 @@ def track_variables_for_logging(logger: Logger) -> None:
     Track various variables for logging.
     """
     dummy_grpc_value = 5.0
-    ankle_torque_setpt = 20
     logger.track_variable(lambda: dummy_grpc_value, "dollar_value")
     logger.track_variable(lambda: ankle_torque_setpt, "torque_setpt_Nm")
     
@@ -42,47 +41,65 @@ def track_variables_for_logging(logger: Logger) -> None:
     logger.track_variable(lambda: exoboots.left.motor_encoder_counts, "encoder_counts")
     logger.track_variable(lambda: exoboots.left.case_temperature, "case_temp_C")
     
-    tracked_vars = logger.get_tracked_variables()
-    print("Tracked variables:", tracked_vars)
-    
 
 if __name__ == '__main__':
     actuators = create_actuators(1, BAUD_RATE, FLEXSEA_FREQ, LOG_LEVEL)
-    sensors = {}
 
     exoboots = DephyExoboots(
         tag="exoboots", 
         actuators=actuators, 
-        sensors=sensors
+        sensors={}
     )
 
     clock = SoftRealtimeLoop(dt = 1 / 1) 
     
     log_path, file_name = get_logging_info(use_input_flag=False)
-    logger = Logger(log_path=log_path, file_name=file_name, buffer_size=10*FLEXSEA_FREQ, file_level = LogLevel.DEBUG, stream_level = LogLevel.INFO)
-    track_variables_for_logging(logger)
+    data_logger = Logger(log_path=log_path, file_name=file_name, buffer_size=10*FLEXSEA_FREQ, file_level = LogLevel.DEBUG, stream_level = LogLevel.INFO)
+    track_variables_for_logging(data_logger)
+    
+    # TODO: instantiate an assistance generator
     
     with exoboots:
         
         exoboots.setup_control_modes()
+        
+        # spool belts upon startup
+        exoboots.spool_belts()
+        
+        # specify a ankle torque setpoint
+        ankle_torque_setpt = 20 # Nm
             
         for _t in clock:
             try:
                 # update robot sensor states
                 exoboots.update()
                 
-                # TODO: Add control logic here
+                # TODO: determine current gait state
+                
+                
+                
+                # TODO: determine appropriate torque setpoint using assistance generator
+                
+                
+                # determine appropriate current setpoint that matches the torque setpoint (updates transmission ratio internally)
+                currents = exoboots.find_current_setpoints(ankle_torque_setpt)
+                
+                # command appropriate current setpoint (internally ensures that current in mA is a integer)
+                exoboots.command_currents(currents)
+                
+                # TODO: receive any NEW grpc values/inputs for next iteration
+                
                 
                 # record current values to buffer, log to file, then flush the buffer
-                logger.update()
-                logger.flush_buffer()
+                data_logger.update()
+                data_logger.flush_buffer()
                 
             except KeyboardInterrupt:
                 print("Keyboard interrupt detected. Exiting...")
-                logger.close()
+                data_logger.close()
                 break
             
             except Exception as err:
                 print("Unexpected error in executing main controller:", err)
-                logger.close()
+                data_logger.close()
                 break
