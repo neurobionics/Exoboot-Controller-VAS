@@ -14,6 +14,7 @@ using python 3.9.
 Date: 04/29/2025
 Author(s): Nundini Rawal
 """
+from rtplot import client 
 
 from opensourceleg.logging import Logger, LogLevel
 from opensourceleg.utilities import SoftRealtimeLoop
@@ -21,10 +22,12 @@ from opensourceleg.utilities import SoftRealtimeLoop
 from exoboots import DephyExoboots
 from src.utils.actuator_utils import create_actuators
 from src.utils.filing_utils import get_logging_info
+from src.utils.rtplotting_utils import initialize_rt_plots, update_rt_plots
 from src.settings.constants import(
     BAUD_RATE,
     FLEXSEA_FREQ,
-    LOG_LEVEL
+    LOG_LEVEL,
+    RTPLOT_IP
 )
 
 def track_variables_for_logging(logger: Logger) -> None:
@@ -47,6 +50,8 @@ def track_variables_for_logging(logger: Logger) -> None:
     
 
 if __name__ == '__main__':
+    
+    # set-up the exoboots robot:
     actuators = create_actuators(1, BAUD_RATE, FLEXSEA_FREQ, LOG_LEVEL)
     sensors = {}
 
@@ -56,11 +61,18 @@ if __name__ == '__main__':
         sensors=sensors
     )
 
+    # set-up the soft real-time loop:
     clock = SoftRealtimeLoop(dt = 1 / 1) 
     
+    # set-up logging:
     log_path, file_name = get_logging_info(use_input_flag=False)
     logger = Logger(log_path=log_path, file_name=file_name, buffer_size=10*FLEXSEA_FREQ, file_level = LogLevel.DEBUG, stream_level = LogLevel.INFO)
     track_variables_for_logging(logger)
+    
+    # set-up real-time plots:
+    client.configure_ip(RTPLOT_IP)
+    plot_config = initialize_rt_plots()
+    client.initialize_plots(plot_config)
     
     with exoboots:
         
@@ -76,6 +88,10 @@ if __name__ == '__main__':
                 # record current values to buffer, log to file, then flush the buffer
                 logger.update()
                 logger.flush_buffer()
+                
+                # update real-time plots & send data to server
+                data_to_plt = update_rt_plots(exoboots)
+                client.send_array(data_to_plt)
                 
             except KeyboardInterrupt:
                 print("Keyboard interrupt detected. Exiting...")

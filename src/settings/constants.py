@@ -4,7 +4,7 @@ Collection of all the constants used throughout exoboot controller
 
 
 """Static IP addresses"""
-RTPLOT_IP = '35.3.80.31'    # ip address of server for real time ploting (monitor)
+RTPLOT_IP = "35.3.69.66"    # ip address of server for real time ploting (monitor) -- rtplot command in server terminal: python3 -m rtplot.server -p 35.3.249.99
 VICON_IP='141.212.77.30'    # Vicon ip to connect to Bertec Forceplates for streaming
 
 
