@@ -21,6 +21,7 @@ from opensourceleg.utilities import SoftRealtimeLoop
 from exoboots import DephyExoboots
 from src.utils.actuator_utils import create_actuators
 from src.utils.filing_utils import get_logging_info
+from src.utils.gse_utils import WalkingSimulator
 from src.settings.constants import(
     BAUD_RATE,
     FLEXSEA_FREQ,
@@ -33,13 +34,15 @@ def track_variables_for_logging(logger: Logger) -> None:
     """
     dummy_grpc_value = 5.0
     logger.track_variable(lambda: dummy_grpc_value, "dollar_value")
-    logger.track_variable(lambda: ankle_torque_setpt, "torque_setpt_Nm")
     
     logger.track_variable(lambda: exoboots.left.accelx, "accelx_mps2")
     logger.track_variable(lambda: exoboots.left.motor_current, "current_mA")
     logger.track_variable(lambda: exoboots.left.motor_position, "position_rad")
     logger.track_variable(lambda: exoboots.left.motor_encoder_counts, "encoder_counts")
     logger.track_variable(lambda: exoboots.left.case_temperature, "case_temp_C")
+    
+    logger.track_variable(lambda: exoboots.left.ankle_angle, "ankle_angle_deg")
+    logger.track_variable(lambda: exoboots.left._gear_ratio, "gear_ratio")
     
 
 if __name__ == '__main__':
@@ -51,7 +54,7 @@ if __name__ == '__main__':
         sensors={}
     )
 
-    clock = SoftRealtimeLoop(dt = 1 / 1) 
+    clock = SoftRealtimeLoop(dt = 1 / 100) # Hz
     
     log_path, file_name = get_logging_info(use_input_flag=False)
     data_logger = Logger(log_path=log_path, file_name=file_name, buffer_size=10*FLEXSEA_FREQ, file_level = LogLevel.DEBUG, stream_level = LogLevel.INFO)
@@ -59,35 +62,32 @@ if __name__ == '__main__':
     
     # TODO: instantiate an assistance generator
     
+    # TODO: instantiate FSM for exoboots ~ swing, stance, passive
+    
     with exoboots:
         
         exoboots.setup_control_modes()
         
         # spool belts upon startup
-        # exoboots.spool_belts()
-        
-        # specify a ankle torque setpoint
-        ankle_torque_setpt = 20 # Nm
+        exoboots.spool_belts()
             
         for _t in clock:
             try:
+                
                 # update robot sensor states
                 exoboots.update()
                 
                 # TODO: determine current gait state
                 
-                
-                
                 # TODO: determine appropriate torque setpoint using assistance generator
                 
-                # determine appropriate current setpoint that matches the torque setpoint (updates transmission ratio internally)
+                # TODO: determine appropriate current setpoint that matches the torque setpoint (updates transmission ratio internally)
                 # currents = exoboots.find_current_setpoints(ankle_torque_setpt)
                 
-                # command appropriate current setpoint (internally ensures that current in mA is a integer)
+                # TODO: command appropriate current setpoint (internally ensures that current in mA is a integer)
                 # exoboots.command_currents(currents)
                 
                 # TODO: receive any NEW grpc values/inputs for next iteration
-                
                 
                 # record current values to buffer, log to file, then flush the buffer
                 data_logger.update()

@@ -71,7 +71,7 @@ SPINE_TIMING_PARAMS_DICT = {'P_RISE': P_RISE, 'P_PEAK': P_PEAK, 'P_FALL': P_FALL
 """Thermal Modelling Parameters"""
 MAX_CASE_TEMP = 75 # Degree C
 MAX_WINDING_TEMP = 110 # Degree C
-TEMPANTISPIKE = 200 # Degree C
+TEMPANTISPIKE = 100 # Degree C
 
 
 """Exothread loop frequencies"""

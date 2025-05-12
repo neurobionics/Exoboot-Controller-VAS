@@ -94,37 +94,23 @@ class DephyEB51Actuator(DephyLegacyActuator):
         self.min_current = BIAS_CURRENT
         self.max_current = MAX_ALLOWABLE_CURRENT
         
+        # create a buffer for the case temperature
+        self.case_temp_buffer = []
+        
         # instantiate transmission ratio getter which uses motor-angle curve coefficients from pre-performed calibration
         self.tr_gen = VariableTransmissionRatio(self.side)
         CONSOLE_LOGGER.info("instantiated variable transmission ratio")
-
-
-########
-
-# TODO: original Kt = 0.000146 is in mA/Nm
-# TODO: Need to convert to A/Nm
-
-########
+        
         
     def update_gear_ratio(self)-> None:
         """
         Updates the variable gear ratio of the actuator.
         """
         self._gear_ratio = self.tr_gen.get_TR(self.ankle_angle)
+        
+        return self._gear_ratio
     
-    def update(self):
-        """
-        Updates the actuator state.
-        """
-        super().update()
-        
-        # update the gear ratio
-        self.update_gear_ratio()
-        
-        # update the temperature
-        # self.filtered_temp()
-        
-    
+    # TODO: recharacterize transmission ratio without ENC_CLICKS_TO_DEG constant. That constant is redundant since Dephy already reports in degrees
     @property
     def ankle_angle(self) -> float:
         """
@@ -133,15 +119,29 @@ class DephyEB51Actuator(DephyLegacyActuator):
         
         Ankle angle is in ° and is the angle of the ankle joint using the ankle encoder. Angles should range anywhere from 0° to 140°.
         """
-    
+        
         if self._data is not None:
-            return float( (self.ank_enc_sign * self._data.ank_ang * ENC_CLICKS_TO_DEG) - self.tr_gen.get_offset() )
+            return float( (self.ank_enc_sign * self.ank_ang * ENC_CLICKS_TO_DEG) - self.tr_gen.get_offset() )
         else:
             LOGGER.debug(
                 msg="Actuator data is none, please ensure that the actuator is connected and streaming. Returning 0.0."
             )
             return 0.0
     
+    
+    def update(self):
+        """
+        Updates the actuator state.
+        """
+        
+        # filter the temperature before updating the thermal model
+        self.filter_temp()
+        
+        super().update()
+        
+        # update the gear ratio
+        self.update_gear_ratio()
+        
     
     def assign_id_to_side(self)-> str:
         """
@@ -160,19 +160,31 @@ class DephyEB51Actuator(DephyLegacyActuator):
         )
         
         input()
-
-        self.set_control_mode(mode=CONTROL_MODES.CURRENT)
         self.set_motor_current(value=self.motor_sign * BIAS_CURRENT)  # in mA
 
         time.sleep(0.3)
     
-    # TODO: Add method to reject temperature noise/spikes
-    def filtered_temp(self):
-        # temp with antispike
-        new_temp = self._data.temperature
-        if abs(new_temp) < TEMPANTISPIKE:
-            self._data.temperature = new_temp
-            self.prev_temp = new_temp
+    
+    def filter_temp(self):
+        """
+        Filters the case temperature to remove any spikes.
+        If the temperature is unreasonably high, then it is set to a previous recorded value.
+        """
+            
+        self.case_temp_buffer.append(self.case_temperature) 
+        
+        if len(self.case_temp_buffer) > 2:
+            self.case_temp_buffer.pop(0)  # remove the oldest element of the list
+        
+        if len(self.case_temp_buffer) > 1:
+            criteria_one = ( abs(self.case_temperature) > TEMPANTISPIKE )
+            criteria_two = (self.case_temperature <= 0)
+            criteria_three = ( abs(self.case_temp_buffer[1] - self.case_temp_buffer[0]) ) > 5
+         
+            if criteria_one or criteria_two or criteria_three:
+                self.case_temperature = self.case_temp_buffer[0]   # set it to the previously recorded temperature
+    
+                CONSOLE_LOGGER.warning(f"HAD TO ANTI-SPIKE the TEMP: {self.case_temperature}")
     
     
     def torque_to_current(self, torque: float) -> int:
@@ -181,8 +193,18 @@ class DephyEB51Actuator(DephyLegacyActuator):
         given the instantaneous TR (N) and motor constants.
         
         The output current can only be an integer value.
+        
+        Arguments:
+            torque: float, the desired torque setpoint in Nm.
+        
+        Returns:
+            des_current: int, the desired current setpoint in mA.
+            
         """
         des_current = torque / (self.gear_ratio * EFFICIENCY * self._MOTOR_CONSTANTS.NM_PER_AMP)
+        
+        # convert to mA and account for motor sign
+        des_current = des_current * 1000 * self.motor_sign
         
         return int(des_current)
     
@@ -191,8 +213,8 @@ class DephyEB51Actuator(DephyLegacyActuator):
         """
         Converts current setpoint (in mA) to a corresponding torque (in Nm)
         """
-        mot_torque = self.motor_current * self._MOTOR_CONSTANTS.NM_PER_AMP / 1000 * self.motor_sign
-        des_torque = self.gear_ratio * EFFICIENCY * mot_torque
+        mA_to_A_current = self.motor_current/1000
+        des_torque = mA_to_A_current * self._MOTOR_CONSTANTS.NM_PER_AMP * EFFICIENCY * self.motor_sign
         
         return des_torque
     
