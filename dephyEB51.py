@@ -9,8 +9,6 @@ from opensourceleg.logging import LOGGER
 from src.settings.constants import (
     MAX_CASE_TEMP,
     MAX_WINDING_TEMP,
-    TR_COEFS_PREFIX,
-    TR_FOLDER_PATH,
     ENC_CLICKS_TO_DEG,
     DEV_ID_TO_MOTOR_SIGN_DICT,
     DEV_ID_TO_ANK_ENC_SIGN_DICT,
@@ -21,7 +19,7 @@ from src.settings.constants import (
     EFFICIENCY,
     TEMPANTISPIKE
 )
-from exo.variable_transmission_ratio import VariableTransmissionRatio
+from src.exo.variable_transmission_ratio import VariableTransmissionRatio
     
 
 class DephyEB51Actuator(DephyLegacyActuator):
@@ -97,35 +95,35 @@ class DephyEB51Actuator(DephyLegacyActuator):
         self.max_current = MAX_ALLOWABLE_CURRENT
         
         # instantiate transmission ratio getter which uses motor-angle curve coefficients from pre-performed calibration
-        self.tr_gen = VariableTransmissionRatio(self.side, tr_coefs_file_specific = TEST_TR_FILE)
+        self.tr_gen = VariableTransmissionRatio(self.side)
         CONSOLE_LOGGER.info("instantiated variable transmission ratio")
 
 
 ########
 
-#TODO: original Kt = 0.000146 is in mA/Nm
-#TODO: Need to convert to A/Nm
+# TODO: original Kt = 0.000146 is in mA/Nm
+# TODO: Need to convert to A/Nm
 
 ########
-    @property
-    def gear_ratio(self) -> float:
-        """
-        Returns the "gear ratio" of the actuator...
-        In reality this is the transmission ratio of the EB51 actuator.
         
-        Obtains the transmission ratio for the current ankle angle.
+    def update_gear_ratio(self)-> None:
         """
-
-        return self._gear_ratio
-
-
-    @gear_ratio.setter
-    def gear_ratio(self)-> int:
+        Updates the variable gear ratio of the actuator.
         """
-        Sets the gear ratio of the actuator.
-        """
-        self._gear_ratio = self.get_TR(self.ankle_angle)
+        self._gear_ratio = self.tr_gen.get_TR(self.ankle_angle)
     
+    def update(self):
+        """
+        Updates the actuator state.
+        """
+        super().update()
+        
+        # update the gear ratio
+        self.update_gear_ratio()
+        
+        # update the temperature
+        # self.filtered_temp()
+        
     
     @property
     def ankle_angle(self) -> float:
@@ -157,7 +155,7 @@ class DephyEB51Actuator(DephyLegacyActuator):
     def spool_belt(self):
         
         LOGGER.info(
-            f"[{str.upper(self.side)}] Spooling {self.side} joint. "
+            f"Spooling {self.side} joint. "
             "Please make sure the joint is free to move and press Enter to continue."
         )
         
@@ -173,7 +171,7 @@ class DephyEB51Actuator(DephyLegacyActuator):
         # temp with antispike
         new_temp = self._data.temperature
         if abs(new_temp) < TEMPANTISPIKE:
-            self.data_dict['temperature'] = new_temp
+            self._data.temperature = new_temp
             self.prev_temp = new_temp
     
     
@@ -184,7 +182,7 @@ class DephyEB51Actuator(DephyLegacyActuator):
         
         The output current can only be an integer value.
         """
-        des_current = torque / (self.gear_ratio * EFFICIENCY * MOTOR_CONSTANTS.NM_PER_AMP)
+        des_current = torque / (self.gear_ratio * EFFICIENCY * self._MOTOR_CONSTANTS.NM_PER_AMP)
         
         return int(des_current)
     
@@ -193,7 +191,7 @@ class DephyEB51Actuator(DephyLegacyActuator):
         """
         Converts current setpoint (in mA) to a corresponding torque (in Nm)
         """
-        mot_torque = self.motor_current * MOTOR_CONSTANTS.NM_PER_AMP / 1000 * self.motor_sign
+        mot_torque = self.motor_current * self._MOTOR_CONSTANTS.NM_PER_AMP / 1000 * self.motor_sign
         des_torque = self.gear_ratio * EFFICIENCY * mot_torque
         
         return des_torque

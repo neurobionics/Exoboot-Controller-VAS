@@ -41,7 +41,7 @@ TR_COEFS_PREFIX = "{}_coefs".format(TR_FILE_PREFIX)
 TR_FULLDATA_PREFIX = "{}_fulldata".format(TR_FILE_PREFIX)
 TR_DATE_FORMATTER = "%Y_%m_%d_%H_%M"
 TR_FOLDER_PATH = "./src/characterization/transmission_ratio_characterization/TR_coef_logs/"
-TEST_TR_FILE = "default_TR_coefs_left_test.csv"
+TEST_TR_FILE = "default_TR_coefs_left_2025_02_04_16_13.csv"
 
 
 """Assistance Profile Constants"""

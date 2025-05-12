@@ -64,7 +64,7 @@ if __name__ == '__main__':
         exoboots.setup_control_modes()
         
         # spool belts upon startup
-        exoboots.spool_belts()
+        # exoboots.spool_belts()
         
         # specify a ankle torque setpoint
         ankle_torque_setpt = 20 # Nm
@@ -80,12 +80,11 @@ if __name__ == '__main__':
                 
                 # TODO: determine appropriate torque setpoint using assistance generator
                 
-                
                 # determine appropriate current setpoint that matches the torque setpoint (updates transmission ratio internally)
-                currents = exoboots.find_current_setpoints(ankle_torque_setpt)
+                # currents = exoboots.find_current_setpoints(ankle_torque_setpt)
                 
                 # command appropriate current setpoint (internally ensures that current in mA is a integer)
-                exoboots.command_currents(currents)
+                # exoboots.command_currents(currents)
                 
                 # TODO: receive any NEW grpc values/inputs for next iteration
                 
