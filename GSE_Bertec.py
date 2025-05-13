@@ -7,7 +7,6 @@ class Bertec_Estimator:
     Stride phase estimation using forceplate thresholding
     """
     def __init__(self, zmq_subscriber, stride_period_init=1.2, filter_size=10, HS_THRESHOLD = 50, TO_THRESHOLD = 20):
-        
         # ZMQ subscriber
         self.subsciber = zmq_subscriber
 
