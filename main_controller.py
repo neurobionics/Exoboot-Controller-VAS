@@ -34,6 +34,7 @@ if __name__ == '__main__':
     log_path, file_name = get_logging_info(use_input_flag=True)
 
     actuators = create_actuators(1, BAUD_RATE, FLEXSEA_FREQ, LOG_LEVEL)
+    print(f"Actuators: {actuators}")
     sensors = {}
 
     exoboots = DephyExoboots(
