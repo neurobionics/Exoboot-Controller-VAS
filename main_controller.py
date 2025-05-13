@@ -27,26 +27,10 @@ from src.settings.constants import(
     LOG_LEVEL
 )
 
-def track_variables_for_logging(logger: Logger) -> None:
-    """
-    Track various variables for logging.
-    """
-    dummy_grpc_value = 5.0
-    ankle_torque_setpt = 20
-    logger.track_variable(lambda: dummy_grpc_value, "dollar_value")
-    logger.track_variable(lambda: ankle_torque_setpt, "torque_setpt_Nm")
-    
-    logger.track_variable(lambda: exoboots.left.accelx, "accelx_mps2")
-    logger.track_variable(lambda: exoboots.left.motor_current, "current_mA")
-    logger.track_variable(lambda: exoboots.left.motor_position, "position_rad")
-    logger.track_variable(lambda: exoboots.left.motor_encoder_counts, "encoder_counts")
-    logger.track_variable(lambda: exoboots.left.case_temperature, "case_temp_C")
-    
-    tracked_vars = logger.get_tracked_variables()
-    print("Tracked variables:", tracked_vars)
-    
-
 if __name__ == '__main__':
+    # ask for trial type before connecting to actuators to allow for mistakes in naming and --help usage
+    log_path, file_name = get_logging_info(use_input_flag=True)
+    
     actuators = create_actuators(1, BAUD_RATE, FLEXSEA_FREQ, LOG_LEVEL)
     sensors = {}
 
@@ -58,9 +42,13 @@ if __name__ == '__main__':
 
     clock = SoftRealtimeLoop(dt = 1 / 1) 
     
-    log_path, file_name = get_logging_info(use_input_flag=False)
-    logger = Logger(log_path=log_path, file_name=file_name, buffer_size=10*FLEXSEA_FREQ, file_level = LogLevel.DEBUG, stream_level = LogLevel.INFO)
-    track_variables_for_logging(logger)
+    logger = Logger(log_path=log_path,
+                    file_name=file_name,
+                    buffer_size=10*FLEXSEA_FREQ,
+                    file_level = LogLevel.DEBUG,
+                    stream_level = LogLevel.INFO
+                    )
+    exoboots.track_variables_for_logging(logger)
     
     with exoboots:
         
@@ -75,7 +63,6 @@ if __name__ == '__main__':
                 
                 # record current values to buffer, log to file, then flush the buffer
                 logger.update()
-                logger.flush_buffer()
                 
             except KeyboardInterrupt:
                 print("Keyboard interrupt detected. Exiting...")
