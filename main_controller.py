@@ -14,6 +14,7 @@ using python 3.9.
 Date: 04/29/2025
 Author(s): Nundini Rawal
 """
+from rtplot import client 
 
 from opensourceleg.logging import Logger, LogLevel
 from opensourceleg.utilities import SoftRealtimeLoop
@@ -24,13 +25,14 @@ from src.utils.filing_utils import get_logging_info
 from src.settings.constants import(
     BAUD_RATE,
     FLEXSEA_FREQ,
-    LOG_LEVEL
+    LOG_LEVEL,
+    RTPLOT_IP
 )
 
 if __name__ == '__main__':
     # ask for trial type before connecting to actuators to allow for mistakes in naming and --help usage
     log_path, file_name = get_logging_info(use_input_flag=True)
-    
+
     actuators = create_actuators(1, BAUD_RATE, FLEXSEA_FREQ, LOG_LEVEL)
     sensors = {}
 
@@ -40,8 +42,10 @@ if __name__ == '__main__':
         sensors=sensors
     )
 
+    # set-up the soft real-time loop:
     clock = SoftRealtimeLoop(dt = 1 / 1) 
     
+    # set-up logging:
     logger = Logger(log_path=log_path,
                     file_name=file_name,
                     buffer_size=10*FLEXSEA_FREQ,
@@ -49,6 +53,11 @@ if __name__ == '__main__':
                     stream_level = LogLevel.INFO
                     )
     exoboots.track_variables_for_logging(logger)
+    
+    # set-up real-time plots:
+    client.configure_ip(RTPLOT_IP)
+    plot_config = exoboots.initialize_rt_plots()
+    client.initialize_plots(plot_config)
     
     with exoboots:
         
@@ -63,6 +72,10 @@ if __name__ == '__main__':
                 
                 # record current values to buffer, log to file, then flush the buffer
                 logger.update()
+                
+                # update real-time plots & send data to server
+                data_to_plt = exoboots.update_rt_plots()
+                client.send_array(data_to_plt)
                 
             except KeyboardInterrupt:
                 print("Keyboard interrupt detected. Exiting...")
