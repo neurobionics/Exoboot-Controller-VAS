@@ -44,7 +44,6 @@ def create_actuators(gear_ratio:float, baud_rate:int, freq:int, debug_level:int)
         try:
             actuator = DephyLegacyActuator(
                 port=port,
-                gear_ratio=gear_ratio,
                 baud_rate=baud_rate,
                 frequency=freq,
                 debug_level=debug_level
