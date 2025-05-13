@@ -22,7 +22,6 @@ from opensourceleg.utilities import SoftRealtimeLoop
 from exoboots import DephyExoboots
 from src.utils.actuator_utils import create_actuators
 from src.utils.filing_utils import get_logging_info
-from src.utils.rtplotting_utils import initialize_rt_plots, update_rt_plots
 from src.settings.constants import(
     BAUD_RATE,
     FLEXSEA_FREQ,
@@ -71,7 +70,7 @@ if __name__ == '__main__':
     
     # set-up real-time plots:
     client.configure_ip(RTPLOT_IP)
-    plot_config = initialize_rt_plots()
+    plot_config = exoboots.initialize_rt_plots()
     client.initialize_plots(plot_config)
     
     with exoboots:
@@ -90,7 +89,7 @@ if __name__ == '__main__':
                 logger.flush_buffer()
                 
                 # update real-time plots & send data to server
-                data_to_plt = update_rt_plots(exoboots)
+                data_to_plt = exoboots.update_rt_plots()
                 client.send_array(data_to_plt)
                 
             except KeyboardInterrupt:

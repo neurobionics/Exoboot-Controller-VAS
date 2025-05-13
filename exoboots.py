@@ -1,3 +1,5 @@
+import numpy as np
+
 from opensourceleg.actuators.base import CONTROL_MODES
 from opensourceleg.actuators.dephy import DEFAULT_CURRENT_GAINS, DephyLegacyActuator
 from opensourceleg.robots.base import RobotBase
@@ -59,6 +61,114 @@ class DephyExoboots(RobotBase[DephyLegacyActuator, SensorBase]):
             )
             print("finished setting gains")
         
+    def initialize_rt_plots(self)->list:
+        """
+        Initialize real-time plots for the exoskeleton robot.
+        Naming and plotting is flexible to each active actuator.
+    
+        The following time series are plotted:
+        - Current (A)
+        - Temperature (°C)
+        - Ankle Angle (°)
+        - Transmission Ratio
+        - Ankle Torque Setpoint (Nm)
+        
+        """
+        # converting actuator dictionary keys to a list
+        active_sides_list = list(self.actuators.keys())
+        
+        # pre-slice colors based on the number of active actuators
+        colors = ['r', 'b'][:len(active_sides_list)]
+        if len(active_sides_list) > len(colors):
+            raise ValueError("Not enough unique colors for the number of active actuators.")
+
+        # repeat line styles and widths for each active actuator
+        line_styles = ['-' for _ in active_sides_list]
+        line_widths = [2 for _ in active_sides_list]
+
+        current_plt_config = {'names' : active_sides_list,
+                        'colors' : colors,
+                        'line_style': line_styles,
+                        'title' : "Exo Current (A) vs. Sample",
+                        'ylabel': "Current (A)",
+                        'xlabel': "timestep",
+                        'line_width': line_widths,
+                        'yrange': [0,30]
+                        }
+
+        temp_plt_config = {'names' : active_sides_list,
+                        'colors' : colors,
+                        'line_style': line_styles,
+                        'title' : "Case Temperature (°C) vs. Sample",
+                        'ylabel': "Temperature (°C)",
+                        'xlabel': "timestep",
+                        'line_width': line_widths,
+                        'yrange': [20,60]
+                        }
+        
+        ank_ang_plt_config = {'names' : active_sides_list,
+                        'colors' : colors,
+                        'line_style': line_styles,
+                        'title' : "Ankle Angle (°) vs. Sample",
+                        'ylabel': "Angle (°)",
+                        'xlabel': "timestep",
+                        'line_width': line_widths,
+                        'yrange': [0,150]
+                        }
+        
+        TR_plt_config = {'names' : active_sides_list,
+                        'colors' : colors,
+                        'line_style': line_styles,
+                        'title' : "TR (°) vs. Sample",
+                        'ylabel': "N",
+                        'xlabel': "timestep",
+                        'line_width': line_widths,
+                        'yrange': [0,20]
+                        }
+        
+        torque_plt_config = {'names' : active_sides_list,
+                        'colors' : colors,
+                        'line_style': line_styles,
+                        'title' : "Torque (Nm) vs. Sample",
+                        'ylabel': "Torque (Nm)",
+                        'xlabel': "timestep",
+                        'line_width': line_widths,
+                        'yrange': [0,50]
+                        }
+
+        plot_config = [current_plt_config, temp_plt_config, ank_ang_plt_config, TR_plt_config, torque_plt_config]
+        
+        return plot_config
+        
+    def update_rt_plots(self)->list:
+        """
+        Updates the real-time plots with current values for:
+        - Current (A)
+        - Temperature (°C)
+        - Ankle Angle (°)
+        - Transmission Ratio
+        - Ankle Torque Setpoint (Nm)
+       
+        The data is collected from the exoboots object and returned as a list of arrays.
+        This is done for each active actuator only.
+            
+        Returns:
+            plot_data_array: A list of data arrays (for active actuators) for each plot.
+        """
+        
+        data_to_plt = []
+
+        for actuator in self.actuators.values():
+            data_to_plt.extend([
+                abs(actuator.motor_current),  # Motor current
+                actuator.case_temperature,    # Case temperature
+                80,
+                actuator.gear_ratio,          # Gear ratio
+                20                            # Torque command
+            ])
+        
+        return data_to_plt
+    
     @property
     def left(self) -> DephyLegacyActuator:
         return self.actuators["left"]
