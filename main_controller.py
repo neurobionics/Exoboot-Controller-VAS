@@ -15,8 +15,12 @@ Date: 04/29/2025
 Author(s): Nundini Rawal
 """
 
+from opensourceleg.logging import Logger, LogLevel
 from opensourceleg.utilities import SoftRealtimeLoop
-from exoboots import DephyExoboots, create_actuators
+
+from exoboots import DephyExoboots
+from src.utils.actuator_utils import create_actuators
+from src.utils.filing_utils import get_logging_info
 from src.settings.constants import(
     BAUD_RATE,
     FLEXSEA_FREQ,
@@ -24,6 +28,9 @@ from src.settings.constants import(
 )
 
 if __name__ == '__main__':
+    # ask for trial type before connecting to actuators to allow for mistakes in naming and --help usage
+    log_path, file_name = get_logging_info(use_input_flag=True)
+    
     actuators = create_actuators(1, BAUD_RATE, FLEXSEA_FREQ, LOG_LEVEL)
     sensors = {}
 
@@ -33,22 +40,36 @@ if __name__ == '__main__':
         sensors=sensors
     )
 
-    clock = SoftRealtimeLoop(dt = 1 / FLEXSEA_FREQ) 
-
+    clock = SoftRealtimeLoop(dt = 1 / 1) 
+    
+    logger = Logger(log_path=log_path,
+                    file_name=file_name,
+                    buffer_size=10*FLEXSEA_FREQ,
+                    file_level = LogLevel.DEBUG,
+                    stream_level = LogLevel.INFO
+                    )
+    exoboots.track_variables_for_logging(logger)
+    
     with exoboots:
         
         exoboots.setup_control_modes()
             
-        for t in clock:
+        for _t in clock:
             try:
-                print(f"Time: {t:.2f} seconds")
+                # update robot sensor states
+                exoboots.update()
                 
                 # TODO: Add control logic here
                 
+                # record current values to buffer, log to file, then flush the buffer
+                logger.update()
+                
             except KeyboardInterrupt:
                 print("Keyboard interrupt detected. Exiting...")
+                logger.close()
                 break
             
             except Exception as err:
                 print("Unexpected error in executing main controller:", err)
+                logger.close()
                 break
