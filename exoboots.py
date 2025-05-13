@@ -78,6 +78,8 @@ class DephyExoboots(RobotBase[DephyLegacyActuator, SensorBase]):
         # converting actuator dictionary keys to a list
         active_sides_list = list(self.actuators.keys())
         
+        print("Active actuators:", active_sides_list)
+        
         # pre-slice colors based on the number of active actuators
         colors = ['r', 'b'][:len(active_sides_list)]
         if len(active_sides_list) > len(colors):
@@ -163,7 +165,7 @@ class DephyExoboots(RobotBase[DephyLegacyActuator, SensorBase]):
             data_to_plt.extend([
                 abs(actuator.motor_current),  # Motor current
                 actuator.case_temperature,    # Case temperature
-                80,
+                actuator.motor_position,
                 actuator.gear_ratio,          # Gear ratio
                 20                            # Torque command
             ])

@@ -71,7 +71,7 @@ def create_actuators(gear_ratio:float, baud_rate:int, freq:int, debug_level:int)
         
         print(" ~~ FlexSEA connection initialized, streaming & exo actuators created ~~ ")
         
-        return actuators
+    return actuators
     
 def assign_id_to_side(dev_id: int)-> str:
     """
