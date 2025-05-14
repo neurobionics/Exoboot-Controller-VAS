@@ -219,7 +219,21 @@ class DephyEB51Actuator(DephyLegacyActuator):
         return des_torque
     
     # TODO: Add method to convert JIM torque-ankle angle look-up table to a specfic current
-    
+    def JIM_torque_to_current(self, inst_torque: float) -> int:
+        """
+        Converts desired, instantaneous torque setpoint to it's corresponding current (in mA) 
+        depending on the current ankle angle.
+        
+        Mapping is derived from the Joint Impedance Machine's torque-angle-current look-up table.
+        
+        Arguments:
+            inst_torque: float, the instantaneous torque setpoint in Nm. This is the torque from
+                                the four-point-spline assistance generator which will dictate the 
+                                assistance, which follows a cubic spline profile.
+        Returns:
+            des_current: int, the desired current setpoint in mA.
+        """
+        pass
     
     # TODO: Add method to home the exos at standing angle
     def calibrate_to_standing_angle(self):
