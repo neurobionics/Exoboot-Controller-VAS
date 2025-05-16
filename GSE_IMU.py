@@ -33,7 +33,10 @@ class IMU_Estimator:
         return rep_str
 
     def return_estimate(self):
-        pass
+        state_dict = {"activation": self.activation_state
+                      }
+
+        return state_dict
 
     def update(self, accel):
         diff = abs(accel - self.prev_accel)

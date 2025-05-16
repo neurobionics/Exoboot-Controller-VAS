@@ -6,21 +6,21 @@ class Bertec_Estimator:
     """
     Stride phase estimation using forceplate thresholding
     """
-    def __init__(self, zmq_subscriber, stride_period_init=1.2, filter_size=10, HS_THRESHOLD = 50, TO_THRESHOLD = 20):
+    def __init__(self, zmq_subscriber, stride_period_init=1.2, filter_size=10, hs_threshold = 80, to_threshold = 30):
         # ZMQ subscriber
-        self.subsciber = zmq_subscriber
+        self.subscriber = zmq_subscriber
 
         # Constants
-        self.HS_THRESHOLD = HS_THRESHOLD
-        self.TO_threshold = TO_THRESHOLD
+        self.hs_threshold = hs_threshold
+        self.to_threshold = to_threshold
 
         # State variables
         self.HS = 0
         self.TO = 0
         self.force_prev = 0
-        self.contact = False    # True == in stance
+        self.in_contact = False    # True == in stance
 
-        self.stride_period_tracker = MovingAverageFilter(initial_value=stride_period_init, filter_size=filter_size)
+        self.stride_period_tracker = MovingAverageFilter(initial_value=stride_period_init, size=filter_size)
 
     def return_estimate(self):
         """
@@ -32,7 +32,7 @@ class Bertec_Estimator:
         """
         state_dict = {"HS": self.HS, 
                       "stride_period": self.stride_period_tracker.average(), 
-                      "in_swing": not self.contact
+                      "in_swing": not self.in_contact
                       }
 
         return state_dict
@@ -56,7 +56,7 @@ class Bertec_Estimator:
 
         # Determine state
         if self.in_contact:
-            if force < self.TO_THRESHOLD:
+            if force < self.to_threshold:
                 # New Toe off
                 self.in_contact = False
                 self.TO = time.time()
@@ -66,7 +66,7 @@ class Bertec_Estimator:
                 self.in_contact = True
 
         else:
-            if force >= self.HS_THRESHOLD:
+            if force >= self.hs_threshold:
                 # New Heel strike
                 self.in_contact = True
                 new_stride = True
