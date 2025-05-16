@@ -1,4 +1,5 @@
 import numpy as np
+import time 
 
 from opensourceleg.actuators.base import CONTROL_MODES
 from opensourceleg.actuators.dephy import DEFAULT_CURRENT_GAINS, DephyLegacyActuator
@@ -109,11 +110,11 @@ class DephyExoboots(RobotBase[DephyLegacyActuator, SensorBase]):
                         'yrange': [20,60]
                         }
         
-        ank_ang_plt_config = {'names' : active_sides_list,
+        in_swing_plt_config = {'names' : active_sides_list,
                         'colors' : colors,
                         'line_style': line_styles,
-                        'title' : "Ankle Angle (°) vs. Sample",
-                        'ylabel': "Angle (°)",
+                        'title' : "Bertec in-swing vs. Sample",
+                        'ylabel': "Bool",
                         'xlabel': "timestep",
                         'line_width': line_widths,
                         'yrange': [0,150]
@@ -129,28 +130,28 @@ class DephyExoboots(RobotBase[DephyLegacyActuator, SensorBase]):
                         'yrange': [0,20]
                         }
         
-        torque_plt_config = {'names' : active_sides_list,
+        imu_plt_config = {'names' : active_sides_list,
                         'colors' : colors,
                         'line_style': line_styles,
-                        'title' : "Torque (Nm) vs. Sample",
-                        'ylabel': "Torque (Nm)",
+                        'title' : "Activations vs. Sample",
+                        'ylabel': "Bool",
                         'xlabel': "timestep",
                         'line_width': line_widths,
                         'yrange': [0,50]
                         }
 
-        plot_config = [current_plt_config, temp_plt_config, ank_ang_plt_config, TR_plt_config, torque_plt_config]
+        plot_config = [current_plt_config, temp_plt_config, in_swing_plt_config, TR_plt_config, imu_plt_config]
         
         return plot_config
         
-    def update_rt_plots(self)->list:
+    def update_rt_plots(self, bertec_swing_flag, imu_activations)->list:
         """
         Updates the real-time plots with current values for:
         - Current (A)
         - Temperature (°C)
-        - Ankle Angle (°)
+        - Bertec In swing
         - Transmission Ratio
-        - Ankle Torque Setpoint (Nm)
+        - IMU estimator activations
        
         The data is collected from the exoboots object and returned as a list of arrays.
         This is done for each active actuator only.
@@ -165,9 +166,9 @@ class DephyExoboots(RobotBase[DephyLegacyActuator, SensorBase]):
             data_to_plt.extend([
                 abs(actuator.motor_current),  # Motor current
                 actuator.case_temperature,    # Case temperature
-                actuator.motor_position,
+                bertec_swing_flag,
                 actuator.gear_ratio,          # Gear ratio
-                20                            # Torque command
+                imu_activations              
             ])
         
         return data_to_plt
@@ -180,6 +181,7 @@ class DephyExoboots(RobotBase[DephyLegacyActuator, SensorBase]):
         for actuator in self.actuators.values():
             dummy_grpc_value = 5.0
             dummy_ankle_torque_setpt = 20
+            logger.track_variable(lambda: time.time(), f"pitime")
             logger.track_variable(lambda: dummy_grpc_value, "dollar_value")
             logger.track_variable(lambda: dummy_ankle_torque_setpt, "torque_setpt_Nm")
             

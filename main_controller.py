@@ -26,12 +26,17 @@ from src.settings.constants import(
     BAUD_RATE,
     FLEXSEA_FREQ,
     LOG_LEVEL,
-    RTPLOT_IP
+    RTPLOT_IP,
+    VICON_IP
 )
+
+from GSE_Bertec import Bertec_Estimator
+from GSE_IMU import IMU_Estimator
+from src.exo.gait_state_estimator.forceplate.ZMQ_PubSub import Subscriber
 
 if __name__ == '__main__':
     # ask for trial type before connecting to actuators to allow for mistakes in naming and --help usage
-    log_path, file_name = get_logging_info(use_input_flag=True)
+    log_path, file_name = get_logging_info(use_input_flag=False)
 
     actuators = create_actuators(1, BAUD_RATE, FLEXSEA_FREQ, LOG_LEVEL)
     print(f"Actuators: {actuators}")
@@ -44,16 +49,25 @@ if __name__ == '__main__':
     )
 
     # set-up the soft real-time loop:
-    clock = SoftRealtimeLoop(dt = 1 / 1) 
+    clock = SoftRealtimeLoop(dt = 1/250) 
     
     # set-up logging:
     logger = Logger(log_path=log_path,
-                    file_name=file_name,
+                    file_name=file_name+"_incline",
                     buffer_size=10*FLEXSEA_FREQ,
                     file_level = LogLevel.DEBUG,
                     stream_level = LogLevel.INFO
                     )
     exoboots.track_variables_for_logging(logger)
+    
+    # add in GSE's
+    sub_bertec_left = Subscriber(publisher_ip=VICON_IP,topic_filter='fz_left',timeout_ms=5)
+    bertec_estimator = Bertec_Estimator(zmq_subscriber=sub_bertec_left)
+    imu_estimator = IMU_Estimator()
+    
+    logger.track_variable(lambda: int(not bertec_estimator.in_contact), f"in_swing")
+    logger.track_variable(lambda: int(imu_estimator.activation_state), f"activation_state")
+    logger.track_variable(lambda: bertec_estimator.force_prev, f"forceplate")
     
     # set-up real-time plots:
     client.configure_ip(RTPLOT_IP)
@@ -69,17 +83,23 @@ if __name__ == '__main__':
                 # update robot sensor states
                 exoboots.update()
                 
+                # update GSE's
+                imu_estimator.update(exoboots.left.accelx)
+                bertec_estimator.update()
+                
                 # TODO: Add control logic here
                 
                 # record current values to buffer, log to file, then flush the buffer
                 logger.update()
+                logger.flush_buffer()
                 
                 # update real-time plots & send data to server
-                data_to_plt = exoboots.update_rt_plots()
+                data_to_plt = exoboots.update_rt_plots(not bertec_estimator.in_contact, imu_estimator.activation_state)
                 client.send_array(data_to_plt)
                 
             except KeyboardInterrupt:
                 print("Keyboard interrupt detected. Exiting...")
+                logger.flush_buffer()
                 logger.close()
                 break
             
@@ -87,3 +107,6 @@ if __name__ == '__main__':
                 print("Unexpected error in executing main controller:", err)
                 logger.close()
                 break
+            
+            
+            
