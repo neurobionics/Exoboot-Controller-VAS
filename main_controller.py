@@ -14,6 +14,7 @@ using python 3.9.
 Date: 04/29/2025
 Author(s): Nundini Rawal
 """
+from rtplot import client 
 
 from opensourceleg.logging import Logger, LogLevel
 from opensourceleg.utilities import SoftRealtimeLoop
@@ -25,27 +26,19 @@ from src.utils.gse_utils import WalkingSimulator
 from src.settings.constants import(
     BAUD_RATE,
     FLEXSEA_FREQ,
-    LOG_LEVEL
+    LOG_LEVEL,
+    RTPLOT_IP,
+    VICON_IP
 )
 
-def track_variables_for_logging(logger: Logger) -> None:
-    """
-    Track various variables for logging.
-    """
-    dummy_grpc_value = 5.0
-    logger.track_variable(lambda: dummy_grpc_value, "dollar_value")
-    
-    logger.track_variable(lambda: exoboots.left.accelx, "accelx_mps2")
-    logger.track_variable(lambda: exoboots.left.motor_current, "current_mA")
-    logger.track_variable(lambda: exoboots.left.motor_position, "position_rad")
-    logger.track_variable(lambda: exoboots.left.motor_encoder_counts, "encoder_counts")
-    logger.track_variable(lambda: exoboots.left.case_temperature, "case_temp_C")
-    
-    logger.track_variable(lambda: exoboots.left.ankle_angle, "ankle_angle_deg")
-    logger.track_variable(lambda: exoboots.left._gear_ratio, "gear_ratio")
-    
+from GSE_Bertec import Bertec_Estimator
+from GSE_IMU import IMU_Estimator
+from src.exo.gait_state_estimator.forceplate.ZMQ_PubSub import Subscriber
 
 if __name__ == '__main__':
+    # ask for trial type before connecting to actuators to allow for mistakes in naming and --help usage
+    log_path, file_name = get_logging_info(use_input_flag=False)
+
     actuators = create_actuators(1, BAUD_RATE, FLEXSEA_FREQ, LOG_LEVEL)
 
     exoboots = DephyExoboots(
@@ -53,16 +46,36 @@ if __name__ == '__main__':
         actuators=actuators, 
         sensors={}
     )
-
-    clock = SoftRealtimeLoop(dt = 1 / 100) # Hz
-    
-    log_path, file_name = get_logging_info(use_input_flag=False)
-    data_logger = Logger(log_path=log_path, file_name=file_name, buffer_size=10*FLEXSEA_FREQ, file_level = LogLevel.DEBUG, stream_level = LogLevel.INFO)
-    track_variables_for_logging(data_logger)
     
     # TODO: instantiate an assistance generator
     
     # TODO: instantiate FSM for exoboots ~ swing, stance, passive
+
+    # set-up the soft real-time loop:
+    clock = SoftRealtimeLoop(dt = 1/250) 
+    
+    # set-up logging:
+    logger = Logger(log_path=log_path,
+                    file_name=file_name+"_incline",
+                    buffer_size=10*FLEXSEA_FREQ,
+                    file_level = LogLevel.DEBUG,
+                    stream_level = LogLevel.INFO
+                    )
+    exoboots.track_variables_for_logging(logger)
+    
+    # add in GSE's
+    sub_bertec_left = Subscriber(publisher_ip=VICON_IP,topic_filter='fz_left',timeout_ms=5)
+    bertec_estimator = Bertec_Estimator(zmq_subscriber=sub_bertec_left)
+    imu_estimator = IMU_Estimator()
+    
+    logger.track_variable(lambda: int(not bertec_estimator.in_contact), f"in_swing")
+    logger.track_variable(lambda: int(imu_estimator.activation_state), f"activation_state")
+    logger.track_variable(lambda: bertec_estimator.force_prev, f"forceplate")
+    
+    # set-up real-time plots:
+    client.configure_ip(RTPLOT_IP)
+    plot_config = exoboots.initialize_rt_plots()
+    client.initialize_plots(plot_config)
     
     with exoboots:
         
@@ -88,17 +101,25 @@ if __name__ == '__main__':
                 # exoboots.command_currents(currents)
                 
                 # TODO: receive any NEW grpc values/inputs for next iteration
+
+                # update GSE's
+                imu_estimator.update(exoboots.left.accelx)
+                bertec_estimator.update()
                 
-                # record current values to buffer, log to file, then flush the buffer
-                data_logger.update()
-                data_logger.flush_buffer()
+                # TODO: Add control logic here
+                
+                # update real-time plots & send data to server
+                data_to_plt = exoboots.update_rt_plots(not bertec_estimator.in_contact, imu_estimator.activation_state)
+                client.send_array(data_to_plt)
                 
             except KeyboardInterrupt:
                 print("Keyboard interrupt detected. Exiting...")
-                data_logger.close()
+                logger.flush_buffer()
+                logger.close()
                 break
             
             except Exception as err:
                 print("Unexpected error in executing main controller:", err)
-                data_logger.close()
+                logger.close()
                 break
+

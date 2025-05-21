@@ -4,7 +4,7 @@ Collection of all the constants used throughout exoboot controller
 
 
 """Static IP addresses"""
-RTPLOT_IP = '35.3.80.31'    # ip address of server for real time ploting (monitor)
+RTPLOT_IP = "35.3.69.66"    # ip address of server for real time ploting (monitor) -- rtplot command in server terminal: python3 -m rtplot.server -p 35.3.249.99
 VICON_IP='141.212.77.30'    # Vicon ip to connect to Bertec Forceplates for streaming
 
 
@@ -86,10 +86,10 @@ MAX_ALLOWABLE_CURRENT = 17000 # mA
 
 """Device Identifiers"""
 # Exo Device IDS
-RIGHT_EXO_DEV_IDS = [77, 17584]         # for EB-51
-LEFT_EXO_DEV_IDS = [888, 48390, 1013]   # for EB-51
+RIGHT_EXO_DEV_IDS = [77, 17584, 1013]  # for EB-51
+LEFT_EXO_DEV_IDS = [888, 48390]  # for EB-51
 
-# Ankle encoder signs (plantar -> increasing angle, dorsi is near 0)
+# Ankle encoder signs (plantar -> increasing angle)
 ANK_ENC_SIGN_RIGHT_EXO = -1
 ANK_ENC_SIGN_LEFT_EXO = 1
 
