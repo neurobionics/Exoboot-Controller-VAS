@@ -22,6 +22,7 @@ from opensourceleg.utilities import SoftRealtimeLoop
 from exoboots import DephyExoboots
 from src.utils.actuator_utils import create_actuators
 from src.utils.filing_utils import get_logging_info
+from src.utils.gse_utils import WalkingSimulator
 from src.settings.constants import(
     BAUD_RATE,
     FLEXSEA_FREQ,
@@ -39,14 +40,16 @@ if __name__ == '__main__':
     log_path, file_name = get_logging_info(use_input_flag=False)
 
     actuators = create_actuators(1, BAUD_RATE, FLEXSEA_FREQ, LOG_LEVEL)
-    print(f"Actuators: {actuators}")
-    sensors = {}
 
     exoboots = DephyExoboots(
         tag="exoboots", 
         actuators=actuators, 
-        sensors=sensors
+        sensors={}
     )
+    
+    # TODO: instantiate an assistance generator
+    
+    # TODO: instantiate FSM for exoboots ~ swing, stance, passive
 
     # set-up the soft real-time loop:
     clock = SoftRealtimeLoop(dt = 1/250) 
@@ -77,21 +80,33 @@ if __name__ == '__main__':
     with exoboots:
         
         exoboots.setup_control_modes()
+        
+        # spool belts upon startup
+        exoboots.spool_belts()
             
         for _t in clock:
             try:
+                
                 # update robot sensor states
                 exoboots.update()
                 
+                # TODO: determine current gait state
+                
+                # TODO: determine appropriate torque setpoint using assistance generator
+                
+                # TODO: determine appropriate current setpoint that matches the torque setpoint (updates transmission ratio internally)
+                # currents = exoboots.find_current_setpoints(ankle_torque_setpt)
+                
+                # TODO: command appropriate current setpoint (internally ensures that current in mA is a integer)
+                # exoboots.command_currents(currents)
+                
+                # TODO: receive any NEW grpc values/inputs for next iteration
+
                 # update GSE's
                 imu_estimator.update(exoboots.left.accelx)
                 bertec_estimator.update()
                 
                 # TODO: Add control logic here
-                
-                # record current values to buffer, log to file, then flush the buffer
-                logger.update()
-                logger.flush_buffer()
                 
                 # update real-time plots & send data to server
                 data_to_plt = exoboots.update_rt_plots(not bertec_estimator.in_contact, imu_estimator.activation_state)
@@ -107,6 +122,4 @@ if __name__ == '__main__':
                 print("Unexpected error in executing main controller:", err)
                 logger.close()
                 break
-            
-            
-            
+

@@ -2,10 +2,11 @@ import numpy as np
 import time 
 
 from opensourceleg.actuators.base import CONTROL_MODES
-from opensourceleg.actuators.dephy import DEFAULT_CURRENT_GAINS, DephyLegacyActuator
+from opensourceleg.actuators.dephy import DEFAULT_CURRENT_GAINS
 from opensourceleg.robots.base import RobotBase
 from opensourceleg.sensors.base import SensorBase
 from opensourceleg.utilities import SoftRealtimeLoop
+from src.utils import CONSOLE_LOGGER
 from opensourceleg.logging import Logger, LogLevel
 
 from src.utils.actuator_utils import create_actuators
@@ -14,9 +15,10 @@ from src.settings.constants import (
     LOG_LEVEL,
     FLEXSEA_FREQ,
 )
+from dephyEB51 import DephyEB51Actuator
 
 
-class DephyExoboots(RobotBase[DephyLegacyActuator, SensorBase]):
+class DephyExoboots(RobotBase[DephyEB51Actuator, SensorBase]):
     """
     Bilateral Dephy EB51 Exoskeleton class derived from RobotBase.
     
@@ -42,9 +44,9 @@ class DephyExoboots(RobotBase[DephyLegacyActuator, SensorBase]):
         """
         Update the exoskeleton.
         """
-        # print(f"Updating exoskeleton robot: {self.tag}")
+        print(f"Updating exoskeleton robot: {self.tag}")
         super().update()
-      
+        
     def setup_control_modes(self) -> None:
         """
         Call the setup_controller method for all actuators.
@@ -53,7 +55,7 @@ class DephyExoboots(RobotBase[DephyLegacyActuator, SensorBase]):
         
         for actuator in self.actuators.values():
             actuator.set_control_mode(CONTROL_MODES.CURRENT)
-            print("finished setting control mode")
+            CONSOLE_LOGGER.info("finished setting control mode")
             
             actuator.set_current_gains(
                 kp=DEFAULT_CURRENT_GAINS.kp,
@@ -61,8 +63,55 @@ class DephyExoboots(RobotBase[DephyLegacyActuator, SensorBase]):
                 kd=DEFAULT_CURRENT_GAINS.kd,
                 ff=DEFAULT_CURRENT_GAINS.ff,
             )
-            print("finished setting gains")
+            CONSOLE_LOGGER.info("finished setting gains")
+            
+    def spool_belts(self):
+        """
+        Spool the belts of both actuators.
+        This method is called to prepare the actuators for operation.
+        """
+        for actuator in self.actuators.values():
+            actuator.spool_belt()
+            CONSOLE_LOGGER.info(f"finished spooling belt of {actuator.side}")
+            
+    def find_current_setpoints(self, torque_setpoint: float) -> dict:
+        """
+        Find the appropriate current setpoint for the actuators.
+        This method is called to determine the current setpoint based on the torque setpoint.
         
+        arguments:
+            torque_setpoint: float, the desired torque setpoint in Nm.
+        
+        returns:
+            currents:   dict of currents for each active actuator. 
+                        key is the side of the actuator (left or right).
+        """
+        currents = {}
+        for actuator in self.actuators.values():
+            currents[actuator.side] = actuator.torque_to_current(torque_setpoint)
+            CONSOLE_LOGGER.info(f"finished finding current setpoint for {actuator.side}")
+            
+            return currents
+        
+    def command_currents(self, current_setpoints:dict) -> None:
+        """
+        Commands current setpoints to each actuator.
+        The setpoints can be unique.
+        
+        arguments:
+            current_setpoints: dict of currents for each active actuator. 
+                              key is the side of the actuator (left or right).
+        """
+        
+        for actuator in self.actuators.values():
+            current_setpoint = current_setpoints.get(actuator.side)
+            
+            if current_setpoint is not None:
+                actuator.set_motor_current(current_setpoint)
+                CONSOLE_LOGGER.info(f"Finished setting current setpoint for {actuator.side}")
+            else:
+                CONSOLE_LOGGER.warning(f"Unknown side '{actuator.side}' and unable to command current. Skipping.")       
+    
     def initialize_rt_plots(self)->list:
         """
         Initialize real-time plots for the exoskeleton robot.
@@ -196,12 +245,20 @@ class DephyExoboots(RobotBase[DephyLegacyActuator, SensorBase]):
             
             
     @property
-    def left(self) -> DephyLegacyActuator:
-        return self.actuators["left"]
+    def left(self) -> DephyEB51Actuator:
+        try:
+            return self.actuators["left"]
+        except KeyError:
+            CONSOLE_LOGGER.error("Ankle actuator not found. Please check for `left` key in the actuators dictionary.")
+            exit(1)
 
     @property
-    def right(self) -> DephyLegacyActuator:
-        return self.actuators["right"]
+    def right(self) -> DephyEB51Actuator:
+        try:
+            return self.actuators["right"]
+        except KeyError:
+            CONSOLE_LOGGER.error("Ankle actuator not found. Please check for `right` key in the actuators dictionary.")
+            exit(1)
   
     
 # DEMO:

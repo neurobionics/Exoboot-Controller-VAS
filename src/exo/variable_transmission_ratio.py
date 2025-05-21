@@ -2,11 +2,22 @@ import os, csv, datetime
 import numpy as np
 import matplotlib.pyplot as plt
 
-from constants import TR_COEFS_PREFIX, TR_FOLDER_PATH, TR_DATE_FORMATTER
+from src.settings.constants import TR_COEFS_PREFIX, TR_FOLDER_PATH, TR_DATE_FORMATTER
+from src.utils import CONSOLE_LOGGER
 
-
-class TransmissionRatioGenerator:
-    def __init__(self, side, tr_coefs_file_specific=None, coefs_prefix=TR_COEFS_PREFIX, filepath=TR_FOLDER_PATH, max_allowable_angle=180, min_allowable_angle=0, min_allowable_TR=10, granularity=10000):
+class VariableTransmissionRatio:
+    def __init__(
+        self, 
+        side:str, 
+        tr_coefs_file_specific:str=None, 
+        coefs_prefix:str=TR_COEFS_PREFIX, 
+        filepath:str=TR_FOLDER_PATH, 
+        max_allowable_angle:int=180, 
+        min_allowable_angle:int=0, 
+        min_allowable_TR:int=10, 
+        granularity:int=10000
+    )-> None:
+        
         # Source file settings
         self.side = side
         self.tr_coefs_file_specific = tr_coefs_file_specific
@@ -25,7 +36,7 @@ class TransmissionRatioGenerator:
 
         # Get coefs from file
         self.TR_coefs, self.motor_curve_coefs, self.offset = self.load_coefs()
-
+        
         # Set TR profile
         self.TR_dict = self.set_TR_dict()
 
@@ -53,7 +64,7 @@ class TransmissionRatioGenerator:
             most_recent = datestrings[datetimes.index(max(datetimes))]
             self.coefs_filename = "{}_{}_{}.csv".format(self.coefs_prefix, self.side, most_recent)
 
-        print("TR {} USING: {}".format(self.side, self.coefs_filename))
+        CONSOLE_LOGGER.info("TR {} USING: {}".format(self.side, self.coefs_filename))
 
     def load_coefs(self):
         """
@@ -62,6 +73,7 @@ class TransmissionRatioGenerator:
         """
         # Open and read the CSV file
         coefs_filepath = os.path.join(self.filepath, self.coefs_filename)
+        
         with open(coefs_filepath, mode='r') as file:
             csv_reader = csv.reader(file)
             coefs_ankle_vs_motor = next(csv_reader)  # Read the first row, which is the motor_angle_curve_coeffs
@@ -107,7 +119,7 @@ class TransmissionRatioGenerator:
 
 
 if __name__ == "__main__":
-    testgen = TransmissionRatioGenerator("right")
+    testgen = VariableTransmissionRatio("right")
 
     print("TR COEFS: {}".format(testgen.TR_coefs))
     print("OFFSET: {}".format(testgen.offset))

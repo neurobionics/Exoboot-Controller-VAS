@@ -26,7 +26,7 @@ from flexsea import fxEnums as fxe
 # from ExoClass import ExoObject
 from ExoClass_new import ExoObject
 from src.utils.SoftRTloop import FlexibleTimer
-from src.utils.utils import MovingAverageFilter
+from utils.filter_utils import MovingAverageFilter
 
 import config
 import legacy.Gait_State_EstimatorThread as Gait_State_EstimatorThread
