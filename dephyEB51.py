@@ -137,6 +137,7 @@ class DephyEB51Actuator(DephyLegacyActuator):
         # filter the temperature before updating the thermal model
         self.filter_temp()
         
+        # update the actuator state
         super().update()
         
         # update the gear ratio

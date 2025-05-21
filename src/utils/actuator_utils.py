@@ -34,11 +34,24 @@ def create_actuators(gear_ratio:float, baud_rate:int, freq:int, debug_level:int)
     Detects active ports and determines corresponding side.
     Creates dictionary of active actuators to be used in the exoskeleton robot class.
     Devices open and start streaming upon instantiation.
+    
+    Args:
+        gear_ratio (float): Gear ratio of the actuator.
+        baud_rate (int): Baud rate for serial communication.
+        freq (int): Frequency for streaming data.
+        debug_level (int): Debug level for logging.
+    Returns:
+        dict: Dictionary of active actuators with their corresponding sides.
     """
     
     # get active ports ONLY
     active_ports = get_active_ports()
     CONSOLE_LOGGER.info(f"Active ports: {active_ports}")
+    
+    # Exit gracefully if no actuators found
+    if not active_ports:
+        CONSOLE_LOGGER.error("No actuators detected! Exiting program.")
+        sys.exit(1) 
     
     # create an actuator instance for each active port (which also opens the port)
     actuators = {}

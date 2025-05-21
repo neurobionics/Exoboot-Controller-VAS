@@ -28,6 +28,8 @@ from src.settings.constants import(
     LOG_LEVEL
 )
 
+# all the threads I want: main, left actuator, right actuator, gse, gui communication
+
 def track_variables_for_logging(logger: Logger) -> None:
     """
     Track various variables for logging.
