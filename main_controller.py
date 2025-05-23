@@ -21,14 +21,14 @@ from opensourceleg.utilities import SoftRealtimeLoop
 from exoboots import DephyExoboots
 from src.utils.actuator_utils import create_actuators
 from src.utils.filing_utils import get_logging_info
-from src.utils.gse_utils import WalkingSimulator
+from utils.walking_simulator import WalkingSimulator
 from src.settings.constants import(
     BAUD_RATE,
     FLEXSEA_FREQ,
     LOG_LEVEL
 )
 
-# all the threads I want: main, left actuator, right actuator, gse, gui communication
+# all the threads I want: main+logging, left actuator, right actuator, gse, gui communication
 
 def track_variables_for_logging(logger: Logger) -> None:
     """

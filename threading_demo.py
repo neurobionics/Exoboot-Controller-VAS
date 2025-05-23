@@ -1,9 +1,11 @@
 # Abstract Base class for threading
 import threading
+import logging
 from typing import Type
-import time
 from abc import ABC, abstractmethod
 from src.utils.flexible_sleeper import FlexibleSleeper
+from opensourceleg.logging import Logger, LogLevel
+from non_singleton_logger import NonSingletonLogger
 
 class BaseWorkerThread(threading.Thread, ABC):
     """
@@ -20,7 +22,17 @@ class BaseWorkerThread(threading.Thread, ABC):
         self.daemon = True
         self.frequency = frequency
         
-        self.rt_loop = FlexibleSleeper(dt=1/frequency)  # Create a soft real-time loop with the specified frequency
+        self.rt_loop = FlexibleSleeper(dt=1/frequency)  # create a soft real-time loop with the specified frequency
+        
+        # set-up a logger for each thread/instance
+        logger_name = f"{name}_logger"
+        log_path = "./src/logs/"
+        self.data_logger = NonSingletonLogger(
+            log_path=log_path,
+            file_name=logger_name,
+            file_level=logging.DEBUG,
+            stream_level=logging.INFO
+        )
         
     def run(self):        
         """
@@ -81,14 +93,13 @@ class BaseWorkerThread(threading.Thread, ABC):
         LOGGER.debug(f"[{self.name}] on_pre_pause() called.")
         pass
 
-    
-# Actuator Thread Class
+
 class ActuatorThread(BaseWorkerThread):
     """
     Threading class for EACH actuator.
     This class handles the actuator's state updates and manages the actuator's control loop.
     """
-    def __init__(self, actuator, quit_event:Type[threading.Event], pause_event:Type[threading.Event], name=None, frequency:float=100):
+    def __init__(self, actuator, quit_event:Type[threading.Event], pause_event:Type[threading.Event], name=None, frequency:int=100):
         super().__init__(quit_event, pause_event, name=name or actuator.side, frequency=frequency)
         self.actuator = actuator
 
@@ -102,7 +113,7 @@ class ActuatorThread(BaseWorkerThread):
         It handles the actuator's state updates.
         """
         self.actuator.update()
-        LOGGER.debug(f"motor position: {self.actuator.motor_position:.2f}")
+        self.data_logger.debug(f"motor position: {self.actuator.motor_position:.2f}")
         
         # TODO: create a queue that can send the actuator state to the DephyExoboots Robot class
 
@@ -118,7 +129,7 @@ class GaitStateEstimatorThread(BaseWorkerThread):
     Threading class for the Gait State Estimator.
     This class handles gait state estimation for BOTH exoskeletons/sides together. 
     """
-    def __init__(self, quit_event:Type[threading.Event], pause_event:Type[threading.Event], name=None, frequency:float=100):
+    def __init__(self, quit_event:Type[threading.Event], pause_event:Type[threading.Event], name=None, frequency:int=100):
         super().__init__(quit_event, pause_event, name=name, frequency=frequency)
         
         # instantiate the walking simulator
@@ -135,7 +146,11 @@ class GaitStateEstimatorThread(BaseWorkerThread):
         """
         self.time_in_stride = self.walker.update_time_in_stride()
         self.ank_angle = self.walker.update_ank_angle()
-        LOGGER.debug(f"Stride: {self.walker.stride_num}, Time in stride: {self.time_in_stride:.3f}s, Ankle angle: {self.ank_angle:.2f} deg, %_GC: {self.walker.percent_gc}")
+        
+        self.data_logger.debug(f"Stride: {self.walker.stride_num}") 
+        self.data_logger.debug(f"Time in stride: {self.time_in_stride:.3f}s")
+        self.data_logger.debug(f"Ankle angle: {self.ank_angle:.2f} deg")
+        self.data_logger.debug(f"%_GC: {self.walker.percent_gc}")
 
         # TODO: create a queue that can send the gait state to the DephyExoboots Robot class
     
@@ -146,21 +161,70 @@ class GaitStateEstimatorThread(BaseWorkerThread):
         pass
 
 
-
-# TODO: 
+import sys
+import select
+import zmq
 class GUICommunication(BaseWorkerThread):
     """
-    Threading class for GUI communication via gRPC.
-    This class handles gait state estimation for BOTH exoskeletons/sides together. 
+    Threading class to simulate GUI communication via gRPC.
+    This class handles GUI communication for BOTH exoskeletons/sides together. 
+    
+    It constantly monitors for new user input specifying a desired torque setpoint.
+    It then sends these setpoints to the actuators to handle.
     """
-    def __init__(self):
-        pass
+    def __init__(self, quit_event:Type[threading.Event], pause_event:Type[threading.Event], name=None, frequency:int=100):
+        super().__init__(quit_event, pause_event, name=name, frequency=frequency)
+        self.torque_setpoint = 20.0
+        
+        self.set_up_zmq_socket()  # Set up the ZMQ socket for communication with the GUI
+        
+    def set_up_zmq_socket(self):
+        """
+        Set up the ZMQ socket for communication with the GUI.
+        This method is called once when the thread is initialized.
+        """
+        try:
+            context = zmq.Context.instance()
+            self.pub_socket = context.socket(zmq.PUB)
+            self.pub_socket.bind("inproc://torque_setpoint")  # Use inproc for in-process communication
+        except Exception as err:
+            print(f"Error setting up ZMQ socket: {err}")
+            raise err
+    
+    def publish_torque_setpoint(self, pub_socket, torque_setpoint):
+        pub_socket.send_pyobj({"torque_setpoint": torque_setpoint})
+    
     def pre_iterate(self):
         pass
+    
     def iterate(self):
+        """
+        Non-blocking: Only read user input if available.
+        Allow user to input a new desired torque setpoint. 
+        If the user doesn't input a new value, the current setpoint is used.
+        """
         pass
+
+        # polling for user input (without blocking thread)
+        # if select.select([sys.stdin], [], [], 0.0)[0]:
+        #     user_input = sys.stdin.readline().strip()
+        #     try:
+        #         if user_input == "":
+        #             self.data_logger.debug("No new MEANINGFUL input. Using previous torque setpoint.")
+        #         else:
+        #             self.torque_setpoint = float(user_input)
+        #             self.data_logger.debug(f"User input torque setpoint: {self.torque_setpoint:.2f} Nm")
+        #     except ValueError:
+        #         self.data_logger.debug("Invalid input. Using previous torque setpoint.")
+        # else:
+        #     self.data_logger.debug("No new input. Using previous torque setpoint.")
+            
+        # create a queue that can send desired torque setpoint to the main thread
+        self.publish_torque_setpoint(self.pub_socket, self.torque_setpoint)
+        
     def post_iterate(self):
-        pass
+        self.rt_loop.pause()
+    
     def on_pause(self):
         pass
     
@@ -177,9 +241,7 @@ from opensourceleg.actuators.dephy import DEFAULT_CURRENT_GAINS
 class DephyExoboots(RobotBase[DephyEB51Actuator, SensorBase]):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self._actuator_threads = {}
-        self._gse_thread = []
-        self._gui_thread = []
+        self._threads = {}
         self._quit_event = threading.Event()    # Event to signal threads to quit.
         self._pause_event = threading.Event()   # Event to signal threads to pause.
         
@@ -199,20 +261,26 @@ class DephyExoboots(RobotBase[DephyEB51Actuator, SensorBase]):
             actuator_thread = ActuatorThread(actuator, self._quit_event, self._pause_event, name=f"{actuator.side}", frequency=1)
             actuator_thread.start()
             LOGGER.debug(f"Started actuator thread for {actuator.side}")
-            self._actuator_threads[actuator.side] = actuator_thread
+            self._threads[actuator.side] = actuator_thread
 
         # creating thread for the Gait State Estimator
         gse_thread = GaitStateEstimatorThread(self._quit_event, self._pause_event, name=f"gse", frequency=1)
         gse_thread.start()
         LOGGER.debug(f"Started gse thread")
-        self._gse_thread = gse_thread
+        self._threads["gse"] = gse_thread
 
-        # TODO: create thread for GUI communication
+        # creating thread for GUI communication
+        gui_thread = GUICommunication(self._quit_event, self._pause_event, name=f"gui", frequency=1)
+        gui_thread.start()
+        LOGGER.debug(f"Started gui thread")
+        self._threads["gui"] = gui_thread
 
     def stop(self) -> None:
         """Signal threads to quit and join them"""
+        # setting the quit event so all threads recieve the kill signal
         self._quit_event.set()
-        for t in self._actuator_threads.values():
+        
+        for t in self._threads.values():
             t.join()
         LOGGER.debug("All threads joined to stop.")
         super().stop()
@@ -268,26 +336,57 @@ from src.settings.constants import(
     FLEXSEA_FREQ,
     LOG_LEVEL
 )
-from src.utils.gse_utils import WalkingSimulator
+from src.utils.walking_simulator import WalkingSimulator
 
+def get_torque_setpoint(sub_socket):
+    try:
+        msg = sub_socket.recv_pyobj(flags=zmq.NOBLOCK)
+        return msg["torque_setpoint"]
+    except zmq.Again:
+        return None
+
+def set_up_zmq_sub_socket():
+    """
+    Set up the ZMQ socket for communication with the GUI.
+    This method is called once when the thread is initialized.
+    """
+    try:
+        context = zmq.Context.instance()
+        sub_socket = context.socket(zmq.SUB)
+        sub_socket.connect("inproc://torque_setpoint")  # Use inproc for in-process communication
+        sub_socket.setsockopt_string(zmq.SUBSCRIBE, "")  # Subscribe to all topics
+        
+        return sub_socket
+    except Exception as err:
+        print(f"Error setting up ZMQ sub socket: {err}")
+        raise err
+    
+    
 if __name__ == '__main__':
     actuators = create_actuators(1, BAUD_RATE, FLEXSEA_FREQ, LOG_LEVEL)
     exoboots = DephyExoboots(tag="exoboots", actuators=actuators, sensors={})
     clock = SoftRealtimeLoop(dt = 1 / 1) # Hz
 
     with exoboots:  
+        sub_socket = set_up_zmq_sub_socket()
+        
         for t in clock:
             try:
                 # ... insert high level controller logic ...
-                print(f"Main Loop time: {t:.2f}")
+                pass
                 
                 # TODO: report current gait state using simulated walking in gse thread
 
                 # TODO: report PEAK torque setpoint using gui thread
+                torque = get_torque_setpoint(sub_socket)
+                
+                if torque is not None:
+                    print(f"Received torque setpoint: {torque}")
+                else:
+                    print("No new torque setpoint received.")
 
                 # TODO: pass reported values into AssistanceGenerator class -> method is part of Exoboots Robot class
                     # TODO: determine appropriate torque setpoint given current gait state
-
 
                 # TODO: send torque setpoints to each corresponding actuator
                 # TODO: determine appropriate current setpoint that matches the torque setpoint -> handled by DephyEB51Actuator class (within each actuator thread)
@@ -304,4 +403,3 @@ if __name__ == '__main__':
                 print("Unexpected error in executing main controller:", err)
                 exoboots.stop()
                 break
-                

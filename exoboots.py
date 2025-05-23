@@ -27,16 +27,13 @@ class DephyExoboots(RobotBase[DephyEB51Actuator, SensorBase]):
         """
         Start the Exoskeleton.
         """
-        # TODO: create threads mapped to each active actuator & set target to be the update() method
-        # TODO: pass in arguments: the object and input and output queues
         super().start()
 
     def stop(self) -> None:
         """
         Stop the Exoskeleton.
         """
-        # TODO: send a kill message to each actuator thread to then exit
-        # TODO: join the threads
+
         super().stop()
 
     def update(self) -> None:

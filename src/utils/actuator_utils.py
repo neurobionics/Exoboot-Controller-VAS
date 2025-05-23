@@ -74,6 +74,6 @@ def create_actuators(gear_ratio:float, baud_rate:int, freq:int, debug_level:int)
         CONSOLE_LOGGER.info(f"      ANKLE SIGN: {actuator.ank_enc_sign}")
         
         
-        CONSOLE_LOGGER.info(" ~~ FlexSEA connection initialized, streaming & exo actuators created ~~ ")
+    CONSOLE_LOGGER.info(" ~~ FlexSEA connection initialized, streaming & exo actuators created ~~ ")
         
-        return actuators
+    return actuators
