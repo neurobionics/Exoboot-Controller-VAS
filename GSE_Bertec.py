@@ -1,6 +1,6 @@
 import time
 
-from src.utils.utils import MovingAverageFilter
+from src.utils.filter_utils import MovingAverageFilter
 
 class Bertec_Estimator:
     """

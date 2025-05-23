@@ -82,7 +82,7 @@ if __name__ == '__main__':
         exoboots.setup_control_modes()
         
         # spool belts upon startup
-        exoboots.spool_belts()
+        # exoboots.spool_belts()
             
         for _t in clock:
             try:
@@ -103,7 +103,7 @@ if __name__ == '__main__':
                 # TODO: receive any NEW grpc values/inputs for next iteration
 
                 # update GSE's
-                imu_estimator.update(exoboots.left.accelx)
+                imu_estimator.update(exoboots.right.accelx)
                 bertec_estimator.update()
                 
                 # TODO: Add control logic here
