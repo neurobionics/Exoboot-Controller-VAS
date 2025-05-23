@@ -279,7 +279,8 @@ class ExobootCommServicer(pb2_grpc.exoboot_over_networkServicer):
         peak_torque_left  = torque_msg.peak_torque_left
         peak_torque_right = torque_msg.peak_torque_right
 
-        # Set torques in GSE
+        # TODO: Set torques in GSE ~ this is the peak torque sent by GUI
+        # TODO: add in zmq/queue to send to main thread here
         self.mainwrapper.gse_thread.set_peak_torque_left(peak_torque_left)
         self.mainwrapper.gse_thread.set_peak_torque_right(peak_torque_right)
 

@@ -7,7 +7,7 @@ from src.utils.flexible_sleeper import FlexibleSleeper
 from non_singleton_logger import NonSingletonLogger
 from dephyEB51 import DephyEB51Actuator
 
-
+# TODO: include log event
 class BaseWorkerThread(threading.Thread, ABC):
     """
     Abstract base class for worker threads in the exoskeleton system.
@@ -54,6 +54,7 @@ class BaseWorkerThread(threading.Thread, ABC):
                     LOGGER.debug(f"Exception in thread {self.name}: {e}")
             
             self.post_iterate()             # run a post-iterate method
+            self.rt_loop.pause()
             
         LOGGER.debug(f"[{self.name}] Thread exiting.")
             
@@ -120,7 +121,7 @@ class ActuatorThread(BaseWorkerThread):
         # TODO: create a queue that can send the actuator state to the DephyExoboots Robot class
 
     def post_iterate(self)->None:        
-        self.rt_loop.pause()
+        pass
     
     def on_pause(self)->None:
         pass
@@ -139,7 +140,10 @@ class GaitStateEstimatorThread(BaseWorkerThread):
         # instantiate the walking simulator
         self.walker = WalkingSimulator(stride_period=1.20)
         
+        # TODO: initialize GSE Bertec here
+        
         # set up the ZMQ socket for communication with the GUI
+        # TODO: compare queue vs zmq
         self.set_up_zmq_socket()
     
     def set_up_zmq_socket(self)->None:
@@ -172,9 +176,13 @@ class GaitStateEstimatorThread(BaseWorkerThread):
         This method is called repeatedly in the thread's run loop.
         It handles the actuator's state updates.
         """
+
         self.time_in_stride = self.walker.update_time_in_stride()
         self.ank_angle = self.walker.update_ank_angle()
         
+        # TODO: do update_bertec_estimator.update() here
+        
+        # TODO: DON"T LOG HERE (make ligtweight)
         self.data_logger.debug(f"Stride: {self.walker.stride_num}") 
         self.data_logger.debug(f"Time in stride: {self.time_in_stride:.3f}s")
         self.data_logger.debug(f"Ankle angle: {self.ank_angle:.2f} deg")
@@ -183,8 +191,8 @@ class GaitStateEstimatorThread(BaseWorkerThread):
         # create a queue that can send the gait state to the DephyExoboots Robot class
         self.publish_gait_state_estimates()
         
-    def post_iterate(self)->None:        
-        self.rt_loop.pause()
+    def post_iterate(self)->None: 
+        pass
     
     def on_pause(self)->None:
         pass
@@ -250,7 +258,7 @@ class GUICommunication(BaseWorkerThread):
         self.publish_torque_setpoint()
         
     def post_iterate(self)->None:
-        self.rt_loop.pause()
+        pass
     
     def on_pause(self)->None:
         pass
@@ -306,10 +314,6 @@ class DephyExoboots(RobotBase[DephyEB51Actuator, SensorBase]):
         """Signal threads to quit and join them"""
         # setting the quit event so all threads recieve the kill signal
         self._quit_event.set()
-        
-        for t in self._threads.values():
-            t.join()
-        LOGGER.debug("All threads joined to stop.")
         super().stop()
         
     def set_actuator_mode_and_gains(self, actuator)-> None:
