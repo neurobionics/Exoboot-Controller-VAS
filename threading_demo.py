@@ -1,11 +1,12 @@
 # Abstract Base class for threading
 import threading
 import logging
-from typing import Type
+from typing import Type, Dict, Any, Optional
 from abc import ABC, abstractmethod
 from src.utils.flexible_sleeper import FlexibleSleeper
-from opensourceleg.logging import Logger, LogLevel
 from non_singleton_logger import NonSingletonLogger
+from dephyEB51 import DephyEB51Actuator
+
 
 class BaseWorkerThread(threading.Thread, ABC):
     """
@@ -15,12 +16,13 @@ class BaseWorkerThread(threading.Thread, ABC):
     It includes methods for thread lifecycle management and a run method that
     handles the thread's main loop.
     """
-    def __init__(self, quit_event:Type[threading.Event], pause_event:Type[threading.Event], name=None, frequency:float=100):
+    
+    def __init__(self, quit_event:Type[threading.Event], pause_event:Type[threading.Event], name:Optional[str]=None, frequency:int=100)->None:
         super().__init__(name=name)
         self.quit_event = quit_event
         self.pause_event = pause_event
         self.daemon = True
-        self.frequency = frequency
+        self.frequency = int(frequency)
         
         self.rt_loop = FlexibleSleeper(dt=1/frequency)  # create a soft real-time loop with the specified frequency
         
@@ -34,7 +36,7 @@ class BaseWorkerThread(threading.Thread, ABC):
             stream_level=logging.INFO
         )
         
-    def run(self):        
+    def run(self)->None:        
         """
         Main loop structure for each instantiated thread.
         """
@@ -99,14 +101,14 @@ class ActuatorThread(BaseWorkerThread):
     Threading class for EACH actuator.
     This class handles the actuator's state updates and manages the actuator's control loop.
     """
-    def __init__(self, actuator, quit_event:Type[threading.Event], pause_event:Type[threading.Event], name=None, frequency:int=100):
+    def __init__(self, actuator, quit_event: Type[threading.Event], pause_event: Type[threading.Event], name: Optional[str] = None, frequency: int = 100) -> None:
         super().__init__(quit_event, pause_event, name=name or actuator.side, frequency=frequency)
         self.actuator = actuator
 
-    def pre_iterate(self):
+    def pre_iterate(self)->None:
         pass
     
-    def iterate(self):
+    def iterate(self)->None:
         """
         Main loop for the actuator thread.
         This method is called repeatedly in the thread's run loop.
@@ -117,25 +119,51 @@ class ActuatorThread(BaseWorkerThread):
         
         # TODO: create a queue that can send the actuator state to the DephyExoboots Robot class
 
-    def post_iterate(self):        
+    def post_iterate(self)->None:        
         self.rt_loop.pause()
     
-    def on_pause(self):
+    def on_pause(self)->None:
         pass
     
-
+    
+    
+# TODO: make this class flexible to handle both sides of the exoskeleton
 class GaitStateEstimatorThread(BaseWorkerThread):
     """
     Threading class for the Gait State Estimator.
     This class handles gait state estimation for BOTH exoskeletons/sides together. 
     """
-    def __init__(self, quit_event:Type[threading.Event], pause_event:Type[threading.Event], name=None, frequency:int=100):
+    def __init__(self, quit_event:Type[threading.Event], pause_event:Type[threading.Event], name:Optional[str] = None, frequency:int=100)->None:
         super().__init__(quit_event, pause_event, name=name, frequency=frequency)
         
         # instantiate the walking simulator
         self.walker = WalkingSimulator(stride_period=1.20)
+        
+        # set up the ZMQ socket for communication with the GUI
+        self.set_up_zmq_socket()
     
-    def pre_iterate(self):
+    def set_up_zmq_socket(self)->None:
+        """
+        Set up the ZMQ socket for communication with the GUI.
+        This method is called once when the thread is initialized.
+        """
+        try:
+            context = zmq.Context.instance()
+            self.pub_socket = context.socket(zmq.PUB)
+            self.pub_socket.bind("inproc://gait_states")  # Use inproc for in-process communication
+        except Exception as err:
+            print(f"Error setting up ZMQ socket for GSE: {err}")
+            raise err
+    
+    def publish_gait_state_estimates(self):
+        """
+        Publish dictionary of gait state estimates to the GUI.
+        """
+        self.pub_socket.send_pyobj({"time_in_stride": self.time_in_stride,
+                                    "ank_angle": self.ank_angle,
+                                    "percent_gc": self.walker.percent_gc})
+        
+    def pre_iterate(self)->None:
         pass
     
     def iterate(self):
@@ -152,18 +180,18 @@ class GaitStateEstimatorThread(BaseWorkerThread):
         self.data_logger.debug(f"Ankle angle: {self.ank_angle:.2f} deg")
         self.data_logger.debug(f"%_GC: {self.walker.percent_gc}")
 
-        # TODO: create a queue that can send the gait state to the DephyExoboots Robot class
-    
-    def post_iterate(self):        
+        # create a queue that can send the gait state to the DephyExoboots Robot class
+        self.publish_gait_state_estimates()
+        
+    def post_iterate(self)->None:        
         self.rt_loop.pause()
     
-    def on_pause(self):
+    def on_pause(self)->None:
         pass
 
 
 import sys
 import select
-import zmq
 class GUICommunication(BaseWorkerThread):
     """
     Threading class to simulate GUI communication via gRPC.
@@ -172,13 +200,13 @@ class GUICommunication(BaseWorkerThread):
     It constantly monitors for new user input specifying a desired torque setpoint.
     It then sends these setpoints to the actuators to handle.
     """
-    def __init__(self, quit_event:Type[threading.Event], pause_event:Type[threading.Event], name=None, frequency:int=100):
+    def __init__(self, quit_event:Type[threading.Event], pause_event:Type[threading.Event], name:Optional[str] = None, frequency:int=100)->None:
         super().__init__(quit_event, pause_event, name=name, frequency=frequency)
         self.torque_setpoint = 20.0
         
         self.set_up_zmq_socket()  # Set up the ZMQ socket for communication with the GUI
         
-    def set_up_zmq_socket(self):
+    def set_up_zmq_socket(self)->None:
         """
         Set up the ZMQ socket for communication with the GUI.
         This method is called once when the thread is initialized.
@@ -191,10 +219,10 @@ class GUICommunication(BaseWorkerThread):
             print(f"Error setting up ZMQ socket: {err}")
             raise err
     
-    def publish_torque_setpoint(self, pub_socket, torque_setpoint):
-        pub_socket.send_pyobj({"torque_setpoint": torque_setpoint})
+    def publish_torque_setpoint(self):
+        self.pub_socket.send_pyobj({"torque_setpoint": self.torque_setpoint})
     
-    def pre_iterate(self):
+    def pre_iterate(self)->None:
         pass
     
     def iterate(self):
@@ -203,9 +231,8 @@ class GUICommunication(BaseWorkerThread):
         Allow user to input a new desired torque setpoint. 
         If the user doesn't input a new value, the current setpoint is used.
         """
-        pass
 
-        # polling for user input (without blocking thread)
+        # TODO: poll for user input (without blocking thread)
         # if select.select([sys.stdin], [], [], 0.0)[0]:
         #     user_input = sys.stdin.readline().strip()
         #     try:
@@ -220,12 +247,12 @@ class GUICommunication(BaseWorkerThread):
         #     self.data_logger.debug("No new input. Using previous torque setpoint.")
             
         # create a queue that can send desired torque setpoint to the main thread
-        self.publish_torque_setpoint(self.pub_socket, self.torque_setpoint)
+        self.publish_torque_setpoint()
         
-    def post_iterate(self):
+    def post_iterate(self)->None:
         self.rt_loop.pause()
     
-    def on_pause(self):
+    def on_pause(self)->None:
         pass
     
 
@@ -239,7 +266,7 @@ from opensourceleg.actuators.base import CONTROL_MODES
 from opensourceleg.actuators.dephy import DEFAULT_CURRENT_GAINS
 
 class DephyExoboots(RobotBase[DephyEB51Actuator, SensorBase]):
-    def __init__(self, *args, **kwargs):
+    def __init__(self, *args: Any, **kwargs: Any) -> None:
         super().__init__(*args, **kwargs)
         self._threads = {}
         self._quit_event = threading.Event()    # Event to signal threads to quit.
@@ -302,11 +329,11 @@ class DephyExoboots(RobotBase[DephyEB51Actuator, SensorBase]):
         )
         LOGGER.info("finished setting gains")
         
-    def update(self):
+    def update(self)->None:
         """Required by RobotBase, but passing since ActuatorThread handles iterative exo state updates"""
         pass
     
-    def find_instantaneous_torque_setpoints(self,):
+    def find_instantaneous_torque_setpoints(self):
         """" 
         Determine the instantaneous torque setpoint along the four-point spline assistance profile.
         """
@@ -315,16 +342,93 @@ class DephyExoboots(RobotBase[DephyEB51Actuator, SensorBase]):
         pass
 
     @property
-    def left_thread(self):
+    def left_thread(self) -> Optional[ActuatorThread]:
         """Get the left actuator thread"""
         return self._actuator_threads.get("left")
     
     @property
-    def right_thread(self):
+    def right_thread(self) -> Optional[ActuatorThread]:
         """Get the right actuator thread"""
         return self._actuator_threads.get("right")
 
 
+import zmq
+class ZMQManager:
+    """
+    This class is responsible for managing ZMQ subscriber sockets for communication.
+    """
+    def __init__(self)->None:
+        self.context:zmq.Context = zmq.Context.instance()
+        self.sockets:Dict[str, Any] = {}
+
+    def setup_sub_socket(self, name:str, address:str)->None:
+        """
+        Set up a ZMQ SUB socket and connect to the given inproc address.
+        Create a dictionary of sockets to manage multiple subscriptions by their names.
+        
+        Args:
+            name (str): The name of the socket for identification.
+            address (str): The inproc address to connect to.
+        """
+        sub_socket = self.context.socket(zmq.SUB)       # return the current context common across a process
+        sub_socket.connect(address)
+        sub_socket.setsockopt_string(zmq.SUBSCRIBE, "") # subscribe to all topics
+        
+        self.sockets[name] = sub_socket
+
+    def get_message(self, name: str, key_list: Optional[list[str]] = None) -> Optional[Any]:
+        """
+        Try to receive a message from the named socket.
+        If key_list is provided as a list of keys, return a tuple of those values (even if length 1).
+        If key_list is a single string, return just that value.
+        If key_list is None, return the full message dict.
+        
+        Args:
+            name (str): The name of the socket to receive from.
+            key_list (list[str] or None): List of keys to extract from the message dict. If None, return the full message.
+        Returns:
+            Any: The received value(s) or None if no message is available.
+        """
+        # get the socket from the dictionary using the name
+        sub_socket = self.sockets.get(name)
+        
+        if sub_socket is None:
+            raise ValueError(f"No socket named {name}")
+        
+        try:
+            msg = sub_socket.recv_pyobj(flags=zmq.NOBLOCK)
+            
+            # if key_list provided, check whether it is a list or single string
+            if key_list is not None:
+                if isinstance(key_list, str):
+                    return msg.get(key_list)    # return just that requested value
+                elif isinstance(key_list, list):
+                    return tuple(msg.get(k) for k in key_list)  # return a tuple of requested values
+            else:
+                return msg  # if no key_list provided, return the full message dict
+            
+        except zmq.Again:
+            return None
+
+    def close(self)->None:
+        """
+        Close all sockets in dictionary and terminate the global context.
+        """
+        for sock in self.sockets.values():
+            sock.close()
+        
+        self.context.term()
+    
+    def __getitem__(self, name:str) -> zmq.Socket:
+        """
+        Dunder method that can get the socket by name from the dictionary.
+        
+        Args:
+            name (str): The name of the socket to retrieve.
+        Returns:
+            zmq.Socket: The socket associated with the given name.
+        """
+        return self.sockets.get(name)
 
 
 
@@ -337,49 +441,31 @@ from src.settings.constants import(
     LOG_LEVEL
 )
 from src.utils.walking_simulator import WalkingSimulator
-
-def get_torque_setpoint(sub_socket):
-    try:
-        msg = sub_socket.recv_pyobj(flags=zmq.NOBLOCK)
-        return msg["torque_setpoint"]
-    except zmq.Again:
-        return None
-
-def set_up_zmq_sub_socket():
-    """
-    Set up the ZMQ socket for communication with the GUI.
-    This method is called once when the thread is initialized.
-    """
-    try:
-        context = zmq.Context.instance()
-        sub_socket = context.socket(zmq.SUB)
-        sub_socket.connect("inproc://torque_setpoint")  # Use inproc for in-process communication
-        sub_socket.setsockopt_string(zmq.SUBSCRIBE, "")  # Subscribe to all topics
-        
-        return sub_socket
-    except Exception as err:
-        print(f"Error setting up ZMQ sub socket: {err}")
-        raise err
-    
     
 if __name__ == '__main__':
     actuators = create_actuators(1, BAUD_RATE, FLEXSEA_FREQ, LOG_LEVEL)
     exoboots = DephyExoboots(tag="exoboots", actuators=actuators, sensors={})
     clock = SoftRealtimeLoop(dt = 1 / 1) # Hz
-
+    
     with exoboots:  
-        sub_socket = set_up_zmq_sub_socket()
+        
+        # set-up subscribers AFTER the publishers have bound to the inproc addresses
+        zmq_manager = ZMQManager()
+        zmq_manager.setup_sub_socket("gui", "inproc://torque_setpoint")
+        zmq_manager.setup_sub_socket("gse", "inproc://gait_states")
         
         for t in clock:
             try:
-                # ... insert high level controller logic ...
-                pass
-                
-                # TODO: report current gait state using simulated walking in gse thread
+                # report current gait state using simulated walking in gse thread
+                gse_msg = zmq_manager.get_message("gse", key_list=["time_in_stride", "percent_gc"])
+                if gse_msg:
+                    time_in_stride, percent_gc = gse_msg # unpackage the message
+                    print(f"Received gait state: time_in_stride={time_in_stride}, percent_gc={percent_gc}")
+                else:
+                    print("No new gait state received.")
 
-                # TODO: report PEAK torque setpoint using gui thread
-                torque = get_torque_setpoint(sub_socket)
-                
+                # report PEAK torque setpoint using gui thread
+                torque = zmq_manager.get_message("gui", key_list="torque_setpoint")
                 if torque is not None:
                     print(f"Received torque setpoint: {torque}")
                 else:
@@ -396,10 +482,8 @@ if __name__ == '__main__':
                 
             except KeyboardInterrupt:
                 print("KeyboardInterrupt received.")
-                exoboots.stop()
                 break
             
             except Exception as err:
                 print("Unexpected error in executing main controller:", err)
-                exoboots.stop()
                 break
