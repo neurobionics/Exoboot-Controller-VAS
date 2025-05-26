@@ -2,6 +2,10 @@ import sys, glob, serial
 from dephyEB51 import DephyEB51Actuator
 from src.utils import CONSOLE_LOGGER
 
+class NoActuatorsFoundError(Exception):
+    """Raised when no actuators are detected on available ports."""
+    pass
+
 def get_active_ports()->list:
     """
     Lists active serial ports.
@@ -42,6 +46,8 @@ def create_actuators(gear_ratio:float, baud_rate:int, freq:int, debug_level:int)
         debug_level (int): Debug level for logging.
     Returns:
         dict: Dictionary of active actuators with their corresponding sides.
+    Raises:
+        NoActuatorsFoundError: If no actuators are detected.
     """
     
     # get active ports ONLY
@@ -51,7 +57,7 @@ def create_actuators(gear_ratio:float, baud_rate:int, freq:int, debug_level:int)
     # Exit gracefully if no actuators found
     if not active_ports:
         CONSOLE_LOGGER.error("No actuators detected! Exiting program.")
-        sys.exit(1) 
+        raise NoActuatorsFoundError("No actuators detected!") 
     
     # create an actuator instance for each active port (which also opens the port)
     actuators = {}
