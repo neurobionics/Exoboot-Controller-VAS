@@ -11,46 +11,62 @@
 
 import numpy as np
 from scipy.interpolate import CubicSpline
-from src.settings.constants import INCLINE_WALK_TIMINGS
-from src.utils.gse_utils import WalkingSimulator
 from opensourceleg.utilities import SoftRealtimeLoop
 
-END_OF_STRIDE = 100
+import sys
+import os
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+
+from utils.gse_utils import WalkingSimulator
+from settings.constants import(
+    INCLINE_WALK_TIMINGS, 
+    BIAS_CURRENT,
+    HOLDING_TORQUE)
 
 class AssistanceGenerator:
     def __init__(self, 
-                 p_rise:float=P_RISE, 
-                 p_peak:float=P_PEAK, 
-                 p_fall:float=P_FALL, 
-                 p_toe_off:float=P_TOE_OFF, 
+                 p_rise:float=INCLINE_WALK_TIMINGS.P_RISE, 
+                 p_peak:float=INCLINE_WALK_TIMINGS.P_PEAK, 
+                 p_fall:float=INCLINE_WALK_TIMINGS.P_FALL, 
+                 p_toe_off:float=INCLINE_WALK_TIMINGS.P_TOE_OFF, 
                  holding_torque:float=HOLDING_TORQUE, 
-                 bias_current:int=BIAS_CURRENT):
+                 bias_current:int=BIAS_CURRENT)->None:
         
         self.p_rise = p_rise        # % stance from p_peak
         self.p_peak = p_peak	    # % stance from heel strike
         self.p_fall = p_fall        # % stance from p_peak
         self.p_toe_off = p_toe_off  # % stance from heel strike
+        
+        self.end_of_stride_in_percent = 100
 
         self.holding_torque = holding_torque
         self.bias_current = bias_current
 
-    def load_timings(self, timings_dict):
+    def set_new_timing_params(self, p_rise:float, p_peak:float, p_fall:float, p_toe_off:float)->None:
         """
-        Set timings from dict
-
-        Needs all entries to set succesfully
+        Use to set new timing parameters.
+        All arguments required.
         """
         try:
-            self.p_rise = timings_dict['P_RISE']
-            self.p_peak = timings_dict['P_PEAK']
-            self.p_fall = timings_dict['P_FALL']
-            self.p_toe_off = timings_dict['P_TOE_OFF']
-            self.holding_torque = timings_dict['HOLDING_TORQUE']
-            self.bias_current = timings_dict['BIAS_CURRENT']
+            self.p_rise = p_rise
+            self.p_peak = p_peak
+            self.p_fall = p_fall
+            self.p_toe_off = p_toe_off
         except:
-            raise Exception("set_timings failed in assistance generator; provided dict missing entries")
+            raise Exception("set_new_timing_params failed in assistance generator")
 
-    def set_my_generic_profile(self, granularity=10000):
+    def set_holding_params(self, holding_torque:float, bias_current:float)->None:
+        """
+        Use to set a new holding torque or bias current
+        
+        Args:
+            holding_torque: in Nm
+            bias_current: in mA
+        """
+        self.holding_torque = holding_torque
+        self.bias_current = bias_current
+    
+    def set_my_generic_profile(self, granularity:int=10000)->None:
         """
         Creates generic cubic spline based profile using timing parameters
         percent range: [0, 1]
@@ -69,10 +85,10 @@ class AssistanceGenerator:
         self.generic_max = 1
 
         # Convert Nodes to % stride
-        p_peak = self.p_peak / END_OF_STRIDE
-        p_rise = self.p_rise / END_OF_STRIDE
-        p_fall = self.p_fall / END_OF_STRIDE
-        # p_toe_off = self.p_toe_off / END_OF_STRIDE
+        p_peak = self.p_peak / self.end_of_stride_in_percent
+        p_rise = self.p_rise / self.end_of_stride_in_percent
+        p_fall = self.p_fall / self.end_of_stride_in_percent
+        # p_toe_off = self.p_toe_off / self.end_of_stride_in_percent
 
         # Calculate time of torque onset and dropoff
         p_onset = p_peak - p_rise
@@ -103,13 +119,13 @@ class AssistanceGenerator:
 
         self.generic_profile = generic_profile
 
-    def scale_torque(self, torque, min_new, max_new):
+    def scale_torque(self, torque:float, min_new:float, max_new:float)-> float:
         """
         Linearly scales torque from [generic_min, generic_max] to [min_new, max_new]
         """
         return (max_new - min_new) / (self.generic_max - self.generic_min) * (torque - self.generic_min) + min_new
 
-    def get_generic_torque_command(self, percent_stride):
+    def get_generic_torque_command(self, percent_stride:float)->float:
         """
         Evaluate generic_profile at percent_stride
 
@@ -118,9 +134,10 @@ class AssistanceGenerator:
         less error from int casting by increasing granularity
         """
         generic_index = min(int(percent_stride * self.granularity), self.granularity - 1)
+        
         return self.generic_profile[generic_index]
 
-    def generic_torque_generator(self, current_time, stride_period, peak_torque, in_swing):
+    def generic_torque_generator(self, current_time:float, stride_period:float, peak_torque:float, in_swing:bool)->float:
         """
         Calculates torque command from generic_profile
 
@@ -140,17 +157,17 @@ class AssistanceGenerator:
 
         return torque_command
 
-if __name__ == "main":
+if __name__ == "__main__":
     
     # instantiate assistance generator
     assistance_generator = AssistanceGenerator()
     
     # load profile timings and create generic profile
-    assistance_generator.load_timings()
     assistance_generator.set_my_generic_profile(granularity=10000)
     
     # instantiate the walking simulator
     walker = WalkingSimulator(stride_period=1.2)
+    walker.set_percent_toe_off(percent_toe_off=INCLINE_WALK_TIMINGS.P_TOE_OFF)
     
     # instantiate the osl's softrt loop
     clock = SoftRealtimeLoop(dt=1/1)
@@ -159,18 +176,19 @@ if __name__ == "main":
     peak_torques = [0, 7, 15, 27, 35, 40]
     
     for t in clock:
-        if t > 2:
-            peak_torque = peak_torques(0)
+        if t <= 2:
+            peak_torque = peak_torques[0]
+        elif t > 2 and t <= 4:
+            peak_torque = peak_torques[1]
         elif t > 4 and t <= 6:
-            peak_torque = peak_torques(1)
+            peak_torque = peak_torques[2]
         elif t > 6 and t <= 8:
-            peak_torque = peak_torques(2)
-        elif t > 8 and t <= 10:
-            peak_torque = peak_torques(3)
+            peak_torque = peak_torques[3]
+        elif t > 18 and t <= 10:
+            peak_torque = peak_torques[4]
         elif t > 10 and t <= 12:
-            peak_torque = peak_torques(4)
-        elif t > 12 and t <= 14:
-            peak_torque = peak_torques(5)
+            peak_torque = peak_torques[5]
+            
             
         # acquire torque command based on gait estimate
-        torque_command = assistance_generator.generic_torque_generator(t, walker.stride_period, peak_torque, walker.in_swing)
+        torque_command = assistance_generator.generic_torque_generator(t, walker.stride_period, peak_torque, walker.in_swing_flag)

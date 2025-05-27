@@ -23,8 +23,9 @@ class SPLINE_PARAMS:
     P_RISE:int 	   
     P_PEAK:int 	    
     P_FALL:int 	    
-    P_TOE_OFF:int   
-    END_OF_STRIDE:int
+    P_TOE_OFF:int 
+    
+    # TODO: add a check to make sure that p_peak + p_fall is less than p_toe_off  
     
 @dataclass    
 class SIDE_SPECIFIC_EXO_IDENTIFIERS:
@@ -130,16 +131,16 @@ class IMU_CONSTANTS:
         >>> print(eb51constants.ACCEL_GAIN)
         0.00012207031
     """
-    ACCEL_GAIN = 1 / 8192
-    GYRO_GAIN = 1 / 32.75
+    ACCEL_GAIN:float = 1 / 8192
+    GYRO_GAIN:float = 1 / 32.75
     
-    ACCELX_SIGN = 1     
-    ACCELY_SIGN = -1    
-    ACCELZ_SIGN = 1     
+    ACCELX_SIGN:int = 1     
+    ACCELY_SIGN:int = -1    
+    ACCELZ_SIGN:int = 1     
     
-    GYROX_SIGN = -1
-    GYROY_SIGN = 1
-    GYROZ_SIGN = 1
+    GYROX_SIGN:int = -1
+    GYROY_SIGN:int = 1
+    GYROZ_SIGN:int = 1
 
 @dataclass
 class BERTEC_THRESHOLDS:

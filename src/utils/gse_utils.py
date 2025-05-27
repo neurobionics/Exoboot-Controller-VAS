@@ -9,10 +9,13 @@ class WalkingSimulator():
     Ankle angle trajectory is from Reznick et al. 2021 (10° uphill walking)
     """
     def __init__(self, stride_period:float=1.20):
-        self.current_time_in_stride = 0
-        self.stride_num = 0
-        self.stride_period = stride_period
-        self.start_time = time.time()
+        self.current_time_in_stride:float = 0
+        self.stride_num:int = 0
+        self.stride_period:float = stride_period
+        self.start_time:float = time.time()
+        
+        self.percent_GC:float = 0
+        self.in_swing_flag:bool = False
         
         # ankle angle trajectory from Reznick et al. 2021 (10° uphill walking)
         self.gc = [] 
@@ -68,14 +71,29 @@ class WalkingSimulator():
         if time_in_stride < 0:
             raise ValueError("Time in stride cannot be negative.")
         elif time_in_stride > self.stride_period:
-            percent_GC = 100
+            self.percent_GC = 100
         else:
-            percent_GC = time_in_stride / self.stride_period * 100
+            self.percent_GC = time_in_stride / self.stride_period * 100
         
-        print(f"percent GC: {percent_GC:.2f}")
+        print(f"percent GC: {self.percent_GC:.2f}")
             
-        return percent_GC
+        return self.percent_GC
     
-    # TODO: add a swing/stance differentiator
+    def set_percent_toe_off(self, percent_toe_off:float=67)->None:
+        """
+        Can use to set a percent toe-off-time if looking to get swing/stance flag output
+        """
+        self.percent_toe_off = percent_toe_off
     
+    def in_swing_flag(self):
+        """
+        False if person is NOT in swing (i.e. stance), and
+        True if person is in swing.
+        
+        Decides based on user-specified toe-off time.
+        """
+        if self.percent_GC >= self.percent_toe_off:
+            self.in_swing_flag = True
+        else:
+            self.in_swing_flag = False
         
