@@ -4,7 +4,7 @@ from src.utils.flexible_sleeper import FlexibleSleeper
 
 def test_flexible_sleeper_pause():
     """
-    Test that FlexibleSleeper.pause sleeps for at least the specified period.
+    Test that FlexibleSleeper.pause sleeps for ATLEAST the specified period.
     """
     fs = FlexibleSleeper(dt=0.01)
     start = time.perf_counter()
@@ -12,10 +12,15 @@ def test_flexible_sleeper_pause():
     elapsed = time.perf_counter() - start
     assert elapsed >= 0.009
 
-def test_flexible_sleeper_pause_return():
+def test_flexible_sleeper_pause():
     """
-    Test that FlexibleSleeper.pause_return returns a period at least as long as the specified dt.
+    Test that FlexibleSleeper.pause sleeps for NO MORE THAN 10% more than specified period.
     """
-    fs = FlexibleSleeper(dt=0.01)
-    period = fs.pause_return()
-    assert period >= 0.009
+    dt = 0.01
+    fs = FlexibleSleeper(dt=dt)
+    start = time.perf_counter()
+    fs.pause()
+    elapsed = time.perf_counter() - start
+    upper_thresh = 1.10*dt
+    
+    assert elapsed <= upper_thresh

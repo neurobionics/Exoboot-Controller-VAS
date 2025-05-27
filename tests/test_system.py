@@ -10,7 +10,7 @@ from dephyEB51 import DephyEB51Actuator
 from non_singleton_logger import NonSingletonLogger
 from threading_demo import ZMQManager, DephyExoboots
 
-# --- Reliability Tests ---
+# --- Logging Tests ---
 
 def test_logger_file_creation(tmp_path):
     """
@@ -25,18 +25,7 @@ def test_logger_file_creation(tmp_path):
     with open(logger.file_path) as f:
         assert "Test log message" in f.read()
 
-def test_zmq_manager_socket_setup_and_close():
-    """
-    Test that a ZMQManager can set up a SUB socket and close it properly.
-    Verifies that the socket is registered and the context is closed after cleanup.
-    """
-    zmq_manager = ZMQManager()
-    zmq_manager.setup_sub_socket("test", "inproc://pytest")
-    assert "test" in zmq_manager.sockets
-    zmq_manager.close()
-    assert zmq_manager.context.closed
-
-# --- Concurrency Tests ---
+# --- Threading Tests ---
 
 def test_thread_liveness():
     """
@@ -52,6 +41,33 @@ def test_thread_liveness():
     t.start()
     t.join(timeout=2)
     assert event.is_set()
+    
+def test_per_thread_logging(tmp_path):
+    """
+    Test that logging from different threads (or loggers) writes to separate files.
+    Verifies that each logger writes its message to its own file and that both messages are present in the correct files.
+    """
+    log_path = tmp_path
+    logger1 = NonSingletonLogger(log_path=str(log_path), file_name="thread1")
+    logger2 = NonSingletonLogger(log_path=str(log_path), file_name="thread2")
+    logger1.info("Thread1 log")
+    logger2.info("Thread2 log")
+    with open(logger1.file_path) as f1, open(logger2.file_path) as f2:
+        assert "Thread1 log" in f1.read()
+        assert "Thread2 log" in f2.read()
+    
+# --- ZMQ Tests ---
+
+def test_zmq_manager_socket_setup_and_close():
+    """
+    Test that a ZMQManager can set up a SUB socket and close it properly.
+    Verifies that the socket is registered and the context is closed after cleanup.
+    """
+    zmq_manager = ZMQManager()
+    zmq_manager.setup_sub_socket("test", "inproc://pytest")
+    assert "test" in zmq_manager.sockets
+    zmq_manager.close()
+    assert zmq_manager.context.closed
 
 def test_zmq_pub_sub_communication():
     """
@@ -78,8 +94,17 @@ def test_zmq_pub_sub_communication():
         pub.close()
         sub.close()
         ctx.term()
+        
+def test_zmq_manager_cleanup():
+    """
+    Test that the ZMQManager can be set up and closed without raising any exceptions.
+    Ensures resource cleanup works as expected.
+    """
+    zmq_manager = ZMQManager()
+    zmq_manager.setup_sub_socket("test", "inproc://pytest_cleanup")
+    zmq_manager.close() # Should not raise any exceptions
 
-# --- Functionality Tests ---
+# --- EB51 Actuator Functionality Tests ---
 
 def test_dephyeb51actuator_torque_to_current(monkeypatch):
     """
@@ -194,7 +219,7 @@ def test_ankle_angle_property(monkeypatch):
     result = actuator.ankle_angle
     assert result == expected_angle
 
-# --- Extensibility Tests ---
+# --- DephyExobootsRobot Class Tests (Extensibility tests) ---
 
 def test_add_new_actuator(monkeypatch):
     """
@@ -211,22 +236,6 @@ def test_add_new_actuator(monkeypatch):
     exoboots.actuators = actuators
     assert "right" in exoboots.actuators
 
-# --- Logging and Debugging ---
-
-def test_per_thread_logging(tmp_path):
-    """
-    Test that logging from different threads (or loggers) writes to separate files.
-    Verifies that each logger writes its message to its own file and that both messages are present in the correct files.
-    """
-    log_path = tmp_path
-    logger1 = NonSingletonLogger(log_path=str(log_path), file_name="thread1")
-    logger2 = NonSingletonLogger(log_path=str(log_path), file_name="thread2")
-    logger1.info("Thread1 log")
-    logger2.info("Thread2 log")
-    with open(logger1.file_path) as f1, open(logger2.file_path) as f2:
-        assert "Thread1 log" in f1.read()
-        assert "Thread2 log" in f2.read()
-
 # --- Error Handling ---
 
 def test_invalid_config(monkeypatch):
@@ -237,15 +246,3 @@ def test_invalid_config(monkeypatch):
     monkeypatch.setattr("dephyEB51.MAX_CASE_TEMP", -999, raising=False)
     with pytest.raises(Exception):
         DephyEB51Actuator(offline=True)
-
-# --- Cleanup ---
-
-def test_zmq_manager_cleanup():
-    """
-    Test that the ZMQManager can be set up and closed without raising any exceptions.
-    Ensures resource cleanup works as expected.
-    """
-    zmq_manager = ZMQManager()
-    zmq_manager.setup_sub_socket("test", "inproc://pytest_cleanup")
-    zmq_manager.close()
-    # Should not raise any exceptions
