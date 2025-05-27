@@ -1,5 +1,5 @@
 import os, csv, time
-from dataclasses import dataclass
+import numpy as np
 
 from opensourceleg.actuators.dephy import DephyLegacyActuator, CONTROL_MODES
 from opensourceleg.actuators.base import MOTOR_CONSTANTS
@@ -9,14 +9,13 @@ from opensourceleg.logging import LOGGER
 from src.settings.constants import (
     MAX_CASE_TEMP,
     MAX_WINDING_TEMP,
-    ENC_CLICKS_TO_DEG,
     DEV_ID_TO_MOTOR_SIGN_DICT,
     DEV_ID_TO_ANK_ENC_SIGN_DICT,
     DEV_ID_TO_SIDE_DICT,
     BIAS_CURRENT,
     MAX_ALLOWABLE_CURRENT,
     TEST_TR_FILE,
-    EFFICIENCY,
+    EB51_CONSTANTS,
     TEMPANTISPIKE
 )
 from src.exo.variable_transmission_ratio import VariableTransmissionRatio
@@ -72,10 +71,10 @@ class DephyEB51Actuator(DephyLegacyActuator):
         )
         
         eb51_motor_constants = MOTOR_CONSTANTS(
-            MOTOR_COUNT_PER_REV=2048,
+            MOTOR_COUNT_PER_REV=2**14,
             NM_PER_AMP=0.146,                           # EB51 specific torque constant
-            NM_PER_RAD_TO_K=((2 * 3.14159 / 2048) / 0.0007812 * 1e3 / 0.146),
-            NM_S_PER_RAD_TO_B=((3.14159 / 180) / 0.00028444 * 1e3 / 0.146),
+            NM_PER_RAD_TO_K=((2 * np.pi / 16384) / 0.0007812 * 1e3 / 0.146),
+            NM_S_PER_RAD_TO_B=((np.pi / 180) / 0.00028444 * 1e3 / 0.146),
             MAX_CASE_TEMPERATURE=MAX_CASE_TEMP,         # Custom max case temperature
             MAX_WINDING_TEMPERATURE=MAX_WINDING_TEMP,   # Custom max winding temperature
         )
@@ -121,7 +120,8 @@ class DephyEB51Actuator(DephyLegacyActuator):
         """
         
         if self._data is not None:
-            return float( (self.ank_enc_sign * self.ank_ang * ENC_CLICKS_TO_DEG) - self.tr_gen.get_offset() )
+            ank_ang_in_deg = self.ank_ang/100
+            return float( (self.ank_enc_sign * ank_ang_in_deg) - self.tr_gen.get_offset() )
         else:
             LOGGER.debug(
                 msg="Actuator data is none, please ensure that the actuator is connected and streaming. Returning 0.0."
@@ -129,7 +129,7 @@ class DephyEB51Actuator(DephyLegacyActuator):
             return 0.0
     
     
-    def update(self):
+    def update(self)->None:
         """
         Updates the actuator state.
         """
@@ -152,7 +152,7 @@ class DephyEB51Actuator(DephyLegacyActuator):
         return side
       
       
-    def spool_belt(self):
+    def spool_belt(self)->None:
         
         LOGGER.info(
             f"Spooling {self.side} joint. "
@@ -165,7 +165,7 @@ class DephyEB51Actuator(DephyLegacyActuator):
         time.sleep(0.3)
     
     
-    def filter_temp(self):
+    def filter_temp(self)->None:
         """
         Filters the case temperature to remove any spikes.
         If the temperature is unreasonably high, then it is set to a previous recorded value.
@@ -201,7 +201,7 @@ class DephyEB51Actuator(DephyLegacyActuator):
             des_current: int, the desired current setpoint in mA.
             
         """
-        des_current = torque / (self.gear_ratio * EFFICIENCY * self._MOTOR_CONSTANTS.NM_PER_AMP)
+        des_current = torque / (self.gear_ratio * EB51_CONSTANTS.EFFICIENCY * self._MOTOR_CONSTANTS.NM_PER_AMP)
         
         # convert to mA and account for motor sign
         des_current = des_current * 1000 * self.motor_sign
@@ -214,7 +214,7 @@ class DephyEB51Actuator(DephyLegacyActuator):
         Converts current setpoint (in mA) to a corresponding torque (in Nm)
         """
         mA_to_A_current = self.motor_current/1000
-        des_torque = mA_to_A_current * self._MOTOR_CONSTANTS.NM_PER_AMP * EFFICIENCY * self.motor_sign
+        des_torque = mA_to_A_current * self._MOTOR_CONSTANTS.NM_PER_AMP * EB51_CONSTANTS.EFFICIENCY * self.motor_sign
         
         return des_torque
     
@@ -301,35 +301,4 @@ class DephyEB51Actuator(DephyLegacyActuator):
 
         # Send 0 current
         self.flexdevice.command_motor_current(0)
-        
-        
-# TODO: Use this data class in the assistance generator
-@dataclass
-class SPLINE_PARAMS:
-    """
-    Class to define the four-point-spline assistance parameters.
-    These are to be held constant.
     
-    P_RISE is % stance before peak torque timing
-    P_PEAK is % stance from heel strike timing (0%)
-    P_FALL is % stance after peak torque timing
-    P_TOE_OFF is % stance from heel strike time (0%)
-
-    Examples:
-        >>> constants = SPLINE_PARAMS(
-        ...     P_RISE = 15,
-        ...     P_PEAK = 54,
-        ...     P_FALL = 12,
-        ...     P_TOE_OFF = 67,
-        ... )
-        >>> print(constants.P_RISE)
-        15
-    """
-    
-    P_RISE:int 	   
-    P_PEAK:int 	    
-    P_FALL:int 	    
-    P_TOE_OFF:int   
-    END_OF_STRIDE:int
-        
-# TODO: create a data class for the motor and encoder constants

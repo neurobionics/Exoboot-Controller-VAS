@@ -6,6 +6,7 @@ class WalkingSimulator():
     Simulate a person walking with a fixed stride period.
     Increments current_time_in_stride at each update, until it resets at the stride period.
     Output looks like a sawtooth wave. 
+    Ankle angle trajectory is from Reznick et al. 2021 (10° uphill walking)
     """
     def __init__(self, stride_period:float=1.20):
         self.current_time_in_stride = 0
@@ -74,4 +75,7 @@ class WalkingSimulator():
         print(f"percent GC: {percent_GC:.2f}")
             
         return percent_GC
+    
+    # TODO: add a swing/stance differentiator
+    
         

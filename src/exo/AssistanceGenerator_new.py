@@ -1,5 +1,6 @@
 # Description: 
-# AssistanceGenerator Creates generic 4 point spline profile based on 4 parameters
+# AssistanceGenerator creates a generic 4 point spline profile based on 4 parameters:
+# rise time, peak torque time, fall time, and toe-off time.
 #
 # Profile is linearly scaled to fit profile to given max torque
 #
@@ -10,12 +11,21 @@
 
 import numpy as np
 from scipy.interpolate import CubicSpline
-from constants import END_OF_STRIDE
-from constants import P_RISE, P_PEAK, P_FALL, P_TOE_OFF, HOLDING_TORQUE, BIAS_CURRENT
+from src.settings.constants import INCLINE_WALK_TIMINGS
+from src.utils.gse_utils import WalkingSimulator
+from opensourceleg.utilities import SoftRealtimeLoop
+
+END_OF_STRIDE = 100
 
 class AssistanceGenerator:
-    def __init__(self, p_rise:float=P_RISE, p_peak:float=P_PEAK, p_fall:float=P_FALL, p_toe_off:float=P_TOE_OFF, holding_torque:float=HOLDING_TORQUE, bias_current:int=BIAS_CURRENT):
-        # fixed high-level-control parameters for uphill walking
+    def __init__(self, 
+                 p_rise:float=P_RISE, 
+                 p_peak:float=P_PEAK, 
+                 p_fall:float=P_FALL, 
+                 p_toe_off:float=P_TOE_OFF, 
+                 holding_torque:float=HOLDING_TORQUE, 
+                 bias_current:int=BIAS_CURRENT):
+        
         self.p_rise = p_rise        # % stance from p_peak
         self.p_peak = p_peak	    # % stance from heel strike
         self.p_fall = p_fall        # % stance from p_peak
@@ -129,3 +139,38 @@ class AssistanceGenerator:
             torque_command = self.scale_torque(generic_command, self.holding_torque, peak_torque)
 
         return torque_command
+
+if __name__ == "main":
+    
+    # instantiate assistance generator
+    assistance_generator = AssistanceGenerator()
+    
+    # load profile timings and create generic profile
+    assistance_generator.load_timings()
+    assistance_generator.set_my_generic_profile(granularity=10000)
+    
+    # instantiate the walking simulator
+    walker = WalkingSimulator(stride_period=1.2)
+    
+    # instantiate the osl's softrt loop
+    clock = SoftRealtimeLoop(dt=1/1)
+    
+    # create a set of peak torques to test
+    peak_torques = [0, 7, 15, 27, 35, 40]
+    
+    for t in clock:
+        if t > 2:
+            peak_torque = peak_torques(0)
+        elif t > 4 and t <= 6:
+            peak_torque = peak_torques(1)
+        elif t > 6 and t <= 8:
+            peak_torque = peak_torques(2)
+        elif t > 8 and t <= 10:
+            peak_torque = peak_torques(3)
+        elif t > 10 and t <= 12:
+            peak_torque = peak_torques(4)
+        elif t > 12 and t <= 14:
+            peak_torque = peak_torques(5)
+            
+        # acquire torque command based on gait estimate
+        torque_command = assistance_generator.generic_torque_generator(t, walker.stride_period, peak_torque, walker.in_swing)
