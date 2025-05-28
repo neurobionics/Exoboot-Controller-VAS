@@ -39,13 +39,13 @@ GSETHREAD_FIELDS = GENERAL_FIELDS + BERTEC_FIELDS
 TR_FILE_PREFIX = "default_TR"
 TR_COEFS_PREFIX = "{}_coefs".format(TR_FILE_PREFIX)
 TR_FULLDATA_PREFIX = "{}_fulldata".format(TR_FILE_PREFIX)
-TR_DATE_FORMATTER = "%Y_%m_%d_%H_%M"
+TR_DATE_FORMATTER = "%Y_%m_%d"
 TR_FOLDER_PATH = "./src/characterization/transmission_ratio_characterization/TR_coef_logs/"
 TEST_TR_FILE = "default_TR_coefs_left_2025_02_04_16_13.csv"
 
 
 """Assistance Profile Constants"""
-# Timing Parameters for the 4-Point Spline 
+# Timing Parameters for the 4-Point Spline
 
 # Flat Walking (Varun's Pref Optimized Params for 1.20m/s)
 # P_RISE = 27.9		# stance from t_peak
@@ -64,7 +64,7 @@ END_OF_STRIDE = 100
 
 HOLDING_TORQUE = 2	# 2 Nm
 BIAS_CURRENT = 500  # 500 mA
-SPINE_TIMING_PARAMS_DICT = {'P_RISE': P_RISE, 'P_PEAK': P_PEAK, 'P_FALL': P_FALL, 'P_TOE_OFF': P_TOE_OFF, 
+SPINE_TIMING_PARAMS_DICT = {'P_RISE': P_RISE, 'P_PEAK': P_PEAK, 'P_FALL': P_FALL, 'P_TOE_OFF': P_TOE_OFF,
                             'HOLDING_TORQUE': HOLDING_TORQUE, 'BIAS_CURRENT': BIAS_CURRENT}
 
 
@@ -124,11 +124,11 @@ DEFAULT_FF = 128    # 128 is 100% feedforward
 
 
 """IMU/GYRO Constants"""
-# Inferred from https://invensense.tdk.com/products/motion-tracking/6-axis/mpu-6050/ 
+# Inferred from https://invensense.tdk.com/products/motion-tracking/6-axis/mpu-6050/
 # Link:https://github.com/kriswiner/MPU6050/blob/master/MPU6050BasicExample.ino#L364
 # ALSO on Dephy FlexSea Website
 ACCEL_GAIN = 1 / 8192  # LSB -> gs
-# Inferred from https://invensense.tdk.com/products/motion-tracking/6-axis/mpu-6050/ 
+# Inferred from https://invensense.tdk.com/products/motion-tracking/6-axis/mpu-6050/
 # Link: https://github.com/kriswiner/MPU6050/blob/master/MPU6050BasicExample.ino#L364
 # ALSO on Dephy FlexSea Website
 GYRO_GAIN = 1 / 32.75  # LSB -> deg/s

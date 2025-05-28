@@ -74,6 +74,18 @@ class DephyExoboots(RobotBase[DephyEB51Actuator, SensorBase]):
             actuator.spool_belt()
             CONSOLE_LOGGER.info(f"finished spooling belt of {actuator.side}")
 
+    def create_current_setpts_dict(self)->dict:
+        """
+        create dictionary of current setpoints (in mA) corresponding to actuator side
+        """
+        self.current_setpoints = {}
+        for actuator in self.actuators.values():
+            self.current_setpoints[actuator.side] = 0.0
+
+        # TODO: generate test to determine if current_setpoints dict has the same keys as the actuators dict
+
+        return self.current_setpoints
+
     def find_current_setpoints(self, torque_setpoint: float) -> dict:
         """
         Find the appropriate current setpoint for the actuators.
@@ -102,6 +114,8 @@ class DephyExoboots(RobotBase[DephyEB51Actuator, SensorBase]):
             current_setpoints: dict of currents for each active actuator.
                               key is the side of the actuator (left or right).
         """
+
+        # TODO: ensure current_setpoints values are integers, no greater than max current limit, and are not None
 
         for actuator in self.actuators.values():
             current_setpoint = current_setpoints.get(actuator.side)
@@ -323,7 +337,6 @@ class DephyExoboots(RobotBase[DephyEB51Actuator, SensorBase]):
 
             tracked_vars = logger.get_tracked_variables()
             print("Tracked variables:", tracked_vars)
-
 
     @property
     def left(self) -> DephyEB51Actuator:
