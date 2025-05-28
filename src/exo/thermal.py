@@ -4,7 +4,7 @@
 
 # Taken from OSL Library
 
-from typing import Any, Callable, List, Optional
+from typing import Any
 import numpy as np
 
 
@@ -83,7 +83,7 @@ class ThermalModel:
         self.soft_border_case: float = soft_border_C_case
 
     def __repr__(self) -> str:
-        return f"ThermalModel"
+        return "ThermalModel"
 
     def update(self, dt: float = 1 / 200, motor_current: float = 0) -> None:
         """

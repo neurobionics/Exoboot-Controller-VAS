@@ -1,4 +1,6 @@
-import sys, glob, serial
+import sys
+import glob
+import serial
 from dephyEB51 import DephyEB51Actuator
 from src.utils import CONSOLE_LOGGER
 
@@ -62,11 +64,3 @@ def create_actuators(gear_ratio:float, baud_rate:int, freq:int, debug_level:int)
         CONSOLE_LOGGER.info(" ~~ FlexSEA connection initialized, streaming & exo actuators created ~~ ")
         
     return actuators
-    
-def assign_id_to_side(dev_id: int)-> str:
-    """
-    Determines side (left/right) of the actuator based on previously mapped device ID number.
-    """
-    side = DEV_ID_TO_SIDE_DICT[dev_id]
-    
-    return side

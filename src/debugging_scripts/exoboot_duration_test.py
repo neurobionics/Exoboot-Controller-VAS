@@ -6,7 +6,9 @@
 # Modified for VAS Vickrey protocol by: Nundini Rawal, John Hutchinson
 # Date: 06/13/2024
 
-import os, sys, csv, time, socket, threading
+import os
+import sys
+import time
 
 from flexsea.device import Device
 #from rtplot import client

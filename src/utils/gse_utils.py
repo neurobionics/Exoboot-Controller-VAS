@@ -1,4 +1,6 @@
-import time, sys, csv
+import time
+import sys
+import csv
 import numpy as np
 
 class WalkingSimulator():

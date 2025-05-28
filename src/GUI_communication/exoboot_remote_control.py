@@ -1,4 +1,6 @@
-import os, csv, time, grpc, threading
+import csv
+import grpc
+import threading
 from typing import Type
 from concurrent import futures
 
@@ -98,7 +100,7 @@ class ExobootRemoteClient:
         Update overtime logging
         """
         msg = pb2.vas_info(btn_num=btn_num, trial=trial, pres=pres)
-        response = self.stub.update_vas_info(msg)
+        _ = self.stub.update_vas_info(msg)
         return None
 
     def slider_update(self, pitime, overtime_dict):
@@ -180,7 +182,6 @@ class ExobootCommServicer(pb2_grpc.exoboot_over_networkServicer):
                         csv.writer(f).writerow(['t', 'enjoyment', 'rpe'])
 
                 case 'VAS':
-                    overtimepath = ""
                     vasresultsname = "{}_{}".format(self.file_prefix, "vasresults")
                     vasresultspath = self.filingcabinet.newfile(vasresultsname, "csv", dictkey="vasresults")
 

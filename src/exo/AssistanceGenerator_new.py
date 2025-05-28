@@ -9,7 +9,6 @@
 # Author: Nundini Rawal, John Hutchinson
 # Date: 06/14/2024
 
-import numpy as np
 from scipy.interpolate import CubicSpline
 from opensourceleg.utilities import SoftRealtimeLoop
 

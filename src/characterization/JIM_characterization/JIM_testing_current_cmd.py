@@ -1,7 +1,6 @@
-import numpy as np
-import os, sys, csv, time, datetime, threading
-import sys
-import numpy as np
+import time
+import datetime
+import threading
 import argparse
 
 from flexsea.device import Device

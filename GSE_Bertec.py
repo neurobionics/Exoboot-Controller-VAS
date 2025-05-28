@@ -28,10 +28,10 @@ class Bertec_Estimator:
             a) most recent heel strike time
             b) average stride period
             c) in swing
-            
+
         """
-        state_dict = {"HS": self.HS, 
-                      "stride_period": self.stride_period_tracker.average(), 
+        state_dict = {"HS": self.HS,
+                      "stride_period": self.stride_period_tracker.average(),
                       "in_swing": not self.in_contact
                       }
 
