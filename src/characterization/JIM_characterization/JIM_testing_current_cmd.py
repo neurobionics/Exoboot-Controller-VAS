@@ -1,11 +1,7 @@
-# TODO: debug logger csv & it's path
-# TODO: remove the softrt loop & just use a while loop.
-
 import numpy as np
 import datetime
-import sys, os
+import sys, os, time
 import numpy as np
-import argparse
 
 from rtplot import client
 from opensourceleg.utilities import SoftRealtimeLoop
@@ -18,35 +14,24 @@ from src.settings.constants import (TR_DATE_FORMATTER,
                                     FLEXSEA_FREQ,
                                     LOG_LEVEL,
                                     RTPLOT_IP)
-from src.custom_logging.LoggingClass import FilingCabinet
+from src.custom_logging.LoggingClass import FilingCabinet, LoggingNexus
 from exoboots import DephyExoboots
 from src.utils.actuator_utils import create_actuators
+from JIM_utils import JIM_data_plotter
 
 class userInputTest():
     def __init__(self):
         """
-        Class to test Device using User Inputs.
+        Class to Device using User Inputs.
         """
         self.current_setpt_mA = input("current setpoint in mA?: ")
         self.time = input("time in sec: ")
         self.rom = input("rom: ")
+        self.dps = input("speed in °/s: " )
 
 if __name__ == "__main__":
     # get user inputs
-    # parser = argparse.ArgumentParser(description="JIM characterization script")
-    # parser.add_argument('-current_setpt_mA', type=int, required=True)
-    # parser.add_argument('-time', type=int, required=True)
-    # parser.add_argument('-rom', type=str, required=True)
-    # args = parser.parse_args()
-
     args = userInputTest()
-
-    # get current date & set filename & directory for saving data
-    curr_date = datetime.datetime.today().strftime(TR_DATE_FORMATTER) # Get YEAR_MONTH_DAY
-    date = curr_date if curr_date else datetime.datetime.today().strftime(TR_DATE_FORMATTER)
-
-    fname = "{}mA".format(args.current_setpt_mA)
-    filingcabinet = FilingCabinet("JIM_testing", fname)
 
     # detect active serial ports & create actuator objects
     actuators = create_actuators(1, BAUD_RATE, FLEXSEA_FREQ, LOG_LEVEL)
@@ -58,25 +43,37 @@ if __name__ == "__main__":
         sensors={}
     )
 
-    # set-up real-time plots:
-    client.configure_ip(RTPLOT_IP)
-    plot_config = exoboots.initialize_JIM_rt_plots()
-    client.initialize_plots(plot_config)
+    # get current date & set filename & directory for saving data
+    curr_date = datetime.datetime.today().strftime(TR_DATE_FORMATTER) # Get YEAR_MONTH_DAY
+    date = curr_date if curr_date else datetime.datetime.today().strftime(TR_DATE_FORMATTER)
 
-    # set-up the soft real-time loop:
-    clock = SoftRealtimeLoop(dt = 1/250)
+    file_prefix = "{}mA".format(args.current_setpt_mA)
+    file_suffix = "{}dps".format(args.dps)
+    fname = "{}_{}_{}_{}".format(exoboots.detect_active_actuators(), file_prefix, args.rom, file_suffix)
+    folder_name = "JIM_testing_{}".format(date)
+    filingcabinet = FilingCabinet(folder_name, fname)
 
-    logger = Logger(log_path=filingcabinet.getpfolderpath(),
+    # get location of folder path
+    log_path = os.path.abspath(filingcabinet.getpfolderpath())
+    logger = Logger(log_path=log_path,
                     file_name=fname,
                     buffer_size=10*FLEXSEA_FREQ,
                     file_level = LogLevel.DEBUG,
                     stream_level = LogLevel.INFO,
                     enable_csv_logging = True
-                    )
+                )
 
+    # set-up real-time plots:
+    JIM_data_plotter = JIM_data_plotter(exoboots.actuators)
+    client.configure_ip(RTPLOT_IP)
+    plot_config = JIM_data_plotter.initialize_JIM_rt_plots()
+    client.initialize_plots(plot_config)
+
+    # set-up the soft real-time loop:
+    clock = SoftRealtimeLoop(dt = 1/250)
 
     # track vars: time, N, motor current, ankle angle, temperature
-    exoboots.track_variables_for_JIM_logging(logger)
+    JIM_data_plotter.track_variables_for_JIM_logging(logger)
 
     ramp_period:float = 1.0
 
@@ -91,6 +88,8 @@ if __name__ == "__main__":
             try:
                 # update robot sensor states
                 exoboots.update()
+                logger.update()
+                logger.flush_buffer()
 
                 if (t <= ramp_period):
                     # ramp to torque linearly
@@ -104,10 +103,11 @@ if __name__ == "__main__":
                     exoboots.command_currents()
 
                     # send data to server & update real-time plots
-                    data_to_plt = exoboots.update_JIM_rt_plots()
+                    data_to_plt = JIM_data_plotter.update_JIM_rt_plots()
                     client.send_array(data_to_plt)
 
                 else:
+                    exoboots.set_to_transparent_mode()
                     break
 
 

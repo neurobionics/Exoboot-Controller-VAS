@@ -9,7 +9,7 @@ from opensourceleg.robots.base import RobotBase
 from opensourceleg.sensors.base import SensorBase
 from opensourceleg.utilities import SoftRealtimeLoop
 from src.utils import CONSOLE_LOGGER
-from opensourceleg.logging import Logger, LogLevel
+from opensourceleg.logging import Logger
 
 from src.utils.actuator_utils import create_actuators
 from src.settings.constants import (
@@ -74,6 +74,25 @@ class DephyExoboots(RobotBase[DephyEB51Actuator, SensorBase]):
         for actuator in self.actuators.values():
             actuator.spool_belt()
             CONSOLE_LOGGER.info(f"finished spooling belt of {actuator.side}")
+
+    def set_to_transparent_mode(self):
+        """
+        Set the exo currents to 0mA.
+        """
+        self.update_current_setpoints(current_inputs=0, asymmetric=False)
+        self.command_currents()
+
+    def detect_active_actuators(self) -> Union[start, list[str]]:
+        """
+        Detect active actuators.
+        Returns a string if only one actuator is active, otherwise a list of strings.
+        """
+        active_sides = list(self.actuators.keys())
+
+        if len(active_sides) == 1:
+            return active_sides[0]
+
+        return active_sides
 
     def create_current_setpts_dict(self) -> None:
         """
@@ -147,103 +166,6 @@ class DephyExoboots(RobotBase[DephyEB51Actuator, SensorBase]):
                 CONSOLE_LOGGER.info(f"Finished setting current setpoint for {actuator.side}")
             else:
                 CONSOLE_LOGGER.warning(f"Unknown side '{actuator.side}' and unable to command current. Skipping.")
-
-    def initialize_JIM_rt_plots(self) -> list:
-        """
-        Initialize plots for JIM data streaming
-        The following time series are plotted:
-            - Current (A)
-            - Temperature (°C)
-            - Ankle Angle (°)
-        """
-        # converting actuator dictionary keys to a list
-        active_sides_list = list(self.actuators.keys())
-
-        print("Active actuators:", active_sides_list)
-
-        # pre-slice colors based on the number of active actuators
-        colors = ['r', 'b'][:len(active_sides_list)]
-        if len(active_sides_list) > len(colors):
-            raise ValueError("Not enough unique colors for the number of active actuators.")
-
-        # repeat line styles and widths for each active actuator
-        line_styles = ['-' for _ in active_sides_list]
-        line_widths = [2 for _ in active_sides_list]
-
-        current_plt_config = {'names' : active_sides_list,
-                        'colors' : colors,
-                        'line_style': line_styles,
-                        'title' : "Exo Current (A) vs. Sample",
-                        'ylabel': "Current (A)",
-                        'xlabel': "timestep",
-                        'line_width': line_widths,
-                        'yrange': [0,30]
-                        }
-
-        temp_plt_config = {'names' : active_sides_list,
-                        'colors' : colors,
-                        'line_style': line_styles,
-                        'title' : "Case Temperature (°C) vs. Sample",
-                        'ylabel': "Temperature (°C)",
-                        'xlabel': "timestep",
-                        'line_width': line_widths,
-                        'yrange': [20,60]
-                        }
-
-        ang_plt_config = {'names' : active_sides_list,
-                        'colors' : colors,
-                        'line_style': line_styles,
-                        'title' : "Ank Angle vs. Sample",
-                        'ylabel': "°",
-                        'xlabel': "timestep",
-                        'line_width': line_widths,
-                        'yrange': [0,150]
-                        }
-
-        plot_config = [current_plt_config, temp_plt_config, ang_plt_config]
-
-        return plot_config
-
-    def update_JIM_rt_plots(self) -> list:
-        """
-        Updates the real-time plots with current values while JIM testing:
-            - Current (A)
-            - Temperature (°C)
-            - Ankle Angle
-
-        The data is collected from the exoboots object and returned as a list of arrays.
-        This is done for each active actuator only.
-
-        Returns:
-            plot_data_array: A list of data arrays (for active actuators) for each plot.
-        """
-
-        data_to_plt = []
-
-        for actuator in self.actuators.values():
-            data_to_plt.extend([
-                abs(actuator.motor_current),  # Motor current
-                actuator.case_temperature,    # Case temperature
-                actuator.ankle_angle          # Ankle Angle
-            ])
-
-        return data_to_plt
-
-    def track_variables_for_JIM_logging(self, logger: Logger) -> None:
-        """
-        Track variables for each active actuator for logging to a single file
-        FOR THE JIM CHARACTERIZATION PROTOCOL.
-        """
-
-        for actuator in self.actuators.values():
-            logger.track_variable(lambda: time.time(), f"pitime")
-            logger.track_variable(lambda: actuator.motor_current, f"{actuator._tag}_current_mA")
-            logger.track_variable(lambda: actuator.case_temperature, f"{actuator._tag}_case_temp_C")
-            logger.track_variable(lambda: actuator.ankle_angle, f"{actuator._tag}_ankle_ang_deg")
-            logger.track_variable(lambda: actuator._gear_ratio, f"{actuator._tag}_transmission_ratio")
-
-            tracked_vars = logger.get_tracked_variables()
-            print("Tracked variables:", tracked_vars)
 
     def initialize_rt_plots(self) -> list:
         """
