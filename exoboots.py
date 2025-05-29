@@ -38,6 +38,7 @@ class DephyExoboots(RobotBase[DephyEB51Actuator, SensorBase]):
         """
         Stop the Exoskeleton.
         """
+
         super().stop()
 
     def update(self) -> None:

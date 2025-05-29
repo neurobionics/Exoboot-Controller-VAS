@@ -70,7 +70,7 @@ class MovingAverageFilterPlus:
         if self.warm.isafter():
             return sum(self.buffer) / self.size
         else:
-            return sum(self.buffer) / max(self.pntr, 1)
+            return sum(self.buffer) / max(self.pntr, self.size)
         
     def trimmed_average(self):
         # Returns average without largest value in buffer

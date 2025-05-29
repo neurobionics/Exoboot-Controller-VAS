@@ -137,6 +137,7 @@ class DephyEB51Actuator(DephyLegacyActuator):
         # filter the temperature before updating the thermal model
         self.filter_temp()
         
+        # update the actuator state
         super().update()
         
         # update the gear ratio
@@ -214,9 +215,9 @@ class DephyEB51Actuator(DephyLegacyActuator):
         Converts current setpoint (in mA) to a corresponding torque (in Nm)
         """
         mA_to_A_current = self.motor_current/1000
-        des_torque = mA_to_A_current * self._MOTOR_CONSTANTS.NM_PER_AMP * EFFICIENCY * self.motor_sign
+        des_torque = mA_to_A_current * self.gear_ratio* self._MOTOR_CONSTANTS.NM_PER_AMP * EFFICIENCY * self.motor_sign
         
-        return des_torque
+        return float(des_torque)
     
     # TODO: Add method to convert JIM torque-ankle angle look-up table to a specfic current
     def JIM_torque_to_current(self, inst_torque: float) -> int:
