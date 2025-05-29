@@ -1,6 +1,8 @@
 import numpy as np
 import time
 
+from typing import Union, Dict
+
 from opensourceleg.actuators.base import CONTROL_MODES
 from opensourceleg.actuators.dephy import DEFAULT_CURRENT_GAINS
 from opensourceleg.robots.base import RobotBase
@@ -25,7 +27,6 @@ class DephyExoboots(RobotBase[DephyEB51Actuator, SensorBase]):
     This class creates a DephyExoboots Robot, using the structure
     provided by the RobotBase class. A robot is composed of a collection
     of actuators and sensors.
-
     """
 
     def start(self) -> None:
@@ -65,7 +66,7 @@ class DephyExoboots(RobotBase[DephyEB51Actuator, SensorBase]):
             )
             CONSOLE_LOGGER.info("finished setting gains")
 
-    def spool_belts(self):
+    def spool_belts(self) -> None:
         """
         Spool the belts of both actuators.
         This method is called to prepare the actuators for operation.
@@ -74,7 +75,7 @@ class DephyExoboots(RobotBase[DephyEB51Actuator, SensorBase]):
             actuator.spool_belt()
             CONSOLE_LOGGER.info(f"finished spooling belt of {actuator.side}")
 
-    def create_current_setpts_dict(self)->dict:
+    def create_current_setpts_dict(self) -> None:
         """
         create dictionary of current setpoints (in mA) corresponding to actuator side
         """
@@ -84,9 +85,33 @@ class DephyExoboots(RobotBase[DephyEB51Actuator, SensorBase]):
 
         # TODO: generate test to determine if current_setpoints dict has the same keys as the actuators dict
 
-        return self.current_setpoints
+    def update_current_setpoints(self, current_inputs: Union[int, Dict[str, int]], asymmetric:bool=False) -> None:
+        """
+        Directly assign currents to the 'current_setpoints' dictionary for current control.
 
-    def find_current_setpoints(self, torque_setpoint: float) -> dict:
+        If symmetric, the same current value is applied to both sides (with motor sign).
+        If asymmetric, the user must pass a dictionary specifying currents for each side.
+
+        Args:
+            - current: int or dict. If symmetric=False, this should be a dict with 'left' and 'right' keys.
+            - asymmetric: bool. If True, use side-specific currents from the dictionary.
+        """
+        # TODO: ensure that current_inputs matches the number of active sides
+            # TODO: if more than the number of active sides provided, trim to active one only
+            # TODO: handle missing sides
+
+        # TODO: clip current setpoints to below max limit
+
+        if asymmetric:
+            for side, current in current_inputs.items():    # assign different currents for each actuator
+                actuator = getattr(self, side)
+                self.current_setpoints[side] = int(current) * actuator.motor_sign
+        else:
+            for side in self.actuators.keys():              # assign the same current for both actuators
+                actuator = getattr(self, side)
+                self.current_setpoints[side] = int(current_inputs) * actuator.motor_sign
+
+    def convert_torque_to_current_setpoints(self, torque_setpoint: float) -> None:
         """
         Find the appropriate current setpoint for the actuators.
         This method is called to determine the current setpoint based on the torque setpoint.
@@ -98,14 +123,11 @@ class DephyExoboots(RobotBase[DephyEB51Actuator, SensorBase]):
             currents:   dict of currents for each active actuator.
                         key is the side of the actuator (left or right).
         """
-        currents = {}
         for actuator in self.actuators.values():
-            currents[actuator.side] = actuator.torque_to_current(torque_setpoint)
+            self.current_setpoints[actuator.side] = actuator.torque_to_current(torque_setpoint)
             CONSOLE_LOGGER.info(f"finished finding current setpoint for {actuator.side}")
 
-            return currents
-
-    def command_currents(self, current_setpoints:dict) -> None:
+    def command_currents(self) -> None:
         """
         Commands current setpoints to each actuator.
         The setpoints can be unique.
@@ -118,7 +140,7 @@ class DephyExoboots(RobotBase[DephyEB51Actuator, SensorBase]):
         # TODO: ensure current_setpoints values are integers, no greater than max current limit, and are not None
 
         for actuator in self.actuators.values():
-            current_setpoint = current_setpoints.get(actuator.side)
+            current_setpoint = self.current_setpoints.get(actuator.side)
 
             if current_setpoint is not None:
                 actuator.set_motor_current(current_setpoint)
@@ -126,7 +148,7 @@ class DephyExoboots(RobotBase[DephyEB51Actuator, SensorBase]):
             else:
                 CONSOLE_LOGGER.warning(f"Unknown side '{actuator.side}' and unable to command current. Skipping.")
 
-    def initialize_JIM_rt_plots(self)->list:
+    def initialize_JIM_rt_plots(self) -> list:
         """
         Initialize plots for JIM data streaming
         The following time series are plotted:
@@ -182,7 +204,7 @@ class DephyExoboots(RobotBase[DephyEB51Actuator, SensorBase]):
 
         return plot_config
 
-    def update_JIM_rt_plots(self, bertec_swing_flag, imu_activations)->list:
+    def update_JIM_rt_plots(self) -> list:
         """
         Updates the real-time plots with current values while JIM testing:
             - Current (A)
@@ -207,7 +229,23 @@ class DephyExoboots(RobotBase[DephyEB51Actuator, SensorBase]):
 
         return data_to_plt
 
-    def initialize_rt_plots(self)->list:
+    def track_variables_for_JIM_logging(self, logger: Logger) -> None:
+        """
+        Track variables for each active actuator for logging to a single file
+        FOR THE JIM CHARACTERIZATION PROTOCOL.
+        """
+
+        for actuator in self.actuators.values():
+            logger.track_variable(lambda: time.time(), f"pitime")
+            logger.track_variable(lambda: actuator.motor_current, f"{actuator._tag}_current_mA")
+            logger.track_variable(lambda: actuator.case_temperature, f"{actuator._tag}_case_temp_C")
+            logger.track_variable(lambda: actuator.ankle_angle, f"{actuator._tag}_ankle_ang_deg")
+            logger.track_variable(lambda: actuator._gear_ratio, f"{actuator._tag}_transmission_ratio")
+
+            tracked_vars = logger.get_tracked_variables()
+            print("Tracked variables:", tracked_vars)
+
+    def initialize_rt_plots(self) -> list:
         """
         Initialize real-time plots for the exoskeleton robot.
         Naming and plotting is flexible to each active actuator.
@@ -288,7 +326,7 @@ class DephyExoboots(RobotBase[DephyEB51Actuator, SensorBase]):
 
         return plot_config
 
-    def update_rt_plots(self, bertec_swing_flag, imu_activations)->list:
+    def update_rt_plots(self, bertec_swing_flag, imu_activations) -> list:
         """
         Updates the real-time plots with current values for:
         - Current (A)
