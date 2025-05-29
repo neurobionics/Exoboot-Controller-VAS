@@ -1,9 +1,14 @@
+import numpy as np
+import time 
+
 from opensourceleg.actuators.base import CONTROL_MODES
 from opensourceleg.actuators.dephy import DEFAULT_CURRENT_GAINS
 from opensourceleg.robots.base import RobotBase
 from opensourceleg.sensors.base import SensorBase
 from opensourceleg.utilities import SoftRealtimeLoop
 from src.utils import CONSOLE_LOGGER
+from opensourceleg.logging import Logger, LogLevel
+
 from src.utils.actuator_utils import create_actuators
 from src.settings.constants import (
     BAUD_RATE,
@@ -40,7 +45,7 @@ class DephyExoboots(RobotBase[DephyEB51Actuator, SensorBase]):
         """
         Update the exoskeleton.
         """
-        print(f"Updating exoskeleton robot: {self.tag}")
+        # print(f"Updating exoskeleton robot: {self.tag}")
         super().update()
         
     def setup_control_modes(self) -> None:
@@ -108,6 +113,138 @@ class DephyExoboots(RobotBase[DephyEB51Actuator, SensorBase]):
             else:
                 CONSOLE_LOGGER.warning(f"Unknown side '{actuator.side}' and unable to command current. Skipping.")       
     
+    def initialize_rt_plots(self)->list:
+        """
+        Initialize real-time plots for the exoskeleton robot.
+        Naming and plotting is flexible to each active actuator.
+    
+        The following time series are plotted:
+        - Current (A)
+        - Temperature (°C)
+        - Ankle Angle (°)
+        - Transmission Ratio
+        - Ankle Torque Setpoint (Nm)
+        
+        """
+        # converting actuator dictionary keys to a list
+        active_sides_list = list(self.actuators.keys())
+        
+        print("Active actuators:", active_sides_list)
+        
+        # pre-slice colors based on the number of active actuators
+        colors = ['r', 'b'][:len(active_sides_list)]
+        if len(active_sides_list) > len(colors):
+            raise ValueError("Not enough unique colors for the number of active actuators.")
+
+        # repeat line styles and widths for each active actuator
+        line_styles = ['-' for _ in active_sides_list]
+        line_widths = [2 for _ in active_sides_list]
+
+        current_plt_config = {'names' : active_sides_list,
+                        'colors' : colors,
+                        'line_style': line_styles,
+                        'title' : "Exo Current (A) vs. Sample",
+                        'ylabel': "Current (A)",
+                        'xlabel': "timestep",
+                        'line_width': line_widths,
+                        'yrange': [0,30]
+                        }
+
+        temp_plt_config = {'names' : active_sides_list,
+                        'colors' : colors,
+                        'line_style': line_styles,
+                        'title' : "Case Temperature (°C) vs. Sample",
+                        'ylabel': "Temperature (°C)",
+                        'xlabel': "timestep",
+                        'line_width': line_widths,
+                        'yrange': [20,60]
+                        }
+        
+        in_swing_plt_config = {'names' : active_sides_list,
+                        'colors' : colors,
+                        'line_style': line_styles,
+                        'title' : "Bertec in-swing vs. Sample",
+                        'ylabel': "Bool",
+                        'xlabel': "timestep",
+                        'line_width': line_widths,
+                        'yrange': [0,150]
+                        }
+        
+        TR_plt_config = {'names' : active_sides_list,
+                        'colors' : colors,
+                        'line_style': line_styles,
+                        'title' : "TR (°) vs. Sample",
+                        'ylabel': "N",
+                        'xlabel': "timestep",
+                        'line_width': line_widths,
+                        'yrange': [0,20]
+                        }
+        
+        imu_plt_config = {'names' : active_sides_list,
+                        'colors' : colors,
+                        'line_style': line_styles,
+                        'title' : "Activations vs. Sample",
+                        'ylabel': "Bool",
+                        'xlabel': "timestep",
+                        'line_width': line_widths,
+                        'yrange': [0,50]
+                        }
+
+        plot_config = [current_plt_config, temp_plt_config, in_swing_plt_config, TR_plt_config, imu_plt_config]
+        
+        return plot_config
+        
+    def update_rt_plots(self, bertec_swing_flag, imu_activations)->list:
+        """
+        Updates the real-time plots with current values for:
+        - Current (A)
+        - Temperature (°C)
+        - Bertec In swing
+        - Transmission Ratio
+        - IMU estimator activations
+       
+        The data is collected from the exoboots object and returned as a list of arrays.
+        This is done for each active actuator only.
+            
+        Returns:
+            plot_data_array: A list of data arrays (for active actuators) for each plot.
+        """
+        
+        data_to_plt = []
+
+        for actuator in self.actuators.values():
+            data_to_plt.extend([
+                abs(actuator.motor_current),  # Motor current
+                actuator.case_temperature,    # Case temperature
+                bertec_swing_flag,
+                actuator.gear_ratio,          # Gear ratio
+                imu_activations              
+            ])
+        
+        return data_to_plt
+            
+    def track_variables_for_logging(self, logger: Logger) -> None:
+        """
+        Track variables for each active actuator for logging to a single file
+        """
+
+        for actuator in self.actuators.values():
+            dummy_grpc_value = 5.0
+            dummy_ankle_torque_setpt = 20
+            logger.track_variable(lambda: time.time(), f"pitime")
+            logger.track_variable(lambda: dummy_grpc_value, "dollar_value")
+            logger.track_variable(lambda: dummy_ankle_torque_setpt, "torque_setpt_Nm")
+            
+            logger.track_variable(lambda: actuator.accelx, f"{actuator._tag}_accelx_mps2")
+            logger.track_variable(lambda: actuator.motor_current, f"{actuator._tag}_current_mA")
+            logger.track_variable(lambda: actuator.motor_position, f"{actuator._tag}_position_rad")
+            logger.track_variable(lambda: actuator.motor_encoder_counts, f"{actuator._tag}_encoder_counts")
+            logger.track_variable(lambda: actuator.case_temperature, f"{actuator._tag}_case_temp_C")
+            
+            tracked_vars = logger.get_tracked_variables()
+            print("Tracked variables:", tracked_vars)
+            
+            
     @property
     def left(self) -> DephyEB51Actuator:
         try:

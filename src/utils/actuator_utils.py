@@ -68,7 +68,6 @@ def create_actuators(gear_ratio:float, baud_rate:int, freq:int, debug_level:int)
             frequency=freq,
             debug_level=debug_level
         )
-        
         # log device ID of the actuator
         CONSOLE_LOGGER.info(f"Device ID: {actuator.dev_id}")
                 
@@ -79,7 +78,5 @@ def create_actuators(gear_ratio:float, baud_rate:int, freq:int, debug_level:int)
         CONSOLE_LOGGER.info(f"      MOTOR SIGN: {actuator.motor_sign}")
         CONSOLE_LOGGER.info(f"      ANKLE SIGN: {actuator.ank_enc_sign}")
         
-        
     CONSOLE_LOGGER.info(" ~~ FlexSEA connection initialized, streaming & exo actuators created ~~ ")
-        
     return actuators
