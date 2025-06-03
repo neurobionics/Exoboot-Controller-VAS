@@ -18,7 +18,7 @@ from src.exo.thermal import ThermalModel
 from src.exo.BaseExoThread import BaseThread
 from src.utils.SoftRTloop import FlexibleSleeper
 from utils.filter_utils import MovingAverageFilter, TrueAfter
-from AssistanceGenerator_new import AssistanceGenerator
+from exo.AssistanceGenerator_OLD import AssistanceGenerator
 from exo.variable_transmission_ratio import TransmissionRatioGenerator
 
 
@@ -32,7 +32,7 @@ class ExobootThread(BaseThread):
         self.side = side
         self.flexdevice = flexdevice # In ref to flexsea Device class
         self.threadfrequency = threadfrequency
-        
+
         # Motor and ankle signs
         """TEST TO ENSURE CORRECT DIRECTIONS BEFORE RUNNING IN FULL"""
         self.motor_sign = DEV_ID_TO_MOTOR_SIGN_DICT[self.flexdevice.id]
@@ -45,10 +45,10 @@ class ExobootThread(BaseThread):
 
         # Set Transmission Ratio and Motor-Angle Curve Coefficients	from pre-performed calibration
         self.tr_gen = TransmissionRatioGenerator(self.side, coefs_prefix=TR_COEFS_PREFIX, filepath=TR_FOLDER_PATH, max_allowable_angle=180, min_allowable_angle=0, min_allowable_TR=10, granularity=10000)
-        
+
         # Instantiate AssistanceGenerator (DOES NOT HAVE PROFILE ON INITIALIZATION)
         self.assistance_generator = AssistanceGenerator()
-        
+
         # Instantiate Thermal Model and specify thermal limits
         self.thermalModel = ThermalModel(temp_limit_windings=100,soft_border_C_windings=10,temp_limit_case=75,soft_border_C_case=5)
         self.case_temperature = 0
@@ -100,18 +100,18 @@ class ExobootThread(BaseThread):
     def spool_belt(self):
         self.flexdevice.command_motor_current(self.motor_sign * BIAS_CURRENT)
         # time.sleep(0.5)
-        
+
     def zeroProcedure(self):
         """
         Collects standing angle and is used to zero all future collected angles
-        
+
         Subject must stand sufficiently still (>95%) in order to register the angle as the zero
         """
         filename = os.path.join('Autogen_zeroing_coeff_files','offsets_Exo{}.csv'.format(self.side.capitalize()))
 
         # conduct zeroing/homing procedure and log offsets
         print("Starting ankle zeroing/homing procedure for: \n", self.side)
-        
+
         # ismoving thresholds
         motor_vel_threshold = 100
         ankle_vel_threshold = 1
@@ -175,7 +175,7 @@ class ExobootThread(BaseThread):
             data = all_data[-1] # Newest data
         except:
             return
-        
+
         # Exoboot Time
         self.data_dict['state_time'] = data['state_time'] / 1000 #converting to seconds
 
@@ -224,26 +224,26 @@ class ExobootThread(BaseThread):
         """
         Calculate equivalent current command given torque and TR
         Returns current (int) in mA
-        """ 
+        """
         des_current = torque / (N * EFFICIENCY * Kt)   # output in mA
-        
+
         return int(des_current)
-    
+
     def thermal_safety_checker(self):
         """Ensure that winding temperature is below 100°C (115°C is the hard limit).
         Ensure that case temperature is below 75°C (80°C is the hard limit).
         Uses Jianpings model to project forward the measured temperature from Dephy ActPack.
-        
+
         Returns:
         exo_safety_shutoff_flag (bool): flag that indicates if the exo has exceeded thermal limits.
         Used to toggle whether the device should be shut off.
         """
-            
+
         # measured temp by Dephy from the actpack is the case temperature
         measured_temp = self.getval('temperature')
         motor_current = self.getval('motor_current')
         freq = self.getval('thread_freq')
-            
+
         # determine modeled case & winding temp
         self.thermalModel.T_c = measured_temp
         self.thermalModel.update(dt=(1 / freq), motor_current=motor_current)
@@ -263,7 +263,7 @@ class ExobootThread(BaseThread):
         # using the updated case temperature and setting shut-off flag
         # self.case_temperature = measured_temp
         # exo_safety_shutoff_flag = self.get_modelled_temps(motor_current)
-    
+
     def set_state_estimate(self, HS, stride_period, peak_torque, in_swing):
         """
         Sets gait estimate to track stride
@@ -304,7 +304,7 @@ class ExobootThread(BaseThread):
 
         # Soft real time loop
         self.softRTloop = FlexibleSleeper(period=1/self.threadfrequency)
-        
+
     def on_pause(self):
         """
         Runs once before pausing threads
@@ -339,10 +339,10 @@ class ExobootThread(BaseThread):
         # Convert torque to current
         current_command = self.torque_2_current(torque_command, self.getval('N'))
         self.data_dict['current_command'] = current_command
-        
+
         # Clamp current between bias and max allowable current
         vetted_current = max(min(current_command, self.max_current), self.min_current)
-        
+
         # print("ITERATE: ", self.peak_torque, torque_command, current_command, vetted_current)
 
         # Shut off exo if thermal limits breached

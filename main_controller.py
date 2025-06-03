@@ -30,8 +30,8 @@ from src.settings.constants import(
     VICON_IP
 )
 
-from GSE_Bertec import Bertec_Estimator
-from GSE_IMU import IMU_Estimator
+from gse_bertec import Bertec_Estimator
+from gse_imu import IMU_Estimator
 from src.exo.gait_state_estimator.forceplate.ZMQ_PubSub import Subscriber
 
 if __name__ == '__main__':
