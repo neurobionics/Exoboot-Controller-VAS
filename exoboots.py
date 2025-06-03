@@ -1,18 +1,23 @@
 import time
 
 from opensourceleg.actuators.base import CONTROL_MODES
-from opensourceleg.actuators.dephy import DEFAULT_CURRENT_GAINS
 from opensourceleg.robots.base import RobotBase
 from opensourceleg.sensors.base import SensorBase
 from opensourceleg.utilities import SoftRealtimeLoop
-from src.utils import CONSOLE_LOGGER
-from opensourceleg.logging import Logger
+
+# TODO: fix these next 3 imports:
+from src.utils.filing_utils import get_logging_info
+from opensourceleg.logging import Logger, LogLevel
+CONSOLE_LOGGER = Logger(enable_csv_logging=False,
+                        log_path=get_logging_info(user_input_flag=False)[0],
+                        stream_level = LogLevel.INFO,
+                        log_format = "%(levelname)s: %(message)s"
+                        )
 
 from src.utils.actuator_utils import create_actuators
 from src.settings.constants import (
-    BAUD_RATE,
-    LOG_LEVEL,
-    FLEXSEA_FREQ,
+    EXO_SETUP_CONST,
+    DEFAULT_PID_GAINS
 )
 from dephyEB51 import DephyEB51Actuator
 
@@ -56,10 +61,10 @@ class DephyExoboots(RobotBase[DephyEB51Actuator, SensorBase]):
             CONSOLE_LOGGER.info("finished setting control mode")
 
             actuator.set_current_gains(
-                kp=DEFAULT_CURRENT_GAINS.kp,
-                ki=DEFAULT_CURRENT_GAINS.ki,
-                kd=DEFAULT_CURRENT_GAINS.kd,
-                ff=DEFAULT_CURRENT_GAINS.ff,
+                kp=DEFAULT_PID_GAINS.KP,
+                ki=DEFAULT_PID_GAINS.KI,
+                kd=DEFAULT_PID_GAINS.KD,
+                ff=DEFAULT_PID_GAINS.FF,
             )
             CONSOLE_LOGGER.info("finished setting gains")
 
@@ -263,7 +268,7 @@ class DephyExoboots(RobotBase[DephyEB51Actuator, SensorBase]):
 if __name__ == "__main__":
 
     # define dictionary of actuators & sensors
-    actuators = create_actuators(1, BAUD_RATE, FLEXSEA_FREQ, LOG_LEVEL)
+    actuators = create_actuators(1, EXO_SETUP_CONST.BAUD_RATE, EXO_SETUP_CONST.FLEXSEA_FREQ, EXO_SETUP_CONST.LOG_LEVEL)
     sensors = {}
 
     # instantiate an exoskeleton robot
@@ -274,7 +279,7 @@ if __name__ == "__main__":
     )
 
     # create a soft real-time loop clock
-    clock = SoftRealtimeLoop(dt = 1 / FLEXSEA_FREQ/2)
+    clock = SoftRealtimeLoop(dt = 1 / EXO_SETUP_CONST.FLEXSEA_FREQ/2)
 
     # use exoskeleton robot class as the context manager
     with exoboots:

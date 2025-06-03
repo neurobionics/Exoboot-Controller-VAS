@@ -20,14 +20,14 @@ from opensourceleg.logging import Logger, LogLevel
 
 from settings.constants import(
     INCLINE_WALK_TIMINGS,
-    HOLDING_TORQUE)
+    EXO_DEFAULT_CONFIG)
 
 class AssistanceCalculator:
     def __init__(self,
                  t_rise:float=INCLINE_WALK_TIMINGS.P_RISE,
                  t_peak:float=INCLINE_WALK_TIMINGS.P_PEAK,
                  t_fall:float=INCLINE_WALK_TIMINGS.P_FALL,
-                 holding_torque:float=HOLDING_TORQUE,
+                 holding_torque:float=EXO_DEFAULT_CONFIG.HOLDING_TORQUE,
                  resolution:int=10000)->None:
 
         if resolution <= 0:
@@ -250,7 +250,6 @@ if __name__ == "__main__":
     freq = 100  # Hz
     clock = SoftRealtimeLoop(dt=1/freq)
 
-    # create a set of peak torques to test
     peak_torque = input("peak torque to test (Nm): ")
 
     # initialize variables before logger tracks them

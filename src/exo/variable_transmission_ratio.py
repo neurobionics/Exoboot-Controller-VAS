@@ -5,21 +5,28 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 from src.settings.constants import TR_COEFS_PREFIX, TR_FOLDER_PATH, TR_DATE_FORMATTER
-from src.utils import CONSOLE_LOGGER
+# TODO: fix these next 3 imports:
+from src.utils.filing_utils import get_logging_info
+from opensourceleg.logging import Logger, LogLevel
+CONSOLE_LOGGER = Logger(enable_csv_logging=False,
+                        log_path=get_logging_info(user_input_flag=False)[0],
+                        stream_level = LogLevel.INFO,
+                        log_format = "%(levelname)s: %(message)s"
+                        )
 
 class VariableTransmissionRatio:
     def __init__(
-        self, 
-        side:str, 
-        tr_coefs_file_specific:str=None, 
-        coefs_prefix:str=TR_COEFS_PREFIX, 
-        filepath:str=TR_FOLDER_PATH, 
-        max_allowable_angle:int=180, 
-        min_allowable_angle:int=0, 
-        min_allowable_TR:int=10, 
+        self,
+        side:str,
+        tr_coefs_file_specific:str=None,
+        coefs_prefix:str=TR_COEFS_PREFIX,
+        filepath:str=TR_FOLDER_PATH,
+        max_allowable_angle:int=180,
+        min_allowable_angle:int=0,
+        min_allowable_TR:int=10,
         granularity:int=10000
     )-> None:
-        
+
         # Source file settings
         self.side = side
         self.tr_coefs_file_specific = tr_coefs_file_specific
@@ -38,7 +45,7 @@ class VariableTransmissionRatio:
 
         # Get coefs from file
         self.TR_coefs, self.motor_curve_coefs, self.offset = self.load_coefs()
-        
+
         # Set TR profile
         self.TR_dict = self.set_TR_dict()
 
@@ -75,20 +82,20 @@ class VariableTransmissionRatio:
         """
         # Open and read the CSV file
         coefs_filepath = os.path.join(self.filepath, self.coefs_filename)
-        
+
         with open(coefs_filepath, mode='r') as file:
             csv_reader = csv.reader(file)
             coefs_ankle_vs_motor = next(csv_reader)  # Read the first row, which is the motor_angle_curve_coeffs
             coefs_TR = next(csv_reader)      # Read the second row, which is the TR_coeffs
             max_dorsiflexed_ang = next(csv_reader)
-            
+
             # convert to array of real numbers to allow for polyval evaluation
             TR_curve_coeffs = [float(x) for x in coefs_TR]
             motor_angle_curve_coeffs = [float(y) for y in coefs_ankle_vs_motor]
             max_dorsi_offset = float(max_dorsiflexed_ang[0])
 
         return TR_curve_coeffs, motor_angle_curve_coeffs, max_dorsi_offset
-    
+
     def get_offset(self):
         return self.offset
 
@@ -97,7 +104,7 @@ class VariableTransmissionRatio:
         Linearly transforms index in [0, granularity] to angle in [min_ang, max_ang]
         """
         return i / self.granularity * (self.max_allowable_angle - self.min_allowable_angle) + self.min_allowable_angle
-    
+
     def angle_to_index(self, ang):
         """
         Linearly transforms angle in [min_ang, max_ang] to index in [0, granularity]

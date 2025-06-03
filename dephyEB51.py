@@ -3,18 +3,27 @@ import numpy as np
 
 from opensourceleg.actuators.dephy import DephyLegacyActuator
 from opensourceleg.actuators.base import MOTOR_CONSTANTS
-from src.utils import CONSOLE_LOGGER
+
+# TODO: fix these next 3 imports:
+from src.utils.filing_utils import get_logging_info
+from opensourceleg.logging import Logger, LogLevel
+CONSOLE_LOGGER = Logger(enable_csv_logging=False,
+                        log_path=get_logging_info(user_input_flag=False)[0],
+                        stream_level = LogLevel.INFO,
+                        log_format = "%(levelname)s: %(message)s"
+                        )
+
 from opensourceleg.logging import LOGGER
 
 from src.settings.constants import (
-    MAX_CASE_TEMP,
-    MAX_WINDING_TEMP,
     DEV_ID_TO_MOTOR_SIGN_DICT,
     DEV_ID_TO_ANK_ENC_SIGN_DICT,
     DEV_ID_TO_SIDE_DICT,
-    BIAS_CURRENT,
-    MAX_ALLOWABLE_CURRENT,
+    EXO_THERMAL_SAFETY_LIMITS,
+    EXO_DEFAULT_CONFIG,
+    EXO_CURRENT_SAFETY_LIMITS,
     EB51_CONSTANTS,
+    EXO_SETUP_CONST,
     TEMPANTISPIKE
 )
 from src.exo.variable_transmission_ratio import VariableTransmissionRatio
@@ -47,10 +56,10 @@ class DephyEB51Actuator(DephyLegacyActuator):
     def __init__(
         self,
         tag: str = "EB51Actuator",
-        port: str = "/dev/ttyACM0",
-        baud_rate: int = 230400,
-        frequency: int = 500,
-        debug_level: int = 4,
+        port: str =  "/dev/ttyACM0",
+        baud_rate: int = EXO_SETUP_CONST.BAUD_RATE,
+        frequency: int = EXO_SETUP_CONST.FLEXSEA_FREQ,
+        debug_level: int = EXO_SETUP_CONST.LOG_LEVEL,
         dephy_log: bool = False,
         offline: bool = False,
         gear_ratio: float = 1.0,
@@ -58,24 +67,28 @@ class DephyEB51Actuator(DephyLegacyActuator):
 
         CONSOLE_LOGGER.info("Initializing DephyEB51 actuator...")
 
-        super().__init__(
-            tag,
-            port,
-            gear_ratio,
-            baud_rate,
-            frequency,
-            debug_level,
-            dephy_log,
-            offline,
-        )
+        try:
+            super().__init__(
+                tag,
+                port,
+                gear_ratio,
+                baud_rate,
+                frequency,
+                debug_level,
+                dephy_log,
+                offline,
+            )
+        except Exception as e:
+            CONSOLE_LOGGER.error(f"Failed to initialize DephyEB51Actuator on port {port} with baud_rate {baud_rate},frequency {frequency}, error: {e}")
+            raise
 
         eb51_motor_constants = MOTOR_CONSTANTS(
-            MOTOR_COUNT_PER_REV=2**14,
-            NM_PER_AMP=0.146,                           # EB51 specific torque constant
-            NM_PER_RAD_TO_K=((2 * np.pi / 16384) / 0.0007812 * 1e3 / 0.146),
-            NM_S_PER_RAD_TO_B=((np.pi / 180) / 0.00028444 * 1e3 / 0.146),
-            MAX_CASE_TEMPERATURE=MAX_CASE_TEMP,         # Custom max case temperature
-            MAX_WINDING_TEMPERATURE=MAX_WINDING_TEMP,   # Custom max winding temperature
+            MOTOR_COUNT_PER_REV=EB51_CONSTANTS.MOT_ENC_CLICKS_TO_REV,               # EB51 specific motor encoder clicks to rev
+            NM_PER_AMP=EB51_CONSTANTS.Kt,                                           # EB51 specific torque constant
+            NM_PER_RAD_TO_K=((2 * np.pi / 16384) / 0.0007812 * 1e3 / 0.146),        # default
+            NM_S_PER_RAD_TO_B=((np.pi / 180) / 0.00028444 * 1e3 / 0.146),           # default
+            MAX_CASE_TEMPERATURE=EXO_THERMAL_SAFETY_LIMITS.MAX_CASE_TEMP,           # Custom max case temperature
+            MAX_WINDING_TEMPERATURE=EXO_THERMAL_SAFETY_LIMITS.MAX_WINDING_TEMP,     # Custom max winding temperature
         )
 
         # overwrite the motor constants to the custom EB51 motor constants
@@ -89,8 +102,8 @@ class DephyEB51Actuator(DephyLegacyActuator):
         self.ank_enc_sign = DEV_ID_TO_ANK_ENC_SIGN_DICT[self.dev_id]
 
         # set current bounds
-        self.min_current = BIAS_CURRENT
-        self.max_current = MAX_ALLOWABLE_CURRENT
+        self.min_current = EXO_DEFAULT_CONFIG.BIAS_CURRENT
+        self.max_current = EXO_CURRENT_SAFETY_LIMITS.MAX_ALLOWABLE_CURRENT
 
         # create a buffer for the case temperature
         self.case_temp_buffer = []
@@ -159,7 +172,7 @@ class DephyEB51Actuator(DephyLegacyActuator):
         )
 
         input()
-        self.set_motor_current(value=self.motor_sign * BIAS_CURRENT)  # in mA
+        self.set_motor_current(value=self.motor_sign * EXO_DEFAULT_CONFIG.BIAS_CURRENT)  # in mA
 
         time.sleep(0.3)
 
@@ -200,6 +213,7 @@ class DephyEB51Actuator(DephyLegacyActuator):
             des_current: int, the desired current setpoint in mA.
 
         """
+
         des_current = torque / (self.gear_ratio * EB51_CONSTANTS.EFFICIENCY * self._MOTOR_CONSTANTS.NM_PER_AMP)
 
         # convert to mA and account for motor sign
