@@ -23,7 +23,6 @@ from src.settings.constants import (
     EXO_DEFAULT_CONFIG,
     EXO_CURRENT_SAFETY_LIMITS,
     EB51_CONSTANTS,
-    EXO_SETUP_CONST,
     TEMPANTISPIKE
 )
 from src.exo.variable_transmission_ratio import VariableTransmissionRatio
@@ -57,9 +56,9 @@ class DephyEB51Actuator(DephyLegacyActuator):
         self,
         tag: str = "EB51Actuator",
         port: str =  "/dev/ttyACM0",
-        baud_rate: int = EXO_SETUP_CONST.BAUD_RATE,
-        frequency: int = EXO_SETUP_CONST.FLEXSEA_FREQ,
-        debug_level: int = EXO_SETUP_CONST.LOG_LEVEL,
+        baud_rate: int = 230400,
+        frequency: int = 500,
+        debug_level: int = 4,
         dephy_log: bool = False,
         offline: bool = False,
         gear_ratio: float = 1.0,
