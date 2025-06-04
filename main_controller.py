@@ -66,7 +66,6 @@ if __name__ == '__main__':
     except ValueError as e:
         print(f"Invalid input for peak torque: {e}")
         sys.exit(1)
-
     stride_time = 1.2
     time_in_stride = 0.0
     in_swing_flag = False
@@ -93,13 +92,13 @@ if __name__ == '__main__':
     logger.track_variable(lambda: in_swing_flag, "in_swing_flag_bool")
 
     # TODO: add in GSE's
-    # sub_bertec_left = Subscriber(publisher_ip=IP_ADDRESSES.VICON_IP,topic_filter='fz_left',timeout_ms=5)
-    # bertec_estimator = Bertec_Estimator(zmq_subscriber=sub_bertec_left)
-    # imu_estimator = IMU_Estimator()
+    sub_bertec_left = Subscriber(publisher_ip=IP_ADDRESSES.VICON_IP,topic_filter='fz_left',timeout_ms=5)
+    bertec_estimator = Bertec_Estimator(zmq_subscriber=sub_bertec_left)
+    imu_estimator = IMU_Estimator()
 
-    # logger.track_variable(lambda: int(not bertec_estimator.in_contact), "in_swing")
-    # logger.track_variable(lambda: int(imu_estimator.activation_state), "activation_state")
-    # logger.track_variable(lambda: bertec_estimator.force_prev, "forceplate")
+    logger.track_variable(lambda: int(not bertec_estimator.in_contact), "in_swing")
+    logger.track_variable(lambda: int(imu_estimator.activation_state), "activation_state")
+    logger.track_variable(lambda: bertec_estimator.force_prev, "forceplate")
 
     # set-up real-time plots:
     client.configure_ip(IP_ADDRESSES.RTPLOT_IP)
@@ -137,23 +136,25 @@ if __name__ == '__main__':
                 torque_command = assistance_calculator.torque_generator(
                 time_in_stride, stride_time, float(peak_torque), in_swing_flag)
 
-                # TODO: determine appropriate current setpoint that matches the torque setpoint (updates transmission ratio internally)
+                # determine appropriate current setpoint that matches the torque setpoint (updates transmission ratio internally)
                 currents = exoboots.find_current_setpoints(torque_command)
 
-                # TODO: command appropriate current setpoint (internally ensures that current in mA is a integer)
+                # command appropriate current setpoint (internally ensures that current in mA is a integer)
                 exoboots.command_currents(currents)
+
+                # update logger
+                logger.update()
 
                 # TODO: receive any NEW grpc values/inputs for next iteration
 
                 # TODO: update GSE's
-                # imu_estimator.update(exoboots.right.accelx)
-                # bertec_estimator.update()
+                imu_estimator.update(exoboots.right.accelx)
+                bertec_estimator.update()
 
                 # TODO: Add control logic here
 
                 # update real-time plots & send data to server
-                # data_to_plt = exoboots.update_rt_plots(not bertec_estimator.in_contact, imu_estimator.activation_state)
-                data_to_plt = exoboots.update_rt_plots(0, 1)
+                data_to_plt = exoboots.update_rt_plots(not bertec_estimator.in_contact, imu_estimator.activation_state)
                 client.send_array(data_to_plt)
 
             except KeyboardInterrupt:
@@ -164,6 +165,7 @@ if __name__ == '__main__':
 
             except Exception as err:
                 print("Unexpected error in executing main controller:", err)
+                logger.flush_buffer()
                 logger.close()
                 break
 
