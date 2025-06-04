@@ -144,7 +144,7 @@ class DephyExoboots(RobotBase[DephyEB51Actuator, SensorBase]):
         """
         for actuator in self.actuators.values():
             self.current_setpoints[actuator.side] = actuator.torque_to_current(torque_setpoint)
-            CONSOLE_LOGGER.info(f"finished finding current setpoint for {actuator.side}")
+            # CONSOLE_LOGGER.info(f"finished finding current setpoint for {actuator.side}")
 
     def command_currents(self) -> None:
         """
@@ -163,7 +163,7 @@ class DephyExoboots(RobotBase[DephyEB51Actuator, SensorBase]):
 
             if current_setpoint is not None:
                 actuator.set_motor_current(current_setpoint)
-                CONSOLE_LOGGER.info(f"Finished setting current setpoint for {actuator.side}")
+                # CONSOLE_LOGGER.info(f"Finished setting current setpoint for {actuator.side}")
             else:
                 CONSOLE_LOGGER.warning(f"Unknown side '{actuator.side}' and unable to command current. Skipping.")
 

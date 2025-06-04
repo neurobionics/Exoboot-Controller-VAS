@@ -49,7 +49,7 @@ if __name__ == "__main__":
 
     file_prefix = "{}mA".format(args.current_setpt_mA)
     file_suffix = "{}dps".format(args.dps)
-    fname = "{}_{}_{}_{}".format(exoboots.detect_active_actuators(), file_prefix, args.rom, file_suffix)
+    fname = "{}_{}_{}rom_{}".format(exoboots.detect_active_actuators(), file_prefix, args.rom, file_suffix)
     folder_name = "JIM_testing_{}".format(date)
     filingcabinet = FilingCabinet(folder_name, fname)
 
@@ -70,7 +70,7 @@ if __name__ == "__main__":
     client.initialize_plots(plot_config)
 
     # set-up the soft real-time loop:
-    clock = SoftRealtimeLoop(dt = 1/250)
+    clock = SoftRealtimeLoop(dt = 1/850)
 
     # track vars: time, N, motor current, ankle angle, temperature
     JIM_data_plotter.track_variables_for_JIM_logging(logger)
@@ -88,8 +88,6 @@ if __name__ == "__main__":
             try:
                 # update robot sensor states
                 exoboots.update()
-                logger.update()
-                logger.flush_buffer()
 
                 if (t <= ramp_period):
                     # ramp to torque linearly
@@ -98,6 +96,7 @@ if __name__ == "__main__":
                     exoboots.command_currents()
 
                 elif (t > ramp_period) and (t <= float(args.time)):
+                    print("RAMP COMPLETED. Current setpoint is now {} mA".format(args.current_setpt_mA))
                     # Command the exo to peak set point current & hold for specified duration
                     exoboots.update_current_setpoints(current_inputs=int(args.current_setpt_mA), asymmetric=False)
                     exoboots.command_currents()
@@ -110,6 +109,8 @@ if __name__ == "__main__":
                     exoboots.set_to_transparent_mode()
                     break
 
+                logger.update()
+                logger.flush_buffer()
 
             except KeyboardInterrupt:
                 print("Keyboard interrupt detected. Exiting...")
