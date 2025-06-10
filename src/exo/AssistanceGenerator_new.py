@@ -129,3 +129,36 @@ class AssistanceGenerator:
             torque_command = self.scale_torque(generic_command, self.holding_torque, peak_torque)
 
         return torque_command
+
+
+
+if __name__ == "__main__":
+    import numpy as np
+    import time
+
+    def scale_torque(torque, min_new, max_new, gen_min, gen_max):
+        """
+        Linearly scales torque from [generic_min, generic_max] to [min_new, max_new]
+        """
+        return (max_new - min_new) / (gen_max - gen_min) * (torque - gen_min) + min_new
+
+    torque = 0.8
+    min_new = 2
+    max_new = 40 * np.random.random_sample()
+    gen_min = 0.123
+    gen_max = 0.999
+
+    starttime = time.perf_counter()
+    expl = scale_torque(torque, min_new, max_new, gen_min, gen_max)
+    endtime = time.perf_counter()
+
+    print(torque, min_new, max_new)
+    print("expl: {}, {}", expl, endtime-starttime)
+
+    starttime = time.perf_counter()
+    input_torque_range = [gen_min, gen_max]
+    output_torque_range = [min_new, max_new]
+    npval = np.interp(torque, input_torque_range, output_torque_range)
+    endtime = time.perf_counter()
+
+    print("np: {}, {}", npval, endtime-starttime)
