@@ -1,6 +1,11 @@
 from queue import Queue, Empty
 from threading import Thread, current_thread
 
+
+def Mail(sender, contents):
+    return {"sender": sender, "contents": contents}
+        
+
 class MailBox:
     def __init__(self, address):
         self.address = address
@@ -28,12 +33,11 @@ class PostOffice:
     def _setup_addressbook(self, *threads):
         for thread in threads:
             mailbox = MailBox(thread.name)
-
             thread.mailbox = mailbox
-
             self.addressbook[thread.name] = mailbox
 
-    def send(self, recipient, mail):
+    def send(self, sender, recipient, contents):
+        mail = Mail(sender, contents)
         self.addressbook[recipient].receive(mail)
 
 
@@ -49,7 +53,7 @@ if __name__ == "__main__":
             for _ in range(randint(2, 5)):
                 try:
                     random_recipient = "thread" + str(randint(1, 3))
-                    postoffice.send(random_recipient, f"Hi from {which}")
+                    postoffice.send(which.name, random_recipient, f"Hi from {which}")
                 except:
                     pass
 
@@ -72,9 +76,11 @@ if __name__ == "__main__":
     thread3.start()
 
     while True:
-        print("Mail Summary")
-        for thread in [thread1, thread2, thread3]:
-            print(thread.name, thread.mailcount)
-            thread.mailcount = 0
-        print()
-        sleep(2.0)
+        try:
+            print("\nMail Summary")
+            for thread in [thread1, thread2, thread3]:
+                print(thread.name, thread.mailcount)
+                thread.mailcount = 0
+            sleep(2.0)
+        except KeyboardInterrupt:
+            break
