@@ -22,7 +22,7 @@ from opensourceleg.utilities import SoftRealtimeLoop
 from exoboots import DephyExoboots
 from src.utils.actuator_utils import create_actuators
 from src.utils.filing_utils import get_logging_info
-from src.utils.gse_utils import WalkingSimulator
+from utils.walking_simulator import WalkingSimulator
 from src.settings.constants import(
     BAUD_RATE,
     FLEXSEA_FREQ,
@@ -31,6 +31,7 @@ from src.settings.constants import(
     VICON_IP
 )
 
+# all the threads I want: main+logging, left actuator, right actuator, gse, gui communication
 from GSE_Bertec import Bertec_Estimator
 from GSE_IMU import IMU_Estimator
 from src.exo.gait_state_estimator.forceplate.ZMQ_PubSub import Subscriber
