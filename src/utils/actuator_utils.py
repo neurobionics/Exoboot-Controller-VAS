@@ -32,7 +32,7 @@ def get_active_ports()->list:
             pass
 
     return serial_ports
-        
+
 def create_actuators(gear_ratio:float, baud_rate:int, freq:int, debug_level:int)-> dict:
     """
     Detects active ports and determines corresponding side.
@@ -49,7 +49,7 @@ def create_actuators(gear_ratio:float, baud_rate:int, freq:int, debug_level:int)
     Raises:
         NoActuatorsFoundError: If no actuators are detected.
     """
-    
+
     # get active ports ONLY
     active_ports = get_active_ports()
     CONSOLE_LOGGER.info(f"Active ports: {active_ports}")
@@ -70,7 +70,7 @@ def create_actuators(gear_ratio:float, baud_rate:int, freq:int, debug_level:int)
         )
         # log device ID of the actuator
         CONSOLE_LOGGER.info(f"Device ID: {actuator.dev_id}")
-                
+
         # assign the actuator in a dict according to side
         actuator.tag = actuator.side
         actuators[actuator.side] = actuator
