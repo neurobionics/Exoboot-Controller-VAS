@@ -1,4 +1,8 @@
-import os, sys, csv, time, datetime, threading
+import sys
+import csv
+import time
+import datetime
+import threading
 
 import numpy as np
 from time import sleep

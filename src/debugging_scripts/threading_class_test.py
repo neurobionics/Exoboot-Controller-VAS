@@ -1,7 +1,6 @@
 import threading
 import time
 import numpy as np
-from collections import deque
 
 class FlexibleSleeper():
     def __init__(self, clockperiod, history_size=50):

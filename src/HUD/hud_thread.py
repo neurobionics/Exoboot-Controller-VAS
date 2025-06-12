@@ -1,10 +1,18 @@
-import os, sys, json, time, inspect, random, threading
+import os
+import sys
+import json
+import time
+import inspect
+import random
+import threading
 from typing import Type
-import curses, curses.panel
+import curses
+import curses.panel
 
 sys.path.insert(0, os.path.dirname(__file__))
 
-import widget_base, button_funcs
+import widget_base
+import button_funcs
 from widget_base import HUD
 
 class HUDWrapper:
