@@ -14,9 +14,6 @@ using python 3.9.
 Date: 04/29/2025
 Author(s): Nundini Rawal
 """
-
-import sys
-
 from rtplot import client
 
 from opensourceleg.logging import Logger, LogLevel

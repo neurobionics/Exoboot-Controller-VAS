@@ -11,7 +11,7 @@ class FilingCabinet:
     Class to create subject_data folder and subject subfolders
 
     Keeps track of subject in subject_data
-    
+
     Resolves conflicting file names
 
     Return paths using filepaths_dict lookup
@@ -23,7 +23,7 @@ class FilingCabinet:
         if not os.path.isdir(pfolder):
             os.mkdir(pfolder)
         self.pfolderpath = os.path.join(self.pfolderpath, pfolder)
-        
+
         if not os.path.isdir(os.path.join(self.pfolderpath, self.subject)):
             os.mkdir(os.path.join(self.pfolderpath, self.subject))
         self.pfolderpath = os.path.join(self.pfolderpath, self.subject)
@@ -50,14 +50,14 @@ class FilingCabinet:
         Returns path from filepaths_dict
         """
         return self.filepaths_dict[name]
-    
+
     def load(self, filepath, dictkey):
         """
         Adds existing filepath into filepaths_dict
         MUST ALREADY EXIST
         """
         self.filepaths_dict[dictkey] = filepath
-    
+
     def newfile(self, name, type, behavior=None, dictkey=None):
         """
         Create path for new file in subject_data_path folder
@@ -73,22 +73,21 @@ class FilingCabinet:
         if not behavior:
             behavior = self.defaultbehavior
 
-        match behavior:
-            case "new":
-                # Create new file
-                filename = "{}.{}".format(name, type)
+        if behavior == "new":
+            # Create new file
+            filename = "{}.{}".format(name, type)
 
-                isunique = False
-                while not isunique:
-                    if os.path.isfile(os.path.join(self.getpfolderpath(), filename)):
-                        filename = "{}_new.{}".format(filename.split(sep=".")[0], type)
-                    else:
-                        isunique = True
-            case "add":
-                # Use existing file
-                filename = "{}.{}".format(name, type)
-            case _:
-                Exception("FilingCabinet: not a valid behavior")
+            isunique = False
+            while not isunique:
+                if os.path.isfile(os.path.join(self.getpfolderpath(), filename)):
+                    filename = "{}_new.{}".format(filename.split(sep=".")[0], type)
+                else:
+                    isunique = True
+        if behavior == "add":
+            # Use existing file
+            filename = "{}.{}".format(name, type)
+        else:
+            Exception("FilingCabinet: not a valid behavior")
 
         fullpath = os.path.join(self.pfolderpath, filename)
 
@@ -125,13 +124,12 @@ class FilingCabinet:
             subbackupfiles = [f for f in backupfiles if dictkey in f]
 
             if subbackupfiles:
-                match rule:
-                    case "newest":
-                        subbackup = max(subbackupfiles, key=os.path.getctime)
-                    case "oldest":
-                        subbackup = max(subbackupfiles, key=os.path.getctime)
-                    case _:
-                        print("No rule implemented for case {}".format(rule))
+                if rule == "newest":
+                    subbackup = max(subbackupfiles, key=os.path.getctime)
+                elif rule == "oldest":
+                    subbackup = max(subbackupfiles, key=os.path.getctime)
+                else:
+                    print("No rule implemented for case {}".format(rule))
 
                 for snippet in subbackup.split(os.sep):
                     if snippet.endswith(self.validfiletypes):
@@ -152,7 +150,7 @@ class LoggingNexus:
         self.thread_fields = {}
         self.thread_stashes = {}
         self.filenames = {}
-        
+
         self.filingcabinet = filingcabinet
 
         self.setup(threads)
@@ -188,7 +186,7 @@ class LoggingNexus:
         """
         data = copy.deepcopy(data_dict)
         self.thread_stashes[threadname].append(data)
-        
+
         # # send client
         # if 'exothread_' in threadname:
         #     if 'left' in threadname:
@@ -197,16 +195,16 @@ class LoggingNexus:
         #         self.rtplot_data_dict['motor_current_left'] = data['motor_current']
         #         self.rtplot_data_dict['batt_volt_left'] = data['battery_voltage']
         #         self.rtplot_data_dict['case_temp_left'] = data['temperature']
-                
+
         #         plot_data_array = [self.rtplot_data_dict.values()]
         #     else:
         #         self.rtplot_data_dict['pitime_right'] = data['pitime']
         #         self.rtplot_data_dict['motor_current_right'] = data['motor_current']
         #         self.rtplot_data_dict['batt_volt_right'] = data['battery_voltage']
         #         self.rtplot_data_dict['case_temp_right'] = data['temperature']
-                
+
         #         plot_data_array = [self.rtplot_data_dict.values()]
-            
+
         #     client.send_array(plot_data_array)
 
     def get(self, threadname, field):
