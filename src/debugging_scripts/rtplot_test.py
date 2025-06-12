@@ -3,8 +3,6 @@ from rtplot import client
 
 # Common imports
 import numpy as np
-import csv
-import array
 
 ################################################
 #### Testing Transmission ratio functionality: 

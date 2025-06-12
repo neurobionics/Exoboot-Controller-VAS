@@ -1,4 +1,6 @@
-import sys, glob, serial
+import sys
+import glob
+import serial
 from dephyEB51 import DephyEB51Actuator
 from src.utils import CONSOLE_LOGGER
 
@@ -38,7 +40,7 @@ def create_actuators(gear_ratio:float, baud_rate:int, freq:int, debug_level:int)
     Detects active ports and determines corresponding side.
     Creates dictionary of active actuators to be used in the exoskeleton robot class.
     Devices open and start streaming upon instantiation.
-    
+
     Args:
         gear_ratio (float): Gear ratio of the actuator.
         baud_rate (int): Baud rate for serial communication.
@@ -53,12 +55,13 @@ def create_actuators(gear_ratio:float, baud_rate:int, freq:int, debug_level:int)
     # get active ports ONLY
     active_ports = get_active_ports()
     CONSOLE_LOGGER.info(f"Active ports: {active_ports}")
-    
+
+
     # Exit gracefully if no actuators found
     if not active_ports:
         CONSOLE_LOGGER.error("No actuators detected! Exiting program.")
-        raise NoActuatorsFoundError("No actuators detected!") 
-    
+        raise NoActuatorsFoundError("No actuators detected!")
+
     # create an actuator instance for each active port (which also opens the port)
     actuators = {}
     for port in active_ports:
@@ -77,6 +80,9 @@ def create_actuators(gear_ratio:float, baud_rate:int, freq:int, debug_level:int)
         CONSOLE_LOGGER.info(f"Actuator created for: {port, actuator.side}")
         CONSOLE_LOGGER.info(f"      MOTOR SIGN: {actuator.motor_sign}")
         CONSOLE_LOGGER.info(f"      ANKLE SIGN: {actuator.ank_enc_sign}")
-        
+
+        CONSOLE_LOGGER.info(" ~~ FlexSEA connection initialized, streaming & exo actuators created ~~ ")
+
+
     CONSOLE_LOGGER.info(" ~~ FlexSEA connection initialized, streaming & exo actuators created ~~ ")
     return actuators

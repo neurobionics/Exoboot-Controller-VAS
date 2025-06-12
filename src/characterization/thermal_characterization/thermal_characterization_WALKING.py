@@ -5,13 +5,9 @@
 # Author: Nundini Rawal
 # Date: 08/4/2024
 
-import datetime as dt
 import sys
-import csv
-import os, math, sched
-from time import sleep, time, strftime, perf_counter
-import numpy as np
-from rtplot import client 
+import os
+from time import sleep, time
 import threading
 import bertec_communication_thread
 
@@ -25,7 +21,6 @@ from flexsea import fxEnums as fxe
 
 # from ExoClass import ExoObject
 from ExoClass_new import ExoObject
-from src.utils.SoftRTloop import FlexibleTimer
 from utils.filter_utils import MovingAverageFilter
 
 import config

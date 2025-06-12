@@ -3,7 +3,7 @@ from math import sqrt
 
 class IMU_Estimator:
     def __init__(self, std_threshold = 2, run_len_threshold = 10, time_method = time.time):
-        
+
         self.std_threhold = std_threshold
         self.run_len_threshold = run_len_threshold
 
@@ -40,7 +40,7 @@ class IMU_Estimator:
 
     def update(self, accel):
         diff = abs(accel - self.prev_accel)
-    
+
         # Mean/STD real-time
         x = diff
         self.n = self.n + 1

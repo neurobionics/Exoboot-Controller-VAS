@@ -4,7 +4,9 @@
 # Author: Varun Satyadev Shetty
 # Date: 06/17/2024
 # Sensor reading logic modified based on exoboot structure by Max Shepherd
-import time, copy, threading
+import time
+import copy
+import threading
 from typing import Type
 
 #from rtplot import client

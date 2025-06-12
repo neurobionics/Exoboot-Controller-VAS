@@ -11,13 +11,13 @@ class Validator:
         self.file_prefix = "{}_{}_{}_{}".format(self.subjectID, self.trial_type, self.trial_cond, self.description)
 
         # Validate subject info against TRIAL_CONDS_DICT
-        if not self.trial_type in TRIAL_CONDS_DICT.keys():
+        if self.trial_type not in TRIAL_CONDS_DICT.keys():
             raise Exception("Invalid trial_type\nSee TRIAL_CONDS_DICT for accepted parameters\n")
         valid_conds = TRIAL_CONDS_DICT[self.trial_type]["COND"]
-        if valid_conds and not self.trial_cond in valid_conds:
+        if valid_conds and self.trial_cond not in valid_conds:
             raise Exception("Invalid trial_cond\nSee TRIAL_CONDS_DICT for accepted parameters\n")
         valid_descs = TRIAL_CONDS_DICT[self.trial_type]["DESC"]
-        if valid_descs and not self.description.upper() in valid_descs:
+        if valid_descs and self.description.upper() not in valid_descs:
             raise Exception("Invalid description\nSee TRIAL_CONDS_DICT for accepted parameters\n")
 
 if __name__ == "__main__":
@@ -37,7 +37,7 @@ if __name__ == "__main__":
                 try:
                     Validator("VALIDATOR", t, c, d, "yes")
                     successbool = True
-                except Exception as e:
+                except Exception:
                     successbool = False
 
                 if successbool:

@@ -2,18 +2,32 @@
 Collection of all the constants used throughout exoboot controller
 """
 
+from .constants_dataclasses import (
+    SPLINE_PARAMS,
+    SIDE_SPECIFIC_EXO_IDENTIFIERS,
+    EXO_MOTOR_CONSTANTS,
+    EXO_SETUP_CONSTANTS,
+    EXO_THERMAL_SAFETY_CONSTANTS,
+    EXO_CURRENT_SAFETY_CONSTANTS,
+    EXO_DEFAULT_CONSTANTS,
+    EXO_PID_GAINS,
+    IMU_CONSTANTS,
+    BERTEC_THRESHOLDS,
+    STATIC_IP_ADDRESSES
+)
 
-"""Static IP addresses"""
-RTPLOT_IP = "35.3.69.66"    # ip address of server for real time ploting (monitor) -- rtplot command in server terminal: python3 -m rtplot.server -p 35.3.249.99
-VICON_IP='141.212.77.30'    # Vicon ip to connect to Bertec Forceplates for streaming
+""" Static IP addresses """
+IP_ADDRESSES = STATIC_IP_ADDRESSES(
+    RTPLOT_IP = "35.3.69.66",
+    VICON_IP = '141.212.77.30'
+)
 
-
-"""File Paths on Pi"""
+""" File Paths on Pi """
 PORT_CFG_PATH = '/home/pi/VAS_exoboot_controller/ports.yaml' # DEPRECATED
 SUBJECT_DATA_PATH = "subject_data"
 
 
-"""TRIAL TYPES AND CONDITIONS"""
+""" TRIAL TYPES AND CONDITIONS """
 TRIAL_CONDS_DICT = {"VICKREY": {"COND": ["WNE", "EPO", "NPO"], "DESC": []},
                     "VAS": {"COND": [], "DESC": []},
                     "JND": {"COND": ["SPLITLEG", "SAMELEG"], "DESC": ["UNIFORM", "STAIR"]},
@@ -23,19 +37,7 @@ TRIAL_CONDS_DICT = {"VICKREY": {"COND": ["WNE", "EPO", "NPO"], "DESC": []},
                     }
 
 
-"""LoggingNexus Fields for each thread"""
-GENERAL_FIELDS = ['pitime', 'thread_freq']
-GAIT_ESTIMATE_FIELDS = ['HS', 'current_time', 'stride_period', 'peak_torque', 'in_swing', 'N', 'torque_command', 'current_command']
-SENSOR_FIELDS = ['state_time', 'temperature', 'winding_temp', 'accel_x', 'accel_y', 'accel_z', 'gyro_x', 'gyro_y' ,'gyro_z',
-            'ankle_angle', 'ankle_velocity', 'motor_angle', 'motor_velocity', 'motor_current', 'motor_voltage', 'battery_voltage', 'battery_current', 'act_ank_torque', 'forceplate']
-BERTEC_FIELDS = ['forceplate_left', 'forceplate_right']
-RTPLOT_FIELDS = ['pitime_left', 'pitime_right', 'motor_current_left', 'motor_current_right', 'batt_volt_left', 'batt_volt_right', 'case_temp_left', 'case_temp_right']
-
-EXOTHREAD_FIELDS = GENERAL_FIELDS + GAIT_ESTIMATE_FIELDS + SENSOR_FIELDS
-GSETHREAD_FIELDS = GENERAL_FIELDS + BERTEC_FIELDS
-
-
-"""Transmission Ratio Constants"""
+""" Transmission Ratio Constants """
 TR_FILE_PREFIX = "default_TR"
 TR_COEFS_PREFIX = "{}_coefs".format(TR_FILE_PREFIX)
 TR_FULLDATA_PREFIX = "{}_fulldata".format(TR_FILE_PREFIX)
@@ -98,10 +100,21 @@ MOTOR_SIGN_RIGHT = -1
 MOTOR_SIGN_LEFT = -1
 KNOWN_PORTS = ["/dev/ttyACM0", "/dev/ttyACM1"]
 
-# USE THESE DICTS
-DEV_ID_TO_SIDE_DICT = {id: 'right' for id in RIGHT_EXO_DEV_IDS} | {id: 'left' for id in LEFT_EXO_DEV_IDS}
-DEV_ID_TO_ANK_ENC_SIGN_DICT = {id: ANK_ENC_SIGN_RIGHT_EXO for id in RIGHT_EXO_DEV_IDS} | {id: ANK_ENC_SIGN_LEFT_EXO for id in LEFT_EXO_DEV_IDS}
-DEV_ID_TO_MOTOR_SIGN_DICT = {id: MOTOR_SIGN_RIGHT for id in RIGHT_EXO_DEV_IDS} | {id: MOTOR_SIGN_LEFT for id in LEFT_EXO_DEV_IDS}
+RIGHT_EXO_IDENTIFIERS = SIDE_SPECIFIC_EXO_IDENTIFIERS(
+    EXO_DEV_IDS = [77, 17584, 1013],
+    ANK_ENC_SIGN = -1,
+    MOTOR_SIGN = -1
+)
+
+LEFT_EXO_IDENTIFIERS = SIDE_SPECIFIC_EXO_IDENTIFIERS(
+    EXO_DEV_IDS = [888, 48390],
+    ANK_ENC_SIGN = 1,
+    MOTOR_SIGN = -1
+)
+
+DEV_ID_TO_SIDE_DICT = {id: 'right' for id in RIGHT_EXO_IDENTIFIERS.EXO_DEV_IDS} | {id: 'left' for id in LEFT_EXO_IDENTIFIERS.EXO_DEV_IDS}
+DEV_ID_TO_ANK_ENC_SIGN_DICT = {id: RIGHT_EXO_IDENTIFIERS.ANK_ENC_SIGN for id in RIGHT_EXO_IDENTIFIERS.EXO_DEV_IDS} | {id: LEFT_EXO_IDENTIFIERS.ANK_ENC_SIGN for id in LEFT_EXO_IDENTIFIERS.EXO_DEV_IDS}
+DEV_ID_TO_MOTOR_SIGN_DICT = {id: RIGHT_EXO_IDENTIFIERS.MOTOR_SIGN for id in RIGHT_EXO_IDENTIFIERS.EXO_DEV_IDS} | {id: LEFT_EXO_IDENTIFIERS.MOTOR_SIGN for id in LEFT_EXO_IDENTIFIERS.EXO_DEV_IDS}
 
 """Device Attributes"""
 # Unit Conversions (from Dephy Website, Units Section: https://dephy.com/start/#programmable_safety_features)
@@ -145,13 +158,4 @@ GYROZ_SIGN = 1      # Remove -1 for EB-51
 
 """Filter Constants"""
 GYROZ_W0: float = 1.0105    # Hz
-
-
-"""Bertec Thresholds"""
-HS_THRESHOLD = 80
-TO_THRESHOLD = 30
-ACCEPT_STRIDE_THRESHOLD = 0.2
-ACCEPT_STANCE_THRESHOLD = 0.2
-
-BERTEC_ACC_LEFT = 0.25
-BERTEC_ACC_RIGHT = 0.25
+TEMPANTISPIKE = 100     # °C
