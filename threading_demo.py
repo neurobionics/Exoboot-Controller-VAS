@@ -154,6 +154,10 @@ class ActuatorThread(BaseWorkerThread):
         pass
 
 
+from GSE_Bertec import Bertec_Estimator
+from src.exo.gait_state_estimator.forceplate.ZMQ_PubSub import Subscriber
+from src.settings.constants import VICON_IP
+
 class GaitStateEstimatorThread(BaseWorkerThread):
     """
     Threading class for the Gait State Estimator.
@@ -163,16 +167,21 @@ class GaitStateEstimatorThread(BaseWorkerThread):
                  data_queue:queue,
                  quit_event:Type[threading.Event],
                  pause_event:Type[threading.Event],
+                 active_actuators:list[str],
                  name:Optional[str] = None,
                  frequency:int=100)->None:
 
         self.gse_queue = data_queue
         super().__init__(quit_event, pause_event, name=name, frequency=frequency)
 
-        # instantiate the walking simulator
-        self.walker = WalkingSimulator(stride_period=1.20)
+        # for each active actuator, initialize GSE Bertec
+        self.active_actuators = active_actuators
+        self.bertec_estimators = {}
 
-        # TODO: initialize GSE Bertec here
+        for actuator in self.active_actuators:
+            selected_topic = f"fz_{actuator}"  # e.g., 'fz_left' or 'fz_right'
+            bertec_subscriber = Subscriber(publisher_ip=VICON_IP, topic_filter=selected_topic, timeout_ms=5)
+            self.bertec_estimator[actuator] = Bertec_Estimator(zmq_subscriber=bertec_subscriber)
 
     def pre_iterate(self)->None:
         pass
@@ -184,30 +193,24 @@ class GaitStateEstimatorThread(BaseWorkerThread):
         It handles the actuator's state updates.
         """
 
-        self.time_in_stride = self.walker.update_time_in_stride()
-        self.ank_angle = self.walker.update_ank_angle()
+        # for each active actuator,
+        for actuator in self.active_actuators:
 
-        # TODO: do update_bertec_estimator.update() here
+            # update the gait state estimator for the actuator
+            self.bertec_estimator[actuator].update()
 
-        # TODO: DON"T LOG HERE (make ligtweight)
-        self.data_logger.debug(f"Stride: {self.walker.stride_num}")
-        self.data_logger.debug(f"Time in stride: {self.time_in_stride:.3f}s")
-        self.data_logger.debug(f"Ankle angle: {self.ank_angle:.2f} deg")
-        self.data_logger.debug(f"%_GC: {self.walker.percent_gc}")
+            # put gait state into the queue for the main thread
+            self.enqueue_gait_states()
 
-        # Put gait state into the queue for the main thread
-        self.enqueue_gait_states()
-
-    def enqueue_gait_states(self)-> None:
+    def enqueue_gait_states(self, actuator:str)-> None:
         """
         Stores a dict of gait states in the queue for the main thread.
         This method is called to send the gait state to the main thread.
+
+        Args:
+            actuator (str): The side of the actuator for which to return the gait state.
         """
-        self.gse_queue.put({
-            "time_in_stride": self.time_in_stride,
-            "ank_angle": self.ank_angle,
-            "percent_gc": self.walker.percent_gc
-        })
+        self.gse_queue.put({self.bertec_estimator[actuator].return_estimate()})
 
     def post_iterate(self)->None:
         pass
@@ -316,6 +319,13 @@ class DephyExoboots(RobotBase[DephyEB51Actuator, SensorBase]):
         self._quit_event.set()
         super().stop()
 
+    def get_active_actuators_list(self) -> list[str]:
+        """
+        Determine which actuator sides are active based on the actuators dictionary.
+        Returns a list of active actuator sides.
+        """
+        return [actuator.side for actuator in self.actuators.values()]
+
     def create_interthread_queue(self, name:str, max_size:int=0) -> queue.Queue:
         """
         Create a FIFO queue for inter-thread communication.
@@ -401,7 +411,8 @@ class DephyExoboots(RobotBase[DephyEB51Actuator, SensorBase]):
                                               pause_event=self._pause_event,
                                               name=name,
                                               frequency=1,
-                                              data_queue=gse_queue)
+                                              data_queue=gse_queue,
+                                              active_actuators=self.get_active_actuators_list())
 
         gse_thread.start()
         LOGGER.debug(f"Started gse thread")
@@ -499,10 +510,10 @@ if __name__ == '__main__':
             try:
 
                 # report current gait state using simulated walking in gse thread
-                gse_msg = exoboots.decode_message("gse", key_list=["time_in_stride", "percent_gc"])
+                gse_msg = exoboots.decode_message("gse", key_list=["HS", "stride_period", "in_swing"])
                 if gse_msg is not None:
-                    time_in_stride, percent_gc = gse_msg # unpackage the message
-                    print(f"Received gait state: time_in_stride={time_in_stride}, percent_gc={percent_gc}")
+                    HS, stride_period, in_swing = gse_msg # unpackage the message
+                    print(f"Received gait state: stride_period={stride_period}, in_swing={in_swing}")
                 else:
                     print("No new gait state received.")
 
