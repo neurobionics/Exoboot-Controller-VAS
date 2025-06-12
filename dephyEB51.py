@@ -82,18 +82,6 @@ class DephyEB51Actuator(DephyLegacyActuator):
             CONSOLE_LOGGER.error(f"Failed to initialize DephyEB51Actuator on port {port} with baud_rate {baud_rate},frequency {frequency}, error: {e}")
             raise
 
-
-        super().__init__(
-            tag,
-            port,
-            gear_ratio,
-            baud_rate,
-            frequency,
-            debug_level,
-            dephy_log,
-            offline,
-        )
-
         eb51_motor_constants = MOTOR_CONSTANTS(
             MOTOR_COUNT_PER_REV=EB51_CONSTANTS.MOT_ENC_CLICKS_TO_REV,               # EB51 specific motor encoder clicks to rev
             NM_PER_AMP=EB51_CONSTANTS.Kt,                                           # EB51 specific torque constant
