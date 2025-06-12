@@ -8,7 +8,7 @@ def test_tr_minimum_value():
     Test that the transmission ratio (TR) never goes below min_allowable_TR as ankle angle goes from 0 to 180 degrees.
     """
     tr_gen = VariableTransmissionRatio('left')
-    for angle in range(0, 181):
+    for angle in range(-180, 270):
         tr = tr_gen.get_TR(angle)
         assert tr >= tr_gen.min_allowable_TR, f"TR dropped below min_allowable_TR at angle {angle}: {tr}"
 

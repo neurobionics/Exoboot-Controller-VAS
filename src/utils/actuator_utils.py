@@ -2,7 +2,14 @@ import sys
 import glob
 import serial
 from dephyEB51 import DephyEB51Actuator
-from src.utils import CONSOLE_LOGGER
+
+from opensourceleg.logging import Logger, LogLevel
+from src.utils.filing_utils import get_logging_info
+CONSOLE_LOGGER = Logger(enable_csv_logging=False,
+                        log_path=get_logging_info(user_input_flag=False)[0],
+                        stream_level = LogLevel.INFO,
+                        log_format = "%(levelname)s: %(message)s"
+                        )
 
 class NoActuatorsFoundError(Exception):
     """Raised when no actuators are detected on available ports."""

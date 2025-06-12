@@ -23,7 +23,8 @@ from src.settings.constants import (
     EXO_DEFAULT_CONFIG,
     EXO_CURRENT_SAFETY_LIMITS,
     EB51_CONSTANTS,
-    TEMPANTISPIKE
+    TEMPANTISPIKE,
+    TEST_TR_FILE
 )
 from src.exo.variable_transmission_ratio import VariableTransmissionRatio
 
@@ -116,9 +117,6 @@ class DephyEB51Actuator(DephyLegacyActuator):
         self.min_current = EXO_DEFAULT_CONFIG.BIAS_CURRENT
         self.max_current = EXO_CURRENT_SAFETY_LIMITS.MAX_ALLOWABLE_CURRENT
 
-        self.min_current = BIAS_CURRENT
-        self.max_current = MAX_ALLOWABLE_CURRENT
-
         # create a buffer for the case temperature
         self.case_temp_buffer = []
 
@@ -154,10 +152,6 @@ class DephyEB51Actuator(DephyLegacyActuator):
             )
             return 0.0
 
-
-    def update(self)->None:
-
-
     def update(self):
         """
         Updates the actuator state.
@@ -181,11 +175,6 @@ class DephyEB51Actuator(DephyLegacyActuator):
 
         return side
 
-
-    def spool_belt(self)->None:
-
-
-
     def spool_belt(self):
 
         LOGGER.info(
@@ -197,9 +186,6 @@ class DephyEB51Actuator(DephyLegacyActuator):
         self.set_motor_current(value=self.motor_sign * EXO_DEFAULT_CONFIG.BIAS_CURRENT)  # in mA
 
         time.sleep(0.3)
-
-
-    def filter_temp(self)->None:
 
 
     def filter_temp(self):
@@ -241,8 +227,6 @@ class DephyEB51Actuator(DephyLegacyActuator):
 
         des_current = torque / (self.gear_ratio * EB51_CONSTANTS.EFFICIENCY * self._MOTOR_CONSTANTS.NM_PER_AMP)
 
-        des_current = torque / (self.gear_ratio * EFFICIENCY * self._MOTOR_CONSTANTS.NM_PER_AMP)
-
         # convert to mA and account for motor sign
         des_current = des_current * 1000 * self.motor_sign
 
@@ -256,10 +240,6 @@ class DephyEB51Actuator(DephyLegacyActuator):
         """
         mA_to_A_current = self.motor_current/1000
         des_torque = mA_to_A_current * self._MOTOR_CONSTANTS.NM_PER_AMP * EB51_CONSTANTS.EFFICIENCY * self.motor_sign
-
-        return des_torque
-
-        des_torque = mA_to_A_current * self.gear_ratio * self._MOTOR_CONSTANTS.NM_PER_AMP * EFFICIENCY * self.motor_sign
 
         return float(des_torque)
 
@@ -281,101 +261,3 @@ class DephyEB51Actuator(DephyLegacyActuator):
         pass
 
     # TODO: Add method to home the exos at standing angle
-
-    def calibrate_to_standing_angle(self):
-        """
-        Collects standing angle and CAN BE used to zero all future collected angles
-
-        Subject must stand sufficiently still (>95%) in order to register the angle as the zero
-
-        """
-        filename = os.path.join('Autogen_zeroing_coeff_files','offsets_Exo{}.csv'.format(self.side.capitalize()))
-
-        # conduct zeroing/homing procedure and log offsets
-        print("Starting ankle zeroing/homing procedure for: \n", self.side)
-
-        # ismoving thresholds
-        motor_vel_threshold = 100
-        ankle_vel_threshold = 1
-
-        # Motor current command
-        pullCurrent = 1000  # mA
-        holdCurrent = pullCurrent * self.motor_sign
-        holdingCurrent = True
-
-        filt_size = 2500
-        isafter = TrueAfter(after=filt_size)
-        ismoving = MovingAverageFilter(initial_value=0, size=filt_size)
-        motor_angles_history = MovingAverageFilter(initial_value=0, size=filt_size)
-        ankle_angles_history = MovingAverageFilter(initial_value=0, size=filt_size)
-
-        self.flexdevice.command_motor_current(holdCurrent)
-        while holdingCurrent:
-            # Get angles from direct read
-            data = self.flexdevice.read()
-            current_ank_angle = self.ank_enc_sign * data['ank_ang'] * ENC_CLICKS_TO_DEG
-            current_mot_angle = self.motor_sign * data['mot_ang'] * ENC_CLICKS_TO_DEG
-            current_ank_vel = data['ank_vel'] / 10
-            current_mot_vel = data['mot_vel']
-
-            # Update ismoving filter with moving/not moving
-            ismoving.update(1) if abs(current_mot_vel) > motor_vel_threshold or abs(current_ank_vel) > ankle_vel_threshold else ismoving.update(0)
-
-            # Update history
-            motor_angles_history.update(current_mot_angle)
-            ankle_angles_history.update(current_ank_angle)
-
-            # If no movement 95% of the time and after grace period
-            if ismoving.average() > 0.95 and isafter.isafter():
-                self.motor_angle_zero = motor_angles_history.average()
-                self.ankle_angle_zero = ankle_angles_history.average()
-                holdingCurrent = False
-
-            # Post updates
-            isafter.step()
-
-        # Stop hold current command
-        self.flexdevice.command_motor_current(0)
-
-        # Finished collecting zeroes
-        print("{} motor_zero: {} deg".format(self.side, self.motor_angle_zero))
-        print("{} anklezero: {} deg".format(self.side, self.ankle_angle_zero))
-        with open(filename, "w") as file:
-            writer = csv.writer(file, delimiter=",")
-            writer.writerow([self.motor_angle_zero, self.ankle_angle_zero])
-            file.close()
-
-        # Send 0 current
-        self.flexdevice.command_motor_current(0)
-
-
-# TODO: Use this data class in the assistance generator
-@dataclass
-class SPLINE_PARAMS:
-    """
-    Class to define the four-point-spline assistance parameters.
-    These are to be held constant.
-
-    P_RISE is % stance before peak torque timing
-    P_PEAK is % stance from heel strike timing (0%)
-    P_FALL is % stance after peak torque timing
-    P_TOE_OFF is % stance from heel strike time (0%)
-
-    Examples:
-        >>> constants = SPLINE_PARAMS(
-        ...     P_RISE = 15,
-        ...     P_PEAK = 54,
-        ...     P_FALL = 12,
-        ...     P_TOE_OFF = 67,
-        ... )
-        >>> print(constants.P_RISE)
-        15
-    """
-
-    P_RISE:int
-    P_PEAK:int
-    P_FALL:int
-    P_TOE_OFF:int
-    END_OF_STRIDE:int
-
-# TODO: create a data class for the motor and encoder constants
