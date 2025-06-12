@@ -2,6 +2,7 @@ import pytest
 from scipy.interpolate import CubicSpline
 from src.exo.assistance_calculator import AssistanceCalculator
 from settings.constants import INCLINE_WALK_TIMINGS
+import numpy as np
 
 @pytest.fixture
 def generator():
@@ -93,7 +94,9 @@ def test_scale_to_peak_torque(generator):
 
 def test_scale_to_peak_torque_manual_equivalence(generator):
     """
-    Test that scale_to_peak_torque produces the same result as manual linear scaling.
+    Test that scale_to_peak_torque produces the same result as linearly
+    interpolating/scaling torque from [normalize_min, normalize_max]
+    to [new_min_torque, new_peak_torque] using numpy's interp function.
     """
     normalized_torque = 0.7
     new_min_torque = 0.2
@@ -103,9 +106,10 @@ def test_scale_to_peak_torque_manual_equivalence(generator):
     method_result = generator.scale_to_peak_torque(normalized_torque, new_min_torque, new_peak_torque)
 
     # Manual calculation
-    input_range = generator.normalize_max - generator.normalize_min
-    output_range = new_peak_torque - new_min_torque
-    manual_result = (output_range / input_range) * normalized_torque + new_min_torque
+    input_torque_range = [generator.normalize_min, generator.normalize_max]   # between 0 and 1
+    output_torque_range = [new_min_torque, new_peak_torque]                   # between peak torque & holding torque
+    manual_result = np.interp(normalized_torque, input_torque_range, output_torque_range)
+
     assert pytest.approx(method_result, 1e-8) == manual_result
 
 

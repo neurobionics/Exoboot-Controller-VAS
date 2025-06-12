@@ -174,8 +174,9 @@ class AssistanceCalculator:
 
     def scale_to_peak_torque(self, normalized_torque:float, new_min_torque:float, new_peak_torque:float) -> float:
         """
-        Linearly interpolates/scales torque from [normalize_min, normalize_max]
-        to [new_min_torque, new_peak_torque] using numpy's interp function.
+        Linearly scales the normalized torque command to the desired peak torque setpoint.
+        This method takes the normalized torque command (between 0 and 1) and scales it
+        to the range defined by new_min_torque and new_peak_torque.
 
         Args:
             - normalized_torque (float): normalized torque command (between 0 and 1) based on current percent_stride
@@ -183,13 +184,17 @@ class AssistanceCalculator:
             - new_peak_torque (float): desired peak torque setpoint to command
 
         Returns:
-            - torque_command (float): scaled torque command to peak torque setpoint
+            - bounded_torque_command (float): scaled torque command to peak torque setpoint
         """
 
-        input_torque_range = [self.normalize_min, self.normalize_max]   # between 0 and 1
-        output_torque_range = [new_min_torque, new_peak_torque]         # between peak torque & holding torque
+        input_torque_range = self.normalize_max - self.normalize_min    # between 0 and 1
+        output_torque_range = new_peak_torque - new_min_torque          # between peak torque & holding torque
 
-        return np.interp(normalized_torque, input_torque_range, output_torque_range)
+        # convert normalized torque setpoint to output torque range
+        unbounded_torque_command = normalized_torque * (output_torque_range / input_torque_range)
+        bounded_torque_command = unbounded_torque_command + new_min_torque  # ensure torque is larger than holding torque
+
+        return bounded_torque_command
 
     def get_normalized_torque_command(self) -> float:
         """
