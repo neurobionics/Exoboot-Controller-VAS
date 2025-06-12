@@ -9,10 +9,10 @@ def test_get_user_inputs(monkeypatch):
     Test get_user_inputs by simulating command-line arguments and checking
     that the returned values match the expected file name and parameters.
     """
-    test_args = ["prog", "--sub", "123", "--trial-type", "testtype", "--trial-cond", "cond", "--desc", "20250101", "--backup", "True"]
+    test_args = ["prog", "--sub-type", "tester", "--sub-num", "123", "--trial-type", "testtype", "--trial-cond", "cond", "--desc", "20250101", "--backup", "True"]
     monkeypatch.setattr(sys, 'argv', test_args)
     result = get_user_inputs()
-    assert result[0].startswith("S123_testtype_cond_20250101_exothread")
+    assert result[0].startswith("tester_S123_testtype_cond_20250101_exothread")
     assert result[1] == "S123"
     assert result[2] == "testtype"
     assert result[3] == "cond"

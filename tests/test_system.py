@@ -21,7 +21,7 @@ def test_logger_file_creation(tmp_path):
     logger = NonSingletonLogger(log_path=str(log_path), file_name="pytest_logger")
     logger.info("Test log message")
     assert os.path.exists(logger.file_path)
-    
+
     with open(logger.file_path) as f:
         assert "Test log message" in f.read()
 
@@ -41,7 +41,7 @@ def test_thread_liveness():
     t.start()
     t.join(timeout=2)
     assert event.is_set()
-    
+
 def test_per_thread_logging(tmp_path):
     """
     Test that logging from different threads (or loggers) writes to separate files.
@@ -55,7 +55,7 @@ def test_per_thread_logging(tmp_path):
     with open(logger1.file_path) as f1, open(logger2.file_path) as f2:
         assert "Thread1 log" in f1.read()
         assert "Thread2 log" in f2.read()
-    
+
 # --- ZMQ Tests ---
 
 def test_zmq_manager_socket_setup_and_close():
@@ -94,7 +94,7 @@ def test_zmq_pub_sub_communication():
         pub.close()
         sub.close()
         ctx.term()
-        
+
 def test_zmq_manager_cleanup():
     """
     Test that the ZMQManager can be set up and closed without raising any exceptions.
@@ -201,7 +201,7 @@ def test_ankle_angle_property(monkeypatch):
     Test that the ankle_angle property computes the correct transformed ankle angle.
     Uses a dummy actuator and dummy transmission ratio generator, and checks the calculation using a known constant.
     """
-    from src.settings.constants import ENC_CLICKS_TO_DEG
+    from src.settings.constants import EB51_CONSTANTS
     class DummyTRGen:
         def get_offset(self):
             return 5.0
@@ -213,9 +213,9 @@ def test_ankle_angle_property(monkeypatch):
             self.tr_gen = DummyTRGen()
         @property
         def ankle_angle(self):
-            return (self.ank_enc_sign * self.ank_ang * ENC_CLICKS_TO_DEG) - self.tr_gen.get_offset()
+            return (self.ank_enc_sign * self.ank_ang * EB51_CONSTANTS.MOT_ENC_CLICKS_TO_DEG) - self.tr_gen.get_offset()
     actuator = DummyActuator()
-    expected_angle = (actuator.ank_enc_sign * actuator.ank_ang * ENC_CLICKS_TO_DEG) - 5.0
+    expected_angle = (actuator.ank_enc_sign * actuator.ank_ang * EB51_CONSTANTS.MOT_ENC_CLICKS_TO_DEG) - 5.0
     result = actuator.ankle_angle
     assert result == expected_angle
 

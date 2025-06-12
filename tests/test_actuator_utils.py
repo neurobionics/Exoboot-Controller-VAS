@@ -33,7 +33,7 @@ def test_create_actuators(monkeypatch):
     side key and actuator instance, using mocked get_active_ports and actuator class.
     """
     monkeypatch.setattr('src.utils.actuator_utils.get_active_ports', lambda: ['/dev/ttyACM0'])
-        
+
     class DummyActuator:
         def __init__(self, port, baud_rate, frequency, debug_level):
             self.side = 'left'

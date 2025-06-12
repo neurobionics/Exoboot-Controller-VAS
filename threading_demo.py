@@ -12,7 +12,6 @@ import queue
 class BaseWorkerThread(threading.Thread, ABC):
     """
     Abstract base class for worker threads in the exoskeleton system.
-
     This class provides a template for creating threads that can be paused and quit.
     It includes methods for thread lifecycle management and a run method that
     handles the thread's main loop.
@@ -30,8 +29,8 @@ class BaseWorkerThread(threading.Thread, ABC):
 
         self.daemon = True
         self.frequency = int(frequency)
-
         self.rt_loop = FlexibleSleeper(dt=1/frequency)  # create a soft real-time loop with the specified frequency
+
 
         # set-up a logger for each thread/instance
         logger_name = f"{name}_logger"
@@ -63,8 +62,9 @@ class BaseWorkerThread(threading.Thread, ABC):
             self.post_iterate()             # run a post-iterate method
             self.rt_loop.pause()
 
-        LOGGER.debug(f"[{self.name}] Thread exiting.")
 
+        LOGGER.debug(f"[{self.name}] Thread exiting.")
+      
     @abstractmethod
     def pre_iterate(self):
         """
@@ -75,6 +75,7 @@ class BaseWorkerThread(threading.Thread, ABC):
         LOGGER.debug(f"[{self.name}] pre-iterate() called.")
         pass
 
+
     @abstractmethod
     def iterate(self):
         """
@@ -83,6 +84,7 @@ class BaseWorkerThread(threading.Thread, ABC):
         """
         LOGGER.debug(f"[{self.name}] iterate() called.")
         pass
+
 
     @abstractmethod
     def post_iterate(self):
@@ -172,6 +174,41 @@ class GaitStateEstimatorThread(BaseWorkerThread):
         # instantiate the walking simulator
         self.walker = WalkingSimulator(stride_period=1.20)
 
+
+        # TODO: initialize GSE Bertec here
+
+        # set up the ZMQ socket for communication with the GUI
+        # TODO: compare queue vs zmq
+        self.set_up_zmq_socket()
+
+    def set_up_zmq_socket(self)->None:
+        """
+        Set up the ZMQ socket for communication with the GUI.
+        This method is called once when the thread is initialized.
+        """
+        try:
+            context = zmq.Context.instance()
+            self.pub_socket = context.socket(zmq.PUB)
+            self.pub_socket.bind("inproc://gait_states")  # Use inproc for in-process communication
+        except Exception as err:
+            print(f"Error setting up ZMQ socket for GSE: {err}")
+            raise err
+
+    def publish_gait_state_estimates(self):
+        """
+        Publish dictionary of gait state estimates to the GUI.
+        """
+        self.pub_socket.send_pyobj({"time_in_stride": self.time_in_stride,
+                                    "ank_angle": self.ank_angle,
+                                    "percent_gc": self.walker.percent_gc})
+
+
+    def pre_iterate(self)->None:
+        pass
+
+        # instantiate the walking simulator
+        self.walker = WalkingSimulator(stride_period=1.20)
+
         # TODO: initialize GSE Bertec here
 
     def pre_iterate(self)->None:
@@ -187,6 +224,14 @@ class GaitStateEstimatorThread(BaseWorkerThread):
         self.time_in_stride = self.walker.update_time_in_stride()
         self.ank_angle = self.walker.update_ank_angle()
 
+
+        # TODO: do update_bertec_estimator.update() here
+
+
+        # TODO: DON"T LOG HERE (make ligtweight)
+        self.data_logger.debug(f"Stride: {self.walker.stride_num}")
+        self.data_logger.debug(f"Stride: {self.walker.stride_num}")
+
         # TODO: do update_bertec_estimator.update() here
 
         # TODO: DON"T LOG HERE (make ligtweight)
@@ -195,6 +240,10 @@ class GaitStateEstimatorThread(BaseWorkerThread):
         self.data_logger.debug(f"Ankle angle: {self.ank_angle:.2f} deg")
         self.data_logger.debug(f"%_GC: {self.walker.percent_gc}")
 
+        # create a queue that can send the gait state to the DephyExoboots Robot class
+        self.publish_gait_state_estimates()
+
+    def post_iterate(self)->None:
         # Put gait state into the queue for the main thread
         self.enqueue_gait_states()
 
@@ -238,6 +287,28 @@ class GUICommunication(BaseWorkerThread):
 
         self.torque_setpoint = 20.0
 
+        self.set_up_zmq_socket()  # Set up the ZMQ socket for communication with the GUI
+
+    def set_up_zmq_socket(self)->None:
+        """
+        Set up the ZMQ socket for communication with the GUI.
+        This method is called once when the thread is initialized.
+        """
+        try:
+            context = zmq.Context.instance()
+            self.pub_socket = context.socket(zmq.PUB)
+            self.pub_socket.bind("inproc://torque_setpoint")  # Use inproc for in-process communication
+        except Exception as err:
+            print(f"Error setting up ZMQ socket: {err}")
+            raise err
+
+    def publish_torque_setpoint(self):
+        self.pub_socket.send_pyobj({"torque_setpoint": self.torque_setpoint})
+
+
+    def pre_iterate(self)->None:
+        pass
+
     def pre_iterate(self)->None:
         pass
 
@@ -247,6 +318,8 @@ class GUICommunication(BaseWorkerThread):
         Allow user to input a new desired torque setpoint.
         If the user doesn't input a new value, the current setpoint is used.
         """
+        # create a queue that can send desired torque setpoint to the main thread
+        self.publish_torque_setpoint()
 
         # Put the torque setpoint into the queue for the main thread
         self.enqueue_GUI_input()
@@ -259,6 +332,9 @@ class GUICommunication(BaseWorkerThread):
         self.gui_queue.put({"torque_setpoint": self.torque_setpoint})
 
     def post_iterate(self)->None:
+        pass
+
+    def on_pause(self)->None:
         pass
 
     def on_pause(self)->None:
@@ -301,6 +377,21 @@ class DephyExoboots(RobotBase[DephyEB51Actuator, SensorBase]):
             # set-up control modes and gains here before starting the threads
             self.set_actuator_mode_and_gains(actuator)
 
+            # creating and starting threads for each actuator
+            actuator_thread = ActuatorThread(actuator, self._quit_event, self._pause_event, name=f"{actuator.side}", frequency=1)
+            actuator_thread.start()
+            LOGGER.debug(f"Started actuator thread for {actuator.side}")
+            self._threads[actuator.side] = actuator_thread
+
+        # creating thread for the Gait State Estimator
+        gse_thread = GaitStateEstimatorThread(self._quit_event, self._pause_event, name=f"gse", frequency=1)
+        gse_thread.start()
+        LOGGER.debug(f"Started gse thread")
+        self._threads["gse"] = gse_thread
+        
+            # set-up control modes and gains here before starting the threads
+            self.set_actuator_mode_and_gains(actuator)
+
             # creating and starting a thread for EACH actuator
             self.initialize_actuator_thread(actuator)
 
@@ -315,6 +406,7 @@ class DephyExoboots(RobotBase[DephyEB51Actuator, SensorBase]):
         # setting the quit event so all threads recieve the kill signal
         self._quit_event.set()
         super().stop()
+
 
     def create_interthread_queue(self, name:str, max_size:int=0) -> queue.Queue:
         """
@@ -432,6 +524,210 @@ class DephyExoboots(RobotBase[DephyEB51Actuator, SensorBase]):
         This method selects current control mode and sets PID gains for each actuator.
         """
 
+
+        actuator.set_control_mode(CONTROL_MODES.CURRENT)
+        LOGGER.info("finished setting control mode")
+
+
+        actuator.set_current_gains(
+            kp=DEFAULT_CURRENT_GAINS.kp,
+            ki=DEFAULT_CURRENT_GAINS.ki,
+            kd=DEFAULT_CURRENT_GAINS.kd,
+            ff=DEFAULT_CURRENT_GAINS.ff,
+        )
+        LOGGER.info("finished setting gains")
+
+
+    def update(self)->None:
+        """Required by RobotBase, but passing since ActuatorThread handles iterative exo state updates"""
+        pass
+
+    def find_instantaneous_torque_setpoints(self):
+        """"
+        Determine the instantaneous torque setpoint along the four-point spline assistance profile.
+        """
+        # TODO: call on assistance generator class to determine the instantaneous torque setpoint
+            # TODO: create a dictionary of setpoints for each active (left/right) actuator
+        pass
+
+    @property
+    def left_exo_queue(self) -> Dict[str, queue.Queue]:
+        """Get the queue for the left actuator"""
+        return self.queues.get("left")
+
+    @property
+    def right_exo_queue(self) -> Dict[str, queue.Queue]:
+        """Get the queue for the right actuator"""
+        return self.queues.get("right")
+
+    @property
+    def gse_queue(self) -> Dict[str, queue.Queue]:
+        """Get the queue for the gait state estimator"""
+        return self.queues.get("gse")
+
+    @property
+    def gui_queue(self) -> Dict[str, queue.Queue]:
+        """Get the queue for the GUI communication"""
+        return self.queues.get("gui")
+
+    @property
+    def left_thread(self) -> Optional[ActuatorThread]:
+        """Get the left actuator thread"""
+        return self._actuator_threads.get("left")
+
+
+    @property
+    def right_thread(self) -> Optional[ActuatorThread]:
+        """Get the right actuator thread"""
+        return self._actuator_threads.get("right")
+
+
+    def create_interthread_queue(self, name:str, max_size:int=0) -> queue.Queue:
+        """
+        Create a FIFO queue for inter-thread communication.
+        Queues stored in dictionary with the name as the key.
+
+        Args:
+            name (str): A unique name for the queue, typically the side of the actuator or thread.
+        Returns:
+            queue.Queue: A FIFO queue for inter-thread communication.
+        """
+        sub_socket = self.context.socket(zmq.SUB)       # return the current context common across a process
+        sub_socket.connect(address)
+        sub_socket.setsockopt_string(zmq.SUBSCRIBE, "") # subscribe to all topics
+
+        self.sockets[name] = sub_socket
+
+        # create a FIFO queue with max size for inter-thread communication & store to dictionary
+        self.queues[name] = queue.Queue(maxsize=max_size)
+
+        return self.queues[name]
+
+    def decode_message(self, name: str, key_list: Optional[list[str]] = None) -> Optional[Any]:
+        """
+        Try to receive a message from named queues. Names are: "gse_queue", "gui_queue", "left_exo_queue", "right_exo_queue".
+        If key_list is provided as a list of keys, return a tuple of those values (even if length 1).
+        If key_list is a single string, return just that value.
+        If key_list is None, return the full message dict.
+
+        Args:
+            name (str): The name of the queue to receive from.
+            key_list (list[str] or None): List of keys to extract from the message dict. If None, return the full message.
+        Returns:
+            Any: The received value(s) or None if no message is available.
+        """
+        
+        # get the socket from the dictionary using the name
+        sub_socket = self.sockets.get(name)
+
+        if sub_socket is None:
+            raise ValueError(f"No socket named {name}")
+
+        try:
+            msg = sub_socket.recv_pyobj(flags=zmq.NOBLOCK)
+            
+        # get the queue from the dictionary using the name
+        messenger_queue = self.queues.get(name)
+
+        if messenger_queue is None:
+            raise ValueError(f"No messenger queue named {name}")
+
+        # if queue name does exist, try to get a message from it
+        try:
+            msg = messenger_queue.get_nowait()
+
+            # if key_list provided, check whether it is a list or single string
+            if key_list is not None:
+                if isinstance(key_list, str):
+                    return msg.get(key_list)    # return just that requested value
+                elif isinstance(key_list, list):
+                    return tuple(msg.get(k) for k in key_list)  # return a tuple of requested values
+            else:
+                return msg  # if no key_list provided, return the full message dict
+
+        except queue.Empty:
+            print(f"No new message in {name} queue.")
+            return None
+
+    def initialize_actuator_thread(self, actuator: DephyEB51Actuator) -> None:
+        """
+        Create and start a thread for the specified actuator.
+        This method is called to set up the actuator communication thread.
+        """
+        for sock in self.sockets.values():
+            sock.close()
+
+        self.context.term()
+
+    def __getitem__(self, name:str) -> zmq.Socket:
+        """
+        Dunder method that can get the socket by name from the dictionary.
+
+        Args:
+            name (str): The name of the socket to retrieve.
+        Returns:
+            zmq.Socket: The socket associated with the given name.
+        """
+            
+        # create a FIFO queue with max size for inter-thread communication
+        actuator_queue = self.create_interthread_queue(actuator.side, max_size=0)
+
+        actuator_thread = ActuatorThread(actuator=actuator,
+                                         data_queue=actuator_queue,
+                                         quit_event=self._quit_event,
+                                         pause_event=self._pause_event,
+                                         name=f"{actuator.side}",
+                                         frequency=1,
+                                         )
+
+        actuator_thread.start()
+        LOGGER.debug(f"Started actuator thread for {actuator.side}")
+        self._threads[actuator.side] = actuator_thread
+
+    def initialize_GSE_thread(self) -> None:
+        """
+        Create and start the Gait State Estimator thread.
+        This method is called to set up the GSE communication thread.
+        """
+        # create a FIFO queue with max size for inter-thread communication
+        name = "gse"
+        gse_queue = self.create_interthread_queue(name, max_size=0)
+
+        gse_thread = GaitStateEstimatorThread(quit_event=self._quit_event,
+                                              pause_event=self._pause_event,
+                                              name=name,
+                                              frequency=1,
+                                              data_queue=gse_queue)
+
+        gse_thread.start()
+        LOGGER.debug(f"Started gse thread")
+        self._threads[name] = gse_thread
+
+    def initialize_GUI_thread(self) -> None:
+        """
+        Create and start the GUI thread for user input.
+        This method is called to set up the GUI communication thread.
+        """
+
+        # create a FIFO queue with max size for inter-thread communication
+        name = "gui"
+        gui_queue = self.create_interthread_queue(name, max_size=0)
+
+        gui_thread = GUICommunication(quit_event=self._quit_event,
+                                      pause_event=self._pause_event,
+                                      name=name,
+                                      frequency=1,
+                                      data_queue=gui_queue)
+        gui_thread.start()
+        LOGGER.debug(f"Started gui thread")
+        self._threads[name] = gui_thread
+
+    def set_actuator_mode_and_gains(self, actuator)-> None:
+        """
+        Call the setup_controller method for all actuators.
+        This method selects current control mode and sets PID gains for each actuator.
+        """
+
         actuator.set_control_mode(CONTROL_MODES.CURRENT)
         LOGGER.info("finished setting control mode")
 
@@ -481,19 +777,20 @@ class DephyExoboots(RobotBase[DephyEB51Actuator, SensorBase]):
 # Example main loop
 from opensourceleg.utilities import SoftRealtimeLoop
 from src.utils.actuator_utils import create_actuators
-from src.settings.constants import(
-    BAUD_RATE,
-    FLEXSEA_FREQ,
-    LOG_LEVEL
-)
+from src.settings.constants import EXO_SETUP_CONST
 from src.utils.walking_simulator import WalkingSimulator
 
 if __name__ == '__main__':
-    actuators = create_actuators(1, BAUD_RATE, FLEXSEA_FREQ, LOG_LEVEL)
+    actuators = create_actuators(1, EXO_SETUP_CONST.BAUD_RATE, EXO_SETUP_CONST.FLEXSEA_FREQ, EXO_SETUP_CONST.LOG_LEVEL)
     exoboots = DephyExoboots(tag="exoboots", actuators=actuators, sensors={})
     clock = SoftRealtimeLoop(dt = 1 / 1) # Hz
 
     with exoboots:
+
+        # set-up subscribers AFTER the publishers have bound to the inproc addresses
+        zmq_manager = ZMQManager()
+        zmq_manager.setup_sub_socket("gui", "inproc://torque_setpoint")
+        zmq_manager.setup_sub_socket("gse", "inproc://gait_states")
 
         for t in clock:
             try:
@@ -529,8 +826,6 @@ if __name__ == '__main__':
                 # TODO: send torque setpoints to each corresponding actuator
                 # TODO: determine appropriate current setpoint that matches the torque setpoint -> handled by DephyEB51Actuator class (within each actuator thread)
                 # TODO: command appropriate current setpoint using DephyExoboots class
-
-                # TODO: handle logging of actuator state, gait state, torque setpoints, etc. ~ each thread has its own csv logger?
 
             except KeyboardInterrupt:
                 print("KeyboardInterrupt received.")

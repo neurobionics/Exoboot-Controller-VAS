@@ -35,7 +35,7 @@ def get_user_inputs()->str:
         USE_BACKUP = args.backup if args.backup else None
 
         # fashion the file name to log data
-        components = [SUBJECT_TYPE, SUBJECT_ID, TRIAL_TYPE, TRIAL_CONDITION, DESCRIPTION, USE_BACKUP]
+        components = [SUBJECT_TYPE, SUBJECT_ID, TRIAL_TYPE, TRIAL_CONDITION, DESCRIPTION]
         file_name = "_".join(map(str, filter(None, components))) + "_exothread" # remove the None values & join
 
         print(f"File name: {file_name}")
