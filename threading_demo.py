@@ -447,14 +447,6 @@ class DephyExoboots(RobotBase[DephyEB51Actuator, SensorBase]):
         """Required by RobotBase, but passing since ActuatorThread handles iterative exo state updates"""
         pass
 
-    def find_instantaneous_torque_setpoints(self):
-        """"
-        Determine the instantaneous torque setpoint along the four-point spline assistance profile.
-        """
-        # TODO: call on assistance generator class to determine the instantaneous torque setpoint
-            # TODO: create a dictionary of setpoints for each active (left/right) actuator
-        pass
-
     @property
     def left_exo_queue(self) -> Dict[str, queue.Queue]:
         """Get the queue for the left actuator"""
@@ -538,7 +530,7 @@ if __name__ == '__main__':
                 # TODO: determine appropriate current setpoint that matches the torque setpoint -> handled by DephyEB51Actuator class (within each actuator thread)
                 # TODO: command appropriate current setpoint using DephyExoboots class
 
-                # TODO: handle logging of actuator state, gait state, torque setpoints, etc. ~ maybe each thread has its own csv logger?
+                # TODO: handle logging of actuator state, gait state, torque setpoints, etc. ~ each thread has its own csv logger?
 
             except KeyboardInterrupt:
                 print("KeyboardInterrupt received.")
