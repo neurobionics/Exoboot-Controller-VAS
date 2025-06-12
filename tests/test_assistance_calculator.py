@@ -97,19 +97,28 @@ def test_scale_to_peak_torque_manual_equivalence(generator):
     Test that scale_to_peak_torque produces the same result as linearly
     interpolating/scaling torque from [normalize_min, normalize_max]
     to [new_min_torque, new_peak_torque] using numpy's interp function.
+    Also time profile both methods for performance comparison.
     """
+    import time
     normalized_torque = 0.7
     new_min_torque = 0.2
     new_peak_torque = 1.2
 
-    # Using the method
+    # Time the method
+    t0 = time.perf_counter()
     method_result = generator.scale_to_peak_torque(normalized_torque, new_min_torque, new_peak_torque)
+    t1 = time.perf_counter()
+    method_time = t1 - t0
 
-    # Manual calculation
+    # Time the np.interp calculation (numpy interp)
     input_torque_range = [generator.normalize_min, generator.normalize_max]   # between 0 and 1
     output_torque_range = [new_min_torque, new_peak_torque]                   # between peak torque & holding torque
+    t2 = time.perf_counter()
     manual_result = np.interp(normalized_torque, input_torque_range, output_torque_range)
+    t3 = time.perf_counter()
+    interp_time = t3 - t2
 
+    print(f"scale_to_peak_torque: {method_time:.6f} s, np.interp: {interp_time:.6f} s")
     assert pytest.approx(method_result, 1e-8) == manual_result
 
 
