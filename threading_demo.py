@@ -195,10 +195,8 @@ class GaitStateEstimatorThread(BaseWorkerThread):
         # TODO: do update_bertec_estimator.update() here
 
         # TODO: DON"T LOG HERE (make ligtweight)
-        self.data_logger.debug(f"Stride: {self.walker.stride_num}")
-        self.data_logger.debug(f"Time in stride: {self.walker.time_in_stride:.3f}s")
-        self.data_logger.debug(f"Ankle angle: {self.walker.ank_angle:.2f} deg")
-        self.data_logger.debug(f"%_GC: {self.walker.percent_gc}")
+        self.data_logger.debug(f"Time in stride: {self.time_in_stride:.3f}s")
+        self.data_logger.debug(f"Ankle angle: {self.ank_angle:.2f} deg")
 
         # create a queue that can send the gait state to the DephyExoboots Robot class
         self.enqueue_gait_states()
@@ -214,7 +212,6 @@ class GaitStateEstimatorThread(BaseWorkerThread):
         self.gse_queue.put({
             "time_in_stride": self.walker.time_in_stride,
             "ank_angle": self.walker.ank_angle,
-            "percent_gc": self.walker.percent_gc
         })
 
     def post_iterate(self)->None:
