@@ -131,8 +131,9 @@ class DephyEB51Actuator(DephyLegacyActuator):
         Ankle angle is in ° and is the angle of the ankle joint using the ankle encoder. Angles should range anywhere from 0° to 140°.
         """
 
+        # TODO look over ank_ang/100 versus ank_ang*ENC_CLICKS_TO_DEG
         if self._data is not None:
-            ank_ang_in_deg = self.ank_ang/100
+            ank_ang_in_deg = self.ank_ang * EB51_CONSTANTS.MOT_ENC_CLICKS_TO_DEG
             return float( (self.ank_enc_sign * ank_ang_in_deg) - self.tr_gen.get_offset() )
         else:
             LOGGER.debug(
@@ -149,7 +150,7 @@ class DephyEB51Actuator(DephyLegacyActuator):
         self.filter_temp()
 
         # update the actuator state
-        super().update()
+        super().update_allData()
 
         # update the gear ratio
         self.update_gear_ratio()

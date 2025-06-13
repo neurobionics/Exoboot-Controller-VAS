@@ -3,8 +3,12 @@ from threading import Thread, current_thread
 
 
 def Mail(sender, contents):
+    """
+    Returns list of dictionaries with sender name (ex. gse/gui)
+    and contents (ex. "20")
+    """
     return {"sender": sender, "contents": contents}
-        
+
 
 class MailBox:
     """
@@ -34,7 +38,7 @@ class MailBox:
                 break
 
         return mail
-    
+
 
 class PostOffice:
     """
@@ -87,9 +91,9 @@ if __name__ == "__main__":
             # Get mail and add to mailcount
             mymail = which.mailbox.getmail_all()
             which.mailcount += len(mymail)
-            
+
             sleep(1.0)
-    
+
     # Create PostOffice with empty addressbook
     postoffice = PostOffice()
 
