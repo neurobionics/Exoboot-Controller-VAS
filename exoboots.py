@@ -56,7 +56,6 @@ class DephyExoboots(RobotBase[DephyEB51Actuator, SensorBase]):
         # print(f"Updating exoskeleton robot: {self.tag}")
         super().update()
 
-
     def setup_control_modes(self) -> None:
         """
         Call the setup_controller method for all actuators.
@@ -288,7 +287,7 @@ class DephyExoboots(RobotBase[DephyEB51Actuator, SensorBase]):
         - Bertec In swing
         - Transmission Ratio
         - IMU estimator activations
-        
+
         The data is collected from the exoboots object and returned as a list of arrays.
         This is done for each active actuator only.
 

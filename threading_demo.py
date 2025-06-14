@@ -1,14 +1,14 @@
 # Abstract Base class for threading
 import threading
-import logging
+import queue
+
 from typing import Type, Dict, Any, Optional
 from abc import ABC, abstractmethod
 from src.utils.flexible_sleeper import FlexibleSleeper
 from non_singleton_logger import NonSingletonLogger
 from dephyEB51 import DephyEB51Actuator
 
-import queue
-
+# logging setup
 from src.utils.filing_utils import get_logging_info
 from opensourceleg.logging import Logger, LogLevel
 CONSOLE_LOGGER = Logger(enable_csv_logging=False,
