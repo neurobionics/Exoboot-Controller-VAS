@@ -174,12 +174,6 @@ class DephyExoboots(RobotBase[DephyEB51Actuator, SensorBase]):
         for actuator in self.actuators.values():
             current_setpoint = current_setpoints.get(actuator.side)
 
-        arguments:
-            current_setpoints: dict of currents for each active actuator.
-                              key is the side of the actuator (left or right).
-        """
-
-
         # TODO: ensure current_setpoints values are integers, no greater than max current limit, and are not None
 
         for actuator in self.actuators.values():
@@ -277,8 +271,6 @@ class DephyExoboots(RobotBase[DephyEB51Actuator, SensorBase]):
 
         return plot_config
 
-    def update_rt_plots(self, bertec_swing_flag, imu_activations)->list:
-
     def update_rt_plots(self, bertec_swing_flag, imu_activations) -> list:
         """
         Updates the real-time plots with current values for:
@@ -307,7 +299,6 @@ class DephyExoboots(RobotBase[DephyEB51Actuator, SensorBase]):
             ])
 
         return data_to_plt
-
 
     def track_variables_for_logging(self, logger: Logger) -> None:
         """

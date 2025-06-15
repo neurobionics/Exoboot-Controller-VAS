@@ -494,6 +494,43 @@ class DephyExoboots(RobotBase[DephyEB51Actuator, SensorBase]):
 
 
 
+class ThreadManager:
+    """
+    This class manages thread creation, communication and termination for the exoskeleton system.
+    """
+
+    def __init__(self, msg_router) -> None:
+
+        self._threads = {}
+        self._quit_event = threading.Event()    # Event to signal threads to quit.
+        self._pause_event = threading.Event()   # Event to signal threads to pause.
+        self._log_event = threading.Event()     # Event to signal threads to log
+        self.msg_router = msg_router            # MessageRouter class instance
+
+        # initialize thread events
+        self._quit_event.set()      # exo is running
+        self._pause_event.clear()   # exo starts paused
+        self._log_event.clear()     # exo starts not logging
+
+    def __enter__(self):
+        """
+        Context manager enter method.
+        This method is called when the ThreadManager is used in a with statement.
+        It starts all threads.
+        """
+        self.start()
+        return self
+
+    def __exit__(self):
+        """
+        Context manager exit method.
+        This method is called when the ThreadManager is used in a with statement.
+        It stops all threads and cleans up.
+        """
+        self.stop()
+
+
+
 # Example main loop
 from opensourceleg.utilities import SoftRealtimeLoop
 from src.utils.actuator_utils import create_actuators
