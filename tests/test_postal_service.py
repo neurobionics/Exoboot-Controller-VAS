@@ -1,5 +1,5 @@
 import pytest
-from Exoboot_Postal_Service import Mail, MailBox, PostOffice
+from Exoboot_Messenger_Hub import Mail, MailBox, PostOffice
 
 class DummyThread:
     def __init__(self, name: str):

@@ -17,7 +17,7 @@ CONSOLE_LOGGER = Logger(enable_csv_logging=False,
                         log_format = "%(levelname)s: %(message)s"
                         )
 
-from Exoboot_Postal_Service import PostOffice
+from Exoboot_Messenger_Hub import PostOffice
 
 class BaseWorkerThread(threading.Thread, ABC):
     """

@@ -30,35 +30,35 @@ class Mail:
     contents: Dict[str, Any]
 
 
-class MailBox:
+class Inbox:
     """
-    MailBox receives and stores mail for a given address (thread).
-    The mailbox belongs to this thread and is used to recieve messages directed to it.
+    Inbox receives and stores mail for a given address (thread).
+    The inbox belongs to this thread and is used to recieve messages directed to it.
 
     Args:
-        address (str): The address of the mailbox, typically the thread name.
+        address (str): The address of the inbox, typically the thread name.
     """
     def __init__(self, address: str) -> None:
         """
-        Initialize a MailBox with a given address.
+        Initialize a inbox with a given address.
         """
         self.address: str = address
         self._incoming_mail: Queue = Queue()
 
     def receive(self, mail: Mail) -> None:
         """
-        Put mail in the mailbox queue.
+        Put mail in the inbox queue.
         Args:
             mail (Mail): The mail object to be received.
         """
-        CONSOLE_LOGGER.info(f"      Mail put into {self.address} mailbox: {mail}")
+        CONSOLE_LOGGER.info(f"      Mail put into {self.address} inbox: {mail}")
         self._incoming_mail.put_nowait(mail)
 
-    def getmail_all(self) -> List[Mail]:
+    def get_all_mail(self) -> List[Mail]:
         """
-        Retrieve and remove all mail from the mailbox queue.
+        Retrieve and remove all mail from the inbox queue.
         Returns:
-            List[Mail]: All mail currently in the mailbox.
+            List[Mail]: All mail currently in the inbox.
         """
 
         mail: List[Mail] = []
@@ -74,34 +74,35 @@ class MailBox:
         return mail
 
 
-class PostOffice:
+class MessageRouter:
     """
-    This PostOffice class is used to coordinate inter-thread communication
+    This class is used to coordinate inter-thread communication
     via queues. It's primary function is to send messages (mail) from one thread
     to another thread.
 
-    One PostOffice should be created and shared between all threads.
-    Each thread has its own mailbox, and the postoffice acts as a central hub
-    for sending and receiving messages between these mailboxes.
+    One object should be created and shared between all threads.
+    Each thread has its own inbox, and the MessageRouter acts as a central hub
+    for sending and receiving messages between these inboxes.
     """
     def __init__(self) -> None:
-        self._addressbook: Dict[str, MailBox] = {}
+        self._addressbook: Dict[str, Inbox] = {}
         self._lock = Lock() # lock to ensure thread-safe access to the addressbook
 
     def setup_addressbook(self, *threads: Thread) -> None:
         """
-        Set up threads in the addressbook with corresponding mailboxes.
-        To access threads' mailboxes, use the thread's `mailbox` attribute.
+        Set up threads in the addressbook with corresponding inboxes.
+        To access threads' inboxes, use the thread's `inbox` attribute.
         Args:
             *threads (Thread): Threads to register in the addressbook.
         """
 
+        # to ensure that only one thread can access addressbook at a time
         with self._lock:
             for thread in threads:
 
-                if hasattr(thread, 'mailbox') and thread.mailbox is not None:
-                    # if thread already has a mailbox, skip
-                    CONSOLE_LOGGER.info(f"Mailbox already exists for thread: {thread.name}")
+                if hasattr(thread, 'inbox') and thread.inbox is not None:
+                    # if thread already has a inbox, skip
+                    CONSOLE_LOGGER.info(f"Inbox already exists for thread: {thread.name}")
                     continue
 
                 elif not isinstance(thread, Thread):
@@ -117,17 +118,17 @@ class PostOffice:
                     # if thread does not have a name, raise error
                     raise ValueError("Thread must have a name.")
 
-                # instantiate a mailbox for each thread
-                mailbox = MailBox(thread.name)
-                thread.mailbox = mailbox
+                # instantiate a inbox for each thread
+                inbox = Inbox(thread.name)
+                thread.inbox = inbox
 
-                # create dictionary mapping thread name to it's mailbox
-                self._addressbook[thread.name] = mailbox
-                CONSOLE_LOGGER.info(f"Mailbox set up for thread: {thread.name}")
+                # create dictionary mapping thread name to it's inbox
+                self._addressbook[thread.name] = inbox
+                CONSOLE_LOGGER.info(f"Inbox set up for thread: {thread.name}")
 
     def send(self, sender: str, recipient: str, contents: dict) -> None:
         """
-        Send mail to a recipient's mailbox.
+        Send mail to a recipient's inbox.
 
         Args:
             sender (str): Name of the sender.
@@ -150,17 +151,17 @@ class PostOffice:
             CONSOLE_LOGGER.info(f"{sender} sending to {recipient}")
             CONSOLE_LOGGER.info(f"      Message contents: {mail}")
 
-            # send mail to recipient's mailbox
+            # send mail to recipient's inbox
             self._addressbook[recipient].receive(mail)
 
 
-def f(postoffice, barrier):
+def f(msg_router, barrier):
     """
     This target function sends random amount of mail and counts amount of mail received at 1Hz.
     Waits at the barrier until all threads are ready before sending mail.
     """
     which = current_thread()
-    which.mailcount = 0
+    which.msg_count = 0
     CONSOLE_LOGGER.info("Started " + which.name)
 
     # Wait for all threads to be ready before sending mail
@@ -189,18 +190,18 @@ def f(postoffice, barrier):
                 # Random delay before sending
                 sleep(random.uniform(0, 0.02))
 
-                # send the mail to the thread's mailbox
-                postoffice.send(which.name, random_recipient, unique_msg)
+                # send the mail to the thread's inbox
+                msg_router.send(which.name, random_recipient, unique_msg)
             except Exception as e:
                 CONSOLE_LOGGER.error(f"{which.name} failed to send to {random_recipient}: {e}")
                 pass
 
-        # After sending mail, it retrieves all mail from the current thread's mailbox
-        mymail = which.mailbox.getmail_all()
+        # After sending mail, it retrieves all mail from the current thread's inbox
+        mymail = which.inbox.get_all_mail()
         for mail in mymail:
-            CONSOLE_LOGGER.info(f"unpacking {which.name} mailbox")
+            CONSOLE_LOGGER.info(f"unpacking {which.name} inbox")
             CONSOLE_LOGGER.info(f"      {mail.sender} had sent this: {mail.contents}")
-        which.mailcount += len(mymail)
+        which.msg_count += len(mymail)
 
         CONSOLE_LOGGER.info(f"\n")
         sleep(1.0)
@@ -212,7 +213,7 @@ START_TIME = time.time()
 if __name__ == "__main__":
 
     # Create PostOffice with empty addressbook
-    postoffice = PostOffice()
+    msg_router = MessageRouter()
 
     # Set the number of threads
     num_threads = 3
@@ -221,17 +222,17 @@ if __name__ == "__main__":
     thread_names = [f"thread{i+1}" for i in range(num_threads)]
     threads = []
     for name in thread_names:
-        threads.append(Thread(target=f, args=(postoffice, None), daemon=True, name=name))
+        threads.append(Thread(target=f, args=(msg_router, None), daemon=True, name=name))
 
     # Create a barrier for all threads
     barrier = Barrier(num_threads)
 
     # Assign the barrier to each thread's args
     for thread in threads:
-        thread._args = (postoffice, barrier)
+        thread._args = (msg_router, barrier)
 
     # Populate addressbook with threads
-    postoffice.setup_addressbook(*threads)
+    msg_router.setup_addressbook(*threads)
 
     # Start all threads
     for thread in threads:
@@ -240,10 +241,10 @@ if __name__ == "__main__":
     # Print out mail flow summary every 0.5 Hz (slower than threads)
     while True:
         try:
-            CONSOLE_LOGGER.info("\nMail Summary\n")
+            CONSOLE_LOGGER.info("\nMessage Summary\n")
             for thread in threads:
-                CONSOLE_LOGGER.info(f"{thread.name}, mailcount: {thread.mailcount}, time: {time.time() - START_TIME:0.2f} seconds")
-                thread.mailcount = 0
+                CONSOLE_LOGGER.info(f"{thread.name}, msg count: {thread.msg_count}, time: {time.time() - START_TIME:0.2f} seconds")
+                thread.msg_count = 0
             sleep(2.0)
 
         except KeyboardInterrupt:
