@@ -15,8 +15,6 @@ CONSOLE_LOGGER = Logger(enable_csv_logging=False,
                         stream_level = LogLevel.INFO,
                         log_format = "%(levelname)s: %(message)s"
                         )
-from src.utils import CONSOLE_LOGGER
-from opensourceleg.logging import Logger
 
 from src.utils.actuator_utils import create_actuators
 from src.settings.constants import (
@@ -27,14 +25,6 @@ from dephyEB51 import DephyEB51Actuator
 
 
 class DephyExoboots(RobotBase[DephyEB51Actuator, SensorBase]):
-    """
-    Bilateral Dephy EB51 Exoskeleton class derived from RobotBase.
-
-    This class creates a DephyExoboots Robot, using the structure
-    provided by the RobotBase class. A robot is composed of a collection
-    of actuators and sensors.
-
-    """
 
     def start(self) -> None:
         """
@@ -48,6 +38,22 @@ class DephyExoboots(RobotBase[DephyEB51Actuator, SensorBase]):
         """
 
         super().stop()
+
+    def set_actuator_mode_and_gains(self, actuator)-> None:
+        """
+        Call the setup_controller method for all actuators.
+        This method selects current control mode and sets PID gains for each actuator.
+        """
+        actuator.set_control_mode(CONTROL_MODES.CURRENT)
+        LOGGER.info("finished setting control mode")
+
+        actuator.set_current_gains(
+            kp=DEFAULT_CURRENT_GAINS.kp,
+            ki=DEFAULT_CURRENT_GAINS.ki,
+            kd=DEFAULT_CURRENT_GAINS.kd,
+            ff=DEFAULT_CURRENT_GAINS.ff,
+        )
+        LOGGER.info("finished setting gains")
 
     def update(self) -> None:
         """
@@ -148,46 +154,30 @@ class DephyExoboots(RobotBase[DephyEB51Actuator, SensorBase]):
 
 
         returns:
-            currents:   dict of currents for each active actuator.
+            current_setpoints:   dict of currents for each active actuator.
                         key is the side of the actuator (left or right).
         """
         for actuator in self.actuators.values():
-            currents[actuator.side] = actuator.torque_to_current(torque_setpoint)
+            self.current_setpoints[actuator.side] = actuator.torque_to_current(torque_setpoint)
             CONSOLE_LOGGER.info(f"finished finding current setpoint for {actuator.side}")
 
-            return currents
-
-    def command_currents(self, current_setpoints:dict) -> None:
-            self.current_setpoints[actuator.side] = actuator.torque_to_current(torque_setpoint)
-            # CONSOLE_LOGGER.info(f"finished finding current setpoint for {actuator.side}")
+            return self.current_setpoints
 
     def command_currents(self) -> None:
         """
-        Commands current setpoints to each actuator.
+        Commands current setpoints to each actuator based on the current_setpoints dictionary.
         The setpoints can be unique.
-
-        arguments:
-            current_setpoints: dict of currents for each active actuator.
-                              key is the side of the actuator (left or right).
         """
-
-        for actuator in self.actuators.values():
-            current_setpoint = current_setpoints.get(actuator.side)
-
         # TODO: ensure current_setpoints values are integers, no greater than max current limit, and are not None
 
         for actuator in self.actuators.values():
-            current_setpoint = current_setpoints.get(actuator.side)
 
             current_setpoint = self.current_setpoints.get(actuator.side)
 
             if current_setpoint is not None:
                 actuator.set_motor_current(current_setpoint)
-                # CONSOLE_LOGGER.info(f"Finished setting current setpoint for {actuator.side}")
+                CONSOLE_LOGGER.info(f"Finished setting current setpoint for {actuator.side}")
             else:
-                CONSOLE_LOGGER.warning(f"Unknown side '{actuator.side}' and unable to command current. Skipping.")
-
-    def initialize_rt_plots(self)->list:
                 CONSOLE_LOGGER.warning(f"Unknown side '{actuator.side}' and unable to command current. Skipping.")
 
     def initialize_rt_plots(self) -> list:
@@ -331,6 +321,12 @@ class DephyExoboots(RobotBase[DephyEB51Actuator, SensorBase]):
 
     @property
     def right(self) -> DephyEB51Actuator:
+        try:
+            return self.actuators["right"]
+        except KeyError:
+            CONSOLE_LOGGER.error("Ankle actuator not found. Please check for `right` key in the actuators dictionary.")
+            exit(1)
+
         try:
             return self.actuators["right"]
         except KeyError:
