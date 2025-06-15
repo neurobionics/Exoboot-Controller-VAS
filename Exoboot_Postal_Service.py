@@ -2,6 +2,9 @@ from queue import Queue, Empty
 from threading import Thread, current_thread, Lock, Barrier
 from dataclasses import dataclass
 from typing import Any, Dict, List, Optional
+
+import time
+import random
 from time import sleep
 from random import randint
 
@@ -14,14 +17,18 @@ CONSOLE_LOGGER = Logger(enable_csv_logging=False,
                         log_format = "%(levelname)s: %(message)s"
                         )
 
-
 @dataclass()
 class Mail:
     """
-    Represents a mail message with a sender and contents.
+    Mail is a simple data structure that contains the sender and contents of a message.
+
+    Args:
+        sender (str): The name of the sending thread.
+        contents (dict): The contents of the mail, typically a dictionary.
     """
     sender: str
-    contents: Any
+    contents: Dict[str, Any]
+
 
 class MailBox:
     """
@@ -44,7 +51,7 @@ class MailBox:
         Args:
             mail (Mail): The mail object to be received.
         """
-        CONSOLE_LOGGER.info(f"Mail received at {self.address}: {mail}")
+        CONSOLE_LOGGER.info(f"      Mail put into {self.address} mailbox: {mail}")
         self._incoming_mail.put_nowait(mail)
 
     def getmail_all(self) -> List[Mail]:
@@ -53,6 +60,7 @@ class MailBox:
         Returns:
             List[Mail]: All mail currently in the mailbox.
         """
+
         mail: List[Mail] = []
 
         # retrive all mail from queue until empty
@@ -64,6 +72,7 @@ class MailBox:
                 break
         CONSOLE_LOGGER.info(f"All mail retrieved from {self.address}")
         return mail
+
 
 class PostOffice:
     """
@@ -116,14 +125,14 @@ class PostOffice:
                 self._addressbook[thread.name] = mailbox
                 CONSOLE_LOGGER.info(f"Mailbox set up for thread: {thread.name}")
 
-    def send(self, sender: str, recipient: str, contents: Any) -> None:
+    def send(self, sender: str, recipient: str, contents: dict) -> None:
         """
         Send mail to a recipient's mailbox.
 
         Args:
             sender (str): Name of the sender.
             recipient (str): Name of the recipient thread.
-            contents (Any): The contents of the mail.
+            contents (dict): The contents of the mail (must be a dictionary).
         Raises:
             KeyError: If the recipient does not exist in the addressbook.
         """
@@ -137,12 +146,17 @@ class PostOffice:
             if recipient not in self._addressbook:
                 raise KeyError(f"Recipient '{recipient}' not found in addressbook.")
 
+
+            CONSOLE_LOGGER.info(f"{sender} sending to {recipient}")
+            CONSOLE_LOGGER.info(f"      Message contents: {mail}")
+
+            # send mail to recipient's mailbox
             self._addressbook[recipient].receive(mail)
-            CONSOLE_LOGGER.info(f"Mail sent from {sender} to {recipient}: {mail.contents}")
+
 
 def f(postoffice, barrier):
     """
-    Target function sends random amount of mail and counts amount of mail received at 1Hz.
+    This target function sends random amount of mail and counts amount of mail received at 1Hz.
     Waits at the barrier until all threads are ready before sending mail.
     """
     which = current_thread()
@@ -153,24 +167,47 @@ def f(postoffice, barrier):
     barrier.wait()
 
     while True:
-        # Send a random amount of mail to other addresses in the postoffice addressbook
+        # Random delay before sending mail to increase race condition likelihood
+        sleep(random.uniform(0, 0.05))
+
         for _ in range(randint(2, 5)):
             try:
-                random_recipient = "thread" + str(randint(1, 3))
+                random_recipient = "thread" + str(randint(1, barrier.parties))
 
                 # ensure that the recipient is not the same as the sender
                 if random_recipient == which.name:
                     continue
 
-                postoffice.send(which.name, random_recipient, f"Hi from {which.name} to {random_recipient}!")
-            except:
+                # Create a unique message with a timestamp and message ID
+                elapsed = time.time() - START_TIME
+                unique_msg = {
+                    "message": f"sending...",
+                    "timestamp": f"{elapsed:0.2}",
+                    "msg_id": f"{which.name}_{random_recipient}"
+                }
+
+                # Random delay before sending
+                sleep(random.uniform(0, 0.02))
+
+                # send the mail to the thread's mailbox
+                postoffice.send(which.name, random_recipient, unique_msg)
+            except Exception as e:
+                CONSOLE_LOGGER.error(f"{which.name} failed to send to {random_recipient}: {e}")
                 pass
 
-        # Get mail and add to mailcount
+        # After sending mail, it retrieves all mail from the current thread's mailbox
         mymail = which.mailbox.getmail_all()
+        for mail in mymail:
+            CONSOLE_LOGGER.info(f"unpacking {which.name} mailbox")
+            CONSOLE_LOGGER.info(f"      {mail.sender} had sent this: {mail.contents}")
         which.mailcount += len(mymail)
 
+        CONSOLE_LOGGER.info(f"\n")
         sleep(1.0)
+
+
+
+START_TIME = time.time()
 
 if __name__ == "__main__":
 
@@ -200,12 +237,12 @@ if __name__ == "__main__":
     for thread in threads:
         thread.start()
 
-    # Print out mailflow summary every 2 seconds
+    # Print out mail flow summary every 0.5 Hz (slower than threads)
     while True:
         try:
             CONSOLE_LOGGER.info("\nMail Summary\n")
             for thread in threads:
-                CONSOLE_LOGGER.info(f"{thread.name} {thread.mailcount}")
+                CONSOLE_LOGGER.info(f"{thread.name}, mailcount: {thread.mailcount}, time: {time.time() - START_TIME:0.2f} seconds")
                 thread.mailcount = 0
             sleep(2.0)
 
