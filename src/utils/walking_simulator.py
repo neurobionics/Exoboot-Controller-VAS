@@ -110,3 +110,17 @@ class WalkingSimulator():
         else:
             self.in_swing_flag = False
 
+    def return_estimate(self):
+            """
+            Return a dictionary of the most recent state of estimator {a, b, c}
+                a) most recent heel strike time
+                b) average stride period
+                c) in swing
+
+            """
+            state_dict = {"HS_time": self.start_time,
+                        "stride_period": self.stride_period,
+                        "in_swing": self.in_swing_flag
+                        }
+
+            return state_dict

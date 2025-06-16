@@ -241,7 +241,8 @@ class AssistanceCalculator:
 
             # If torque_command is negative, raise ValueError and set to holding torque
             if torque_command < 0:
-                raise ValueError(f"Negative torque command generated: {torque_command}. Setting to holding torque.")
+                # TODO: comment back in:
+                # raise ValueError(f"Negative torque command generated: {torque_command}. Setting to holding torque.")
                 torque_command = self.holding_torque
 
         return torque_command

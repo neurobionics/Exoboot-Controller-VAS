@@ -10,7 +10,7 @@ from dephyEB51 import DephyEB51Actuator
 
 # logging setup
 from src.utils.filing_utils import get_logging_info
-from opensourceleg.logging import Logger, LogLevel, LOGGER
+from opensourceleg.logging import Logger, LogLevel
 
 
 class BaseWorkerThread(threading.Thread, ABC):
@@ -56,9 +56,10 @@ class BaseWorkerThread(threading.Thread, ABC):
         while self.quit_event.is_set():     # while not quitting
             self.pre_iterate()              # run a pre-iterate method
 
-            if self.pause_event.is_set():
+            if not self.pause_event.is_set():
                 self.on_pause()             # if paused, run once
             else:
+
                 try:
                     self.iterate()          # call the iterate method to perform the thread's task
                 except Exception as e:
@@ -108,6 +109,8 @@ class BaseWorkerThread(threading.Thread, ABC):
         pass
 
 
+from src.exo.assistance_calculator import AssistanceCalculator
+
 class ActuatorThread(BaseWorkerThread):
     """
     Threading class for EACH actuator.
@@ -126,10 +129,19 @@ class ActuatorThread(BaseWorkerThread):
         super().__init__(quit_event, pause_event, log_event, name, frequency=frequency)
 
         self.actuator = actuator
-        self.actuator.start()  # start the actuator
+        self.actuator.start()   # start actuator
 
         self.msg_router = msg_router
         self.inbox = None
+
+        # instantiate assistance generator
+        self.assistance_calculator = AssistanceCalculator()
+
+        # set-up vars:
+        self.HS_time:float = 0.0
+        self.stride_period:float = 1.2
+        self.in_swing:bool = True
+        self.torque_setpoint:float = 0.0
 
     def pre_iterate(self)->None:
         """
@@ -161,15 +173,39 @@ class ActuatorThread(BaseWorkerThread):
         """
 
         self.actuator.update()
-        LOGGER.debug(f"motor position: {self.actuator.motor_position:.2f}")
 
-        # TODO: use exoboots context manager to potentially execute code
-            # TODO: pass reported values into AssistanceGenerator class -> method is part of Exoboots Robot class
-                    # TODO: determine appropriate torque setpoint given current gait state
+        # obtain time in current stride
+        self.time_in_stride = time.perf_counter() - self.HS_time
 
-                # TODO: send torque setpoints to each corresponding actuator
-                # TODO: determine appropriate current setpoint that matches the torque setpoint -> handled by DephyEB51Actuator class (within each actuator thread)
-                # TODO: command appropriate current setpoint using DephyExoboots class
+        # acquire torque command based on gait estimate
+        LOGGER.debug("made it to A")
+        LOGGER.debug(f"all data: {self.time_in_stride},{self.stride_period},{float(self.torque_setpoint)},{self.in_swing}")
+
+        torque_command = self.assistance_calculator.torque_generator(self.time_in_stride,
+                                                                     self.stride_period,
+                                                                     float(self.torque_setpoint),
+                                                                     self.in_swing)
+
+        LOGGER.debug("made it to B")
+
+        LOGGER.debug(f"torque command: {torque_command:.2f}")
+        LOGGER.debug(f"     time in stride: {self.time_in_stride:.2f}")
+        LOGGER.debug(f"     stride period: {self.stride_period:.2f}")
+        LOGGER.debug(f"     peak torque setpoint: {self.torque_setpoint:.2f}")
+        LOGGER.debug(f"     in swing flag: {self.in_swing:.2f}")
+
+        # determine appropriate current setpoint that matches the torque setpoint
+        current_setpoint = self.actuator.torque_to_current(torque_command)
+        LOGGER.debug("made it to C")
+
+        LOGGER.debug(f"current command: {current_setpoint:.2f}")
+
+        # command appropriate current setpoint using DephyExoboots class
+        if current_setpoint is not None:
+            # self.actuator.set_motor_current(current_setpoint)
+            LOGGER.info(f"Finished setting current setpoint for {self.actuator.tag}")
+        else:
+            LOGGER.warning(f"Unable to command current for {self.actuator.tag}. Skipping.")
 
     def post_iterate(self)->None:
         # TODO add rest of stuff
@@ -235,10 +271,16 @@ class GaitStateEstimatorThread(BaseWorkerThread):
 
             # TODO: update the gait state estimator for the actuator
             # self.bertec_estimators[actuator].update()
+            self.bertec_estimators[actuator].update_time_in_stride()
+            # self.bertec_estimators[actuator].update_ank_angle()
 
             # send message to actuator inboxes
+
             try:
-                msg_router.send(sender=self.name, recipient=actuator, contents={"time_in_stride": self.bertec_estimators[actuator].update_time_in_stride()})
+                print(self.bertec_estimators[actuator].return_estimate())
+                msg_router.send(sender=self.name,
+                                recipient=actuator,
+                                contents=self.bertec_estimators[actuator].return_estimate())
             except:
                 LOGGER.debug(f"UNABLE TO SEND msg to '{actuator}' actuator from GaitStateEstimatorThread. Skipping.")
                 continue
@@ -248,6 +290,7 @@ class GaitStateEstimatorThread(BaseWorkerThread):
 
     def on_pause(self)->None:
         pass
+
 
 
 import sys
@@ -671,7 +714,12 @@ class ThreadManager:
         self._quit_event.set()
         LOGGER.debug("Setting quit event for all threads.")
 
-        # TODO: ensure that both actuators are properly shut down
+        # ensure that both actuators are properly shut down
+        for actuator in self.actuators.values():
+            LOGGER.debug(f"Calling stop method of {actuator.tag}")
+            actuator.stop()
+
+        time.sleep(0.25)
 
     def initialize_actuator_thread(self, actuator:DephyEB51Actuator) -> None:
         """
