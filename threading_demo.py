@@ -10,14 +10,8 @@ from dephyEB51 import DephyEB51Actuator
 
 # logging setup
 from src.utils.filing_utils import get_logging_info
-from opensourceleg.logging import Logger, LogLevel
-CONSOLE_LOGGER = Logger(enable_csv_logging=False,
-                        log_path=get_logging_info(user_input_flag=False)[0],
-                        stream_level = LogLevel.INFO,
-                        log_format = "%(levelname)s: %(message)s"
-                        )
+from opensourceleg.logging import Logger, LogLevel, LOGGER
 
-from Exoboot_Messenger_Hub import PostOffice
 
 class BaseWorkerThread(threading.Thread, ABC):
     """
@@ -59,10 +53,10 @@ class BaseWorkerThread(threading.Thread, ABC):
         """
         LOGGER.debug(f"[{self.name}] Thread running.")
 
-        while self.quit_event.is_set(): # while not quitting
+        while self.quit_event.is_set():     # while not quitting
             self.pre_iterate()              # run a pre-iterate method
 
-            if not self.pause_event.is_set():
+            if self.pause_event.is_set():
                 self.on_pause()             # if paused, run once
             else:
                 try:
@@ -119,10 +113,11 @@ class ActuatorThread(BaseWorkerThread):
     Threading class for EACH actuator.
     This class handles the actuator's state updates and manages the actuator's control loop.
     """
+
     def __init__(self,
                  name: str,
                  actuator,
-                 post_office,
+                 msg_router,
                  quit_event: Type[threading.Event],
                  pause_event: Type[threading.Event],
                  log_event: Type[threading.Event],
@@ -130,13 +125,33 @@ class ActuatorThread(BaseWorkerThread):
 
         super().__init__(quit_event, pause_event, log_event, name, frequency=frequency)
 
-        self.post_office = post_office
-        self.mailbox = None
-
         self.actuator = actuator
+        self.actuator.start()  # start the actuator
+
+        self.msg_router = msg_router
+        self.inbox = None
 
     def pre_iterate(self)->None:
-        pass
+        """
+        Check inbox for messages from GSE & GUI threads
+        """
+
+        mail_list = self.inbox.get_all_mail()
+        for mail in mail_list:
+            self.decode_message(mail)
+
+    def decode_message(self, mail):
+        """
+        Decode a message from the inbox.
+        This method extracts the contents of the message and updates the actuator's state accordingly.
+        """
+        try:
+            for key, value in mail.contents.items():
+                # TODO: value validation (not None or something)
+                setattr(self, key, value)
+
+        except Exception as err:
+            LOGGER.debug(f"Error decoding message: {err}")
 
     def iterate(self)->None:
         """
@@ -144,21 +159,17 @@ class ActuatorThread(BaseWorkerThread):
         This method is called repeatedly in the thread's run loop.
         It handles the actuator's state updates.
         """
+
         self.actuator.update()
-        self.data_logger.debug(f"motor position: {self.actuator.motor_position:.2f}")
+        LOGGER.debug(f"motor position: {self.actuator.motor_position:.2f}")
 
-        # create a queue that can send the actuator state to the DephyExoboots Robot class
-        self.enqueue_actuator_states()
+        # TODO: use exoboots context manager to potentially execute code
+            # TODO: pass reported values into AssistanceGenerator class -> method is part of Exoboots Robot class
+                    # TODO: determine appropriate torque setpoint given current gait state
 
-    def enqueue_actuator_states(self)-> None:
-        """
-        Stores a dict of actuators state in the queue for the main thread.
-        This method is called to send the actuator's state to the main thread.
-        """
-        self.actuator_queue.put({
-            "motor_current": self.actuator.motor_current,
-            "temperature": self.actuator.case_temperature,
-        })
+                # TODO: send torque setpoints to each corresponding actuator
+                # TODO: determine appropriate current setpoint that matches the torque setpoint -> handled by DephyEB51Actuator class (within each actuator thread)
+                # TODO: command appropriate current setpoint using DephyExoboots class
 
     def post_iterate(self)->None:
         # TODO add rest of stuff
@@ -169,32 +180,44 @@ class ActuatorThread(BaseWorkerThread):
         pass
 
 
+
+from gse_bertec import Bertec_Estimator
+from src.exo.gait_state_estimator.forceplate.ZMQ_PubSub import Subscriber
+from src.settings.constants import IP_ADDRESSES
+
 class GaitStateEstimatorThread(BaseWorkerThread):
     """
     Threading class for the Gait State Estimator.
     This class handles gait state estimation for BOTH exoskeletons/sides together.
     """
+
     def __init__(self,
-                 post_office,
+                 msg_router,
                  quit_event:Type[threading.Event],
                  pause_event:Type[threading.Event],
                  log_event: Type[threading.Event],
+                 active_actuators:list[str],
                  name:Optional[str] = None,
                  frequency:int=100)->None:
 
         super().__init__(quit_event, pause_event, log_event, name=name, frequency=frequency)
 
-        self.post_office = post_office
-        self.mailbox = None
+        self.msg_router = msg_router
+        self.mailbox = None # will be instantiated
 
-        # instantiate the walking simulator
-        self.walker = WalkingSimulator(stride_period=1.20)
+        self.active_actuators = active_actuators
+        self.bertec_estimators = {}
 
+        # for each active actuator, initialize GSE Bertec
+        for actuator in self.active_actuators:
+            selected_topic = f"fz_{actuator}"  # e.g., 'fz_left' or 'fz_right'
 
-        # TODO: initialize GSE Bertec here
+            # TODO: REMOVE -- FOR TESTING ONLY
+            self.bertec_estimators[actuator]  = WalkingSimulator(stride_period=1.20)
 
-    def pre_iterate(self)->None:
-        pass
+            # TODO: UNCOMMENT
+            # bertec_subscriber = Subscriber(publisher_ip=IP_ADDRESSES.VICON_IP, topic_filter=selected_topic, timeout_ms=5)
+            # self.bertec_estimator[actuator] = Bertec_Estimator(zmq_subscriber=bertec_subscriber)
 
     def pre_iterate(self)->None:
         pass
@@ -203,33 +226,22 @@ class GaitStateEstimatorThread(BaseWorkerThread):
         """
         Main loop for the actuator thread.
         This method is called repeatedly in the thread's run loop.
-        It handles the actuator's state updates.
+
+        It updates the gait state estimator and sends the current time in stride and stride period to the actuators.
         """
 
-        self.time_in_stride = self.walker.update_time_in_stride()
-        self.ank_angle = self.walker.update_ank_angle()
+        # for each active actuator,
+        for actuator in self.active_actuators:
 
-        # TODO: do update_bertec_estimator.update() here
+            # TODO: update the gait state estimator for the actuator
+            # self.bertec_estimators[actuator].update()
 
-        # TODO: DON"T LOG HERE (make ligtweight)
-        self.data_logger.debug(f"Time in stride: {self.time_in_stride:.3f}s")
-        self.data_logger.debug(f"Ankle angle: {self.ank_angle:.2f} deg")
-
-        # create a queue that can send the gait state to the DephyExoboots Robot class
-        self.enqueue_gait_states()
-
-    def post_iterate(self)->None:
-        pass
-
-    def enqueue_gait_states(self)-> None:
-        """
-        Stores a dict of gait states in the queue for the main thread.
-        This method is called to send the gait state to the main thread.
-        """
-        self.gse_queue.put({
-            "time_in_stride": self.walker.time_in_stride,
-            "ank_angle": self.walker.ank_angle,
-        })
+            # send message to actuator inboxes
+            try:
+                msg_router.send(sender=self.name, recipient=actuator, contents={"time_in_stride": self.bertec_estimators[actuator].update_time_in_stride()})
+            except:
+                LOGGER.debug(f"UNABLE TO SEND msg to '{actuator}' actuator from GaitStateEstimatorThread. Skipping.")
+                continue
 
     def post_iterate(self)->None:
         pass
@@ -240,6 +252,8 @@ class GaitStateEstimatorThread(BaseWorkerThread):
 
 import sys
 import select
+import random
+
 class GUICommunication(BaseWorkerThread):
     """
     Threading class to simulate GUI communication via gRPC.
@@ -248,8 +262,9 @@ class GUICommunication(BaseWorkerThread):
     It constantly monitors for new user input specifying a desired torque setpoint.
     It then sends these setpoints to the actuators to handle.
     """
+
     def __init__(self,
-                 post_office,
+                 msg_router,
                  quit_event:Type[threading.Event],
                  pause_event:Type[threading.Event],
                  log_event: Type[threading.Event],
@@ -259,33 +274,15 @@ class GUICommunication(BaseWorkerThread):
 
         super().__init__(quit_event, pause_event, log_event, name=name, frequency=frequency)
 
-        self.post_office = post_office
-        self.mailbox = None
+        self.msg_router = msg_router
+        self.inbox = None
         self.torque_setpoint = 20.0
 
     def pre_iterate(self)->None:
-        # read mail regardless of paused state
-        mail_list = self.mailbox.getmail_all()  # return list of mail
-        CONSOLE_LOGGER.debug(f"mail received in GUICommunication thread {len(mail_list)}")
-
-        # unpackage the mail
-        for mail in mail_list:
-            self.decode_message(mail)
-            print(f"torque setpoint is:{self.torque_setpoint}")
-
-    def decode_message(self, mail:list) -> Optional[Any]:
         """
-        Decode a message from the mailbox.
+        Pre-iterate method to check for new messages in the mailbox.
         """
-        try:
-            # example contents {"peak_torque": 30.1, "stride_period": 1.3}
-            for key, value in mail["contents"].items():
-                #TODO value validation (not None or something)
-                setattr(self, key, value)
-
-        except Exception as err:
-            LOGGER.debug("Error decoding message:", err)
-            return None
+        pass
 
     def iterate(self):
         """
@@ -294,8 +291,22 @@ class GUICommunication(BaseWorkerThread):
         If the user doesn't input a new value, the current setpoint is used.
         """
 
-        # Put the torque setpoint into the queue for the main thread
-        pass
+        # set a random torque setpoint
+        self.torque_setpoint = random.randint(1,4)*10
+
+        # send torque setpoint to the actuator thread
+        # msg_router.send(sender=self.name,
+        #                 recipient="left",
+        #                 contents={"torque_setpoint": self.torque_setpoint})
+
+        try:
+            msg_router.send(sender=self.name,
+                            recipient="right",
+                            contents={"torque_setpoint": self.torque_setpoint})
+
+            LOGGER.debug(f"sent torque setpoint {self.torque_setpoint} to actuators")
+        except:
+            LOGGER.debug(f"UNABLE TO SEND msg to actuator from GUICommunication thread. Skipping.")
 
     def post_iterate(self)->None:
         pass
@@ -311,120 +322,24 @@ from dephyEB51 import DephyEB51Actuator
 from opensourceleg.logging import LOGGER
 from opensourceleg.actuators.base import CONTROL_MODES
 from opensourceleg.actuators.dephy import DEFAULT_CURRENT_GAINS
+from typing import Union, Dict
+import time
+
 
 class DephyExoboots(RobotBase[DephyEB51Actuator, SensorBase]):
-    def __init__(self, tag, actuators, sensors, post_office) -> None:
-        """
-        Exoboot Robot class that extends RobotBase.
-        This class manages thread creation, data queue creation & management, as well as basic actuator control.
-        It is designed to handle multiple actuators and their respective threads, as well as a
-        Gait State Estimator (GSE) thread and a GUI communication thread.
-        """
-        super().__init__(tag=tag, actuators=actuators, sensors=sensors)
-        self._threads = {}
-        self._quit_event = threading.Event()    # Event to signal threads to quit.
-        self._pause_event = threading.Event()   # Event to signal threads to pause.
-        self._log_event = threading.Event()     # Event to signal threads to log
-        self.post_office = post_office          # PostOffice class instance
-
-        # Thread event inits
-        self._quit_event.set()      # exo is running
-        self._pause_event.clear()   # exo starts paused
-        self._log_event.clear()     # exo starts not logging
 
     def start(self) -> None:
-        """Start actuator threads"""
-
-        for actuator in self.actuators.values():
-            # start the actuator
-            actuator.start()
-
-            # set-up control modes and gains here before starting the threads
-            self.set_actuator_mode_and_gains(actuator)
-
-            # creating and starting threads for each actuator
-            self.initialize_actuator_thread(actuator)
-            CONSOLE_LOGGER.debug(f"Started actuator thread for {actuator.side}")
-
-        # creating 1 thread for the Gait State Estimator
-        self.initialize_GSE_thread()
-
-        # creating 1 thread for GUI communication
-        self.initialize_GUI_thread()
+        """
+        Start the Exoskeleton.
+        """
+        super().start()
 
     def stop(self) -> None:
-        """Signal threads to quit and join them"""
-        # setting the quit event so all threads recieve the kill signal
-        self._quit_event.set()
+        """
+        Stop the Exoskeleton.
+        """
+
         super().stop()
-
-    def create_interthread_queue(self, name:str, max_size:int=0) -> queue.Queue:
-        """
-        Create a FIFO queue for inter-thread communication.
-        Queues stored in dictionary with the name as the key.
-
-        Args:
-            name (str): A unique name for the queue, typically the side of the actuator or thread.
-        Returns:
-            queue.Queue: A FIFO queue for inter-thread communication.
-        """
-
-        # create a FIFO queue with max size for inter-thread communication & store to dictionary
-        self.queues[name] = queue.Queue(maxsize=max_size)
-
-        return self.queues[name]
-
-    def initialize_actuator_thread(self, actuator: DephyEB51Actuator) -> None:
-        """
-        Create and start a thread for the specified actuator.
-        This method is called to set up the actuator communication thread.
-        """
-
-        actuator_thread = ActuatorThread(actuator=actuator,
-                                         quit_event=self._quit_event,
-                                         pause_event=self._pause_event,
-                                         log_event=self._log_event,
-                                         name=f"{actuator.side}",
-                                         frequency=1,
-                                         post_office=self.post_office,
-                                         )
-
-        LOGGER.debug(f"Started actuator thread for {actuator.side}")
-        self._threads[actuator.side] = actuator_thread
-
-    def initialize_GSE_thread(self) -> None:
-        """
-        Create and start the Gait State Estimator thread.
-        This method is called to set up the GSE communication thread.
-        """
-        # create a FIFO queue with max size for inter-thread communication
-        name = "gse"
-        gse_thread = GaitStateEstimatorThread(quit_event=self._quit_event,
-                                              pause_event=self._pause_event,
-                                              log_event=self._log_event,
-                                              name=name,
-                                              frequency=1,
-                                              post_office=self.post_office)
-
-        LOGGER.debug(f"Started gse thread")
-        self._threads[name] = gse_thread
-
-    def initialize_GUI_thread(self) -> None:
-        """
-        Create and start the GUI thread for user input.
-        This method is called to set up the GUI communication thread.
-        """
-
-        # create a FIFO queue with max size for inter-thread communication
-        name = "gui"
-        gui_thread = GUICommunication(quit_event=self._quit_event,
-                                      pause_event=self._pause_event,
-                                      log_event=self._log_event,
-                                      name=name,
-                                      frequency=1,
-                                      post_office=self.post_office,)
-        LOGGER.debug(f"Started gui thread")
-        self._threads[name] = gui_thread
 
     def set_actuator_mode_and_gains(self, actuator)-> None:
         """
@@ -442,9 +357,378 @@ class DephyExoboots(RobotBase[DephyEB51Actuator, SensorBase]):
         )
         LOGGER.info("finished setting gains")
 
-    def update(self)->None:
-        """Required by RobotBase, but passing since ActuatorThread handles iterative exo state updates"""
-        pass
+    def update(self) -> None:
+        """
+        Update the exoskeleton.
+        """
+        # print(f"Updating exoskeleton robot: {self.tag}")
+        super().update()
+
+    def spool_belts(self):
+        """
+        Spool the belts of both actuators.
+        This method is called to prepare the actuators for operation.
+        """
+        for actuator in self.actuators.values():
+            actuator.spool_belt()
+            LOGGER.info(f"finished spooling belt of {actuator.side}")
+
+    def set_to_transparent_mode(self):
+        """
+        Set the exo currents to 0mA.
+        """
+        self.update_current_setpoints(current_inputs=0, asymmetric=False)
+        self.command_currents()
+
+    def detect_active_actuators(self) -> Union[str, list[str]]:
+        """
+        Detect active actuators.
+        Returns a string if only one actuator is active, otherwise a list of strings.
+        """
+
+        active_sides = list(self.actuators.keys())
+
+        if len(active_sides) == 1:
+            return active_sides[0]
+
+        return active_sides
+
+    def create_current_setpts_dict(self) -> None:
+        """
+        create dictionary of current setpoints (in mA) corresponding to actuator side
+        """
+        self.current_setpoints = {}
+        for actuator in self.actuators.values():
+            self.current_setpoints[actuator.side] = 0.0
+
+        # TODO: generate test to determine if current_setpoints dict has the same keys as the actuators dict
+
+    def update_current_setpoints(self, current_inputs: Union[int, Dict[str, int]], asymmetric:bool=False) -> None:
+        """
+        Directly assign currents to the 'current_setpoints' dictionary for current control.
+
+        If symmetric, the same current value is applied to both sides (with motor sign).
+        If asymmetric, the user must pass a dictionary specifying currents for each side.
+
+        Args:
+            - current: int or dict. If symmetric=False, this should be a dict with 'left' and 'right' keys.
+            - asymmetric: bool. If True, use side-specific currents from the dictionary.
+        """
+        # TODO: ensure that current_inputs matches the number of active sides
+            # TODO: if more than the number of active sides provided, trim to active one only
+            # TODO: handle missing sides
+
+        # TODO: clip current setpoints to below max limit
+
+        if asymmetric:
+            for side, current in current_inputs.items():    # assign different currents for each actuator
+                actuator = getattr(self, side)
+                self.current_setpoints[side] = int(current) * actuator.motor_sign
+        else:
+            for side in self.actuators.keys():              # assign the same current for both actuators
+                actuator = getattr(self, side)
+                self.current_setpoints[side] = int(current_inputs) * actuator.motor_sign
+
+    def convert_torque_to_current_setpoints(self, torque_setpoint: float) -> dict:
+        """
+        Find the appropriate current setpoint for the actuators.
+        This method is called to determine the current setpoint based on the torque setpoint.
+
+        arguments:
+            torque_setpoint: float, the desired torque setpoint in Nm.
+
+
+        returns:
+            current_setpoints:   dict of currents for each active actuator.
+                        key is the side of the actuator (left or right).
+        """
+        for actuator in self.actuators.values():
+            self.current_setpoints[actuator.side] = actuator.torque_to_current(torque_setpoint)
+            LOGGER.info(f"finished finding current setpoint for {actuator.side}")
+
+            return self.current_setpoints
+
+    def command_currents(self) -> None:
+        """
+        Commands current setpoints to each actuator based on the current_setpoints dictionary.
+        The setpoints can be unique.
+        """
+        # TODO: ensure current_setpoints values are integers, no greater than max current limit, and are not None
+
+        for actuator in self.actuators.values():
+
+            current_setpoint = self.current_setpoints.get(actuator.side)
+
+            if current_setpoint is not None:
+                actuator.set_motor_current(current_setpoint)
+                LOGGER.info(f"Finished setting current setpoint for {actuator.side}")
+            else:
+                LOGGER.warning(f"Unknown side '{actuator.side}' and unable to command current. Skipping.")
+
+    def initialize_rt_plots(self) -> list:
+        """
+        Initialize real-time plots for the exoskeleton robot.
+        Naming and plotting is flexible to each active actuator.
+
+        The following time series are plotted:
+        - Current (A)
+        - Temperature (°C)
+        - Ankle Angle (°)
+        - Transmission Ratio
+        - Ankle Torque Setpoint (Nm)
+
+        """
+        # converting actuator dictionary keys to a list
+        active_sides_list = list(self.actuators.keys())
+
+        print("Active actuators:", active_sides_list)
+
+        # pre-slice colors based on the number of active actuators
+        colors = ['r', 'b'][:len(active_sides_list)]
+        if len(active_sides_list) > len(colors):
+            raise ValueError("Not enough unique colors for the number of active actuators.")
+
+        # repeat line styles and widths for each active actuator
+        line_styles = ['-' for _ in active_sides_list]
+        line_widths = [2 for _ in active_sides_list]
+
+        current_plt_config = {'names' : active_sides_list,
+                        'colors' : colors,
+                        'line_style': line_styles,
+                        'title' : "Exo Current (A) vs. Sample",
+                        'ylabel': "Current (A)",
+                        'xlabel': "timestep",
+                        'line_width': line_widths,
+                        'yrange': [0,30]
+                        }
+
+        temp_plt_config = {'names' : active_sides_list,
+                        'colors' : colors,
+                        'line_style': line_styles,
+                        'title' : "Case Temperature (°C) vs. Sample",
+                        'ylabel': "Temperature (°C)",
+                        'xlabel': "timestep",
+                        'line_width': line_widths,
+                        'yrange': [20,60]
+                        }
+
+        in_swing_plt_config = {'names' : active_sides_list,
+                        'colors' : colors,
+                        'line_style': line_styles,
+                        'title' : "Bertec in-swing vs. Sample",
+                        'ylabel': "Bool",
+                        'xlabel': "timestep",
+                        'line_width': line_widths,
+                        'yrange': [0,150]
+                        }
+
+        TR_plt_config = {'names' : active_sides_list,
+                        'colors' : colors,
+                        'line_style': line_styles,
+                        'title' : "TR (°) vs. Sample",
+                        'ylabel': "N",
+                        'xlabel': "timestep",
+                        'line_width': line_widths,
+                        'yrange': [0,20]
+                        }
+
+        imu_plt_config = {'names' : active_sides_list,
+                        'colors' : colors,
+                        'line_style': line_styles,
+                        'title' : "Activations vs. Sample",
+                        'ylabel': "Bool",
+                        'xlabel': "timestep",
+                        'line_width': line_widths,
+                        'yrange': [0,50]
+                        }
+
+        plot_config = [current_plt_config, temp_plt_config, in_swing_plt_config, TR_plt_config, imu_plt_config]
+
+        return plot_config
+
+    def update_rt_plots(self, bertec_swing_flag, imu_activations) -> list:
+        """
+        Updates the real-time plots with current values for:
+        - Current (A)
+        - Temperature (°C)
+        - Bertec In swing
+        - Transmission Ratio
+        - IMU estimator activations
+
+        The data is collected from the exoboots object and returned as a list of arrays.
+        This is done for each active actuator only.
+
+        Returns:
+            plot_data_array: A list of data arrays (for active actuators) for each plot.
+        """
+
+        data_to_plt = []
+
+        for actuator in self.actuators.values():
+            data_to_plt.extend([
+                abs(actuator.motor_current),  # Motor current
+                actuator.case_temperature,    # Case temperature
+                bertec_swing_flag,
+                actuator.gear_ratio,          # Gear ratio
+                imu_activations
+            ])
+
+        return data_to_plt
+
+    def track_variables_for_logging(self, logger: Logger) -> None:
+        """
+        Track variables for each active actuator for logging to a single file
+        """
+
+        for actuator in self.actuators.values():
+            dummy_grpc_value = 5.0
+            dummy_ankle_torque_setpt = 20
+            logger.track_variable(lambda: time.time(), "pitime")
+            logger.track_variable(lambda: dummy_grpc_value, "dollar_value")
+            logger.track_variable(lambda: dummy_ankle_torque_setpt, "torque_setpt_Nm")
+
+            logger.track_variable(lambda: actuator.accelx, f"{actuator._tag}_accelx_mps2")
+            logger.track_variable(lambda: actuator.motor_current, f"{actuator._tag}_current_mA")
+            logger.track_variable(lambda: actuator.motor_position, f"{actuator._tag}_position_rad")
+            logger.track_variable(lambda: actuator.motor_encoder_counts, f"{actuator._tag}_encoder_counts")
+            logger.track_variable(lambda: actuator.case_temperature, f"{actuator._tag}_case_temp_C")
+
+            tracked_vars = logger.get_tracked_variables()
+            print("Tracked variables:", tracked_vars)
+
+    @property
+    def left(self) -> DephyEB51Actuator:
+        try:
+            return self.actuators["left"]
+        except KeyError:
+            LOGGER.error("Ankle actuator not found. Please check for `left` key in the actuators dictionary.")
+            exit(1)
+
+    @property
+    def right(self) -> DephyEB51Actuator:
+        try:
+            return self.actuators["right"]
+        except KeyError:
+            LOGGER.error("Ankle actuator not found. Please check for `right` key in the actuators dictionary.")
+            exit(1)
+
+
+
+class ThreadManager:
+    """
+    This class manages thread creation, communication and termination for the exoskeleton system.
+    """
+
+    def __init__(self, msg_router, actuators:Dict) -> None:
+
+        self.actuators = actuators              # Dictionary of Actuators
+        self.msg_router = msg_router            # MessageRouter class instance
+
+        # create threading events common to all threads
+        self._quit_event = threading.Event()    # Event to signal threads to quit.
+        self._pause_event = threading.Event()   # Event to signal threads to pause.
+        self._log_event = threading.Event()     # Event to signal threads to log
+
+        # initialize thread events
+        self._quit_event.set()      # exo is running
+        self._pause_event.clear()   # exo starts paused
+        self._log_event.clear()     # exo starts not logging
+
+        # initialize dict of threads
+        self._threads = {}
+
+    def start(self) -> None:
+        """
+        Creates the following threads:
+         - for each ACTIVE actuator
+         - for the Gait State Estimator
+         - for the GUI
+        """
+
+        for actuator in self.actuators.values():
+            self.initialize_actuator_thread(actuator)
+
+        # creating 1 thread for the Gait State Estimator
+        self.initialize_GSE_thread(active_actuators=self.actuators.keys())
+
+        # creating 1 thread for GUI communication
+        self.initialize_GUI_thread()
+
+    def start_all_threads(self)->None:
+        """
+        Start all threads in the thread manager.
+        This method is called to start all threads after they have been initialized.
+        """
+
+        for thread in self._threads.values():
+            thread.start()
+            LOGGER.debug(f"Thread {thread.name} started.")
+
+    def stop(self) -> None:
+        """Signal threads to quit and join them"""
+
+        # setting the quit event so all threads recieve the kill signal
+        self._quit_event.set()
+        LOGGER.debug("Setting quit event for all threads.")
+
+        # TODO: ensure that both actuators are properly shut down
+
+    def initialize_actuator_thread(self, actuator:DephyEB51Actuator) -> None:
+        """
+        Create and start a thread for the specified actuator.
+        This method is called to set up the actuator communication thread.
+        """
+
+        actuator_thread = ActuatorThread(actuator=actuator,
+                                         quit_event=self._quit_event,
+                                         pause_event=self._pause_event,
+                                         log_event=self._log_event,
+                                         name=f"{actuator.side}",
+                                         frequency=1000,
+                                         msg_router=self.msg_router,
+                                         )
+
+        LOGGER.debug(f"created {actuator.side} actuator thread")
+        self._threads[actuator.side] = actuator_thread
+
+    def initialize_GSE_thread(self, active_actuators:list[str]) -> None:
+        """
+        Create and start the Gait State Estimator thread.
+        This method is called to set up the GSE communication thread.
+
+        Args:
+            active_actuators: List of active actuators to be monitored by the GSE.
+                                This is used to initialize the Gait State Estimator.
+        """
+        # create a FIFO queue with max size for inter-thread communication
+        name = "gse"
+        gse_thread = GaitStateEstimatorThread(quit_event=self._quit_event,
+                                              pause_event=self._pause_event,
+                                              log_event=self._log_event,
+                                              active_actuators=active_actuators,
+                                              name=name,
+                                              frequency=250,
+                                              msg_router=self.msg_router)
+
+        LOGGER.debug(f"created gse thread")
+        self._threads[name] = gse_thread
+
+    def initialize_GUI_thread(self) -> None:
+        """
+        Create and start the GUI thread for user input.
+        This method is called to set up the GUI communication thread.
+        """
+
+        # create a FIFO queue with max size for inter-thread communication
+        name = "gui"
+        gui_thread = GUICommunication(quit_event=self._quit_event,
+                                      pause_event=self._pause_event,
+                                      log_event=self._log_event,
+                                      name=name,
+                                      frequency=100,
+                                      msg_router=self.msg_router)
+        LOGGER.debug(f"created gui thread")
+        self._threads[name] = gui_thread
 
     def return_active_threads(self)->list:
         """
@@ -452,25 +736,64 @@ class DephyExoboots(RobotBase[DephyEB51Actuator, SensorBase]):
         """
         return self._threads.values()
 
+    def __enter__(self) -> None:
+        """
+        Context manager enter method.
+        This method is called when the ThreadManager is used in a with statement.
+        """
+        self.start()
+
+    def __exit__(self, exc_type, exc_value, traceback) -> None:
+        """
+        Context manager exit method.
+        This method is called when the ThreadManager is used in a with statement.
+        It stops all threads and cleans up.
+        """
+        self.stop()
+
     @property
-    def left_exo_queue(self) -> Dict[str, queue.Queue]:
+    def left_exo_queue(self) -> Union[None, queue.Queue]:
         """Get the queue for the left actuator"""
-        return self.queues.get("left")
+        thread = self._threads.get("left")
+
+        if hasattr(thread, "inbox"):
+            return thread.inbox
+        else:
+            LOGGER.error("Left actuator thread has no attribute inbox")
+            return None
 
     @property
-    def right_exo_queue(self) -> Dict[str, queue.Queue]:
+    def right_exo_queue(self) -> Union[None, queue.Queue]:
         """Get the queue for the right actuator"""
-        return self.queues.get("right")
+        thread = self._threads.get("right")
+
+        if hasattr(thread, "inbox"):
+            return thread.inbox
+        else:
+            LOGGER.error("Right actuator thread has no attribute inbox")
+            return None
 
     @property
-    def gse_queue(self) -> Dict[str, queue.Queue]:
+    def gse_queue(self) -> Union[None, queue.Queue]:
         """Get the queue for the gait state estimator"""
-        return self.queues.get("gse")
+        thread = self._threads.get("gse")
+
+        if hasattr(thread, "inbox"):
+            return thread.inbox
+        else:
+            LOGGER.error("GSE thread has no attribute inbox")
+            return None
 
     @property
-    def gui_queue(self) -> Dict[str, queue.Queue]:
+    def gui_queue(self) -> Union[None, queue.Queue]:
         """Get the queue for the GUI communication"""
-        return self.queues.get("gui")
+        thread = self._threads.get("gui")
+
+        if hasattr(thread, "inbox"):
+            return thread.inbox
+        else:
+            LOGGER.error("GUI thread has no attribute inbox")
+            return None
 
     @property
     def left_thread(self) -> Optional[ActuatorThread]:
@@ -499,42 +822,44 @@ from opensourceleg.utilities import SoftRealtimeLoop
 from src.utils.actuator_utils import create_actuators
 from src.settings.constants import EXO_SETUP_CONST
 from src.utils.walking_simulator import WalkingSimulator
+from exoboot_messenger_hub import MessageRouter
+from rtplot import client
 
 if __name__ == '__main__':
 
-    post_office = PostOffice()
+    # create actuators
+    actuators = create_actuators(gear_ratio=1,
+                                 baud_rate=EXO_SETUP_CONST.BAUD_RATE,
+                                 freq=EXO_SETUP_CONST.FLEXSEA_FREQ,
+                                 debug_level=EXO_SETUP_CONST.LOG_LEVEL)
 
-    actuators = create_actuators(1, EXO_SETUP_CONST.BAUD_RATE, EXO_SETUP_CONST.FLEXSEA_FREQ, EXO_SETUP_CONST.LOG_LEVEL)
+    # create Exoboots Robot
     exoboots = DephyExoboots(tag="exoboots",
                              actuators=actuators,
-                             sensors={},
-                             post_office=post_office)
+                             sensors={})
+
+    # create a message router for inter-thread communication
+    msg_router = MessageRouter()
+
+    # instantiate thread manager
+    system_manager = ThreadManager(msg_router=msg_router, actuators=actuators)
+
+    # instantiate soft real-time clock
     clock = SoftRealtimeLoop(dt = 1 / 1) # Hz
 
-    with exoboots:
-        # set-up addressbook for the PostOffice
-        post_office.setup_addressbook(*exoboots.return_active_threads())
+    with system_manager:
+        # set-up addressbook for the PostOffice & create inboxes for each thread
+        msg_router.setup_addressbook(*system_manager.return_active_threads())
 
-        # TODO add start_threads method to DephyExoboots class
-        # exoboots.left_thread.start()
-        exoboots.right_thread.start()
-        exoboots.gse_thread.start()
-        exoboots.gui_thread.start()
-        CONSOLE_LOGGER.debug("All threads started.")
+        # start all threads
+        system_manager.start_all_threads()
+
+        # unpause exos (removed not from base thread for this to work)
+        system_manager._pause_event.set()
 
         for t in clock:
             try:
-
-                # send mail to the GUI thread
-                post_office.send(sender="main", recipient="gui", contents={"torque_setpoint": 30.0})
-                print("Main sent")
-
-                # TODO: pass reported values into AssistanceGenerator class -> method is part of Exoboots Robot class
-                    # TODO: determine appropriate torque setpoint given current gait state
-
-                # TODO: send torque setpoints to each corresponding actuator
-                # TODO: determine appropriate current setpoint that matches the torque setpoint -> handled by DephyEB51Actuator class (within each actuator thread)
-                # TODO: command appropriate current setpoint using DephyExoboots class
+                pass
 
             except KeyboardInterrupt:
                 print("KeyboardInterrupt received.")

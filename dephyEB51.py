@@ -150,7 +150,7 @@ class DephyEB51Actuator(DephyLegacyActuator):
         self.filter_temp()
 
         # update the actuator state
-        super().update_allData()
+        super().update()
 
         # update the gear ratio
         self.update_gear_ratio()
