@@ -23,7 +23,6 @@ from src.settings.constants import (
 )
 from dephyEB51 import DephyEB51Actuator
 
-
 class DephyExoboots(RobotBase[DephyEB51Actuator, SensorBase]):
 
     def start(self) -> None:
@@ -62,24 +61,6 @@ class DephyExoboots(RobotBase[DephyEB51Actuator, SensorBase]):
         # print(f"Updating exoskeleton robot: {self.tag}")
         super().update()
 
-    def setup_control_modes(self) -> None:
-        """
-        Call the setup_controller method for all actuators.
-        This method selects current control mode and sets PID gains for each actuator.
-        """
-
-        for actuator in self.actuators.values():
-            actuator.set_control_mode(CONTROL_MODES.CURRENT)
-            CONSOLE_LOGGER.info("finished setting control mode")
-
-            actuator.set_current_gains(
-                kp=DEFAULT_PID_GAINS.KP,
-                ki=DEFAULT_PID_GAINS.KI,
-                kd=DEFAULT_PID_GAINS.KD,
-                ff=DEFAULT_PID_GAINS.FF,
-            )
-            CONSOLE_LOGGER.info("finished setting gains")
-
     def spool_belts(self):
         """
         Spool the belts of both actuators.
@@ -96,7 +77,7 @@ class DephyExoboots(RobotBase[DephyEB51Actuator, SensorBase]):
         self.update_current_setpoints(current_inputs=0, asymmetric=False)
         self.command_currents()
 
-    def detect_active_actuators(self) -> Union[start, list[str]]:
+    def detect_active_actuators(self) -> Union[str, list[str]]:
         """
         Detect active actuators.
         Returns a string if only one actuator is active, otherwise a list of strings.
@@ -327,11 +308,6 @@ class DephyExoboots(RobotBase[DephyEB51Actuator, SensorBase]):
             CONSOLE_LOGGER.error("Ankle actuator not found. Please check for `right` key in the actuators dictionary.")
             exit(1)
 
-        try:
-            return self.actuators["right"]
-        except KeyError:
-            CONSOLE_LOGGER.error("Ankle actuator not found. Please check for `right` key in the actuators dictionary.")
-            exit(1)
 
 # DEMO:
 if __name__ == "__main__":

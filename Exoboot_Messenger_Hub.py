@@ -92,6 +92,9 @@ class MessageRouter:
         """
         Set up threads in the addressbook with corresponding inboxes.
         To access threads' inboxes, use the thread's `inbox` attribute.
+
+        REMINDER: addressbook must be created prior to starting threads
+
         Args:
             *threads (Thread): Threads to register in the addressbook.
         """
