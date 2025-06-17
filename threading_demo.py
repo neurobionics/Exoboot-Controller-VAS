@@ -11,6 +11,7 @@ from dephyEB51 import DephyEB51Actuator
 # logging setup
 from src.utils.filing_utils import get_logging_info
 from opensourceleg.logging import Logger, LogLevel
+import logging
 
 
 class BaseWorkerThread(threading.Thread, ABC):
@@ -38,14 +39,15 @@ class BaseWorkerThread(threading.Thread, ABC):
         self.rt_loop = FlexibleSleeper(dt=1/frequency)  # create a soft real-time loop with the specified frequency
 
         # set-up a logger for each thread/instance
-        # logger_name = f"{name}_logger"
-        # log_path = "./src/logs/"
-        # self.data_logger = NonSingletonLogger(
-        #     log_path=log_path,
-        #     file_name=logger_name,
-        #     file_level=logging.DEBUG,
-        #     stream_level=logging.INFO
-        # )
+        logger_name = f"{name}_logger"
+        log_path = "./src/logs/"
+        self.data_logger = NonSingletonLogger(
+            log_path=log_path,
+            file_name=logger_name,
+            file_level=logging.DEBUG,
+            stream_level=logging.INFO,
+            buffer_size=100
+        )
 
     def run(self)->None:
         """
@@ -143,6 +145,12 @@ class ActuatorThread(BaseWorkerThread):
         self.in_swing:bool = True
         self.torque_setpoint:float = 0.0
 
+        self.data_logger.track_variable(lambda: self.HS_time, "HS_time")
+        self.data_logger.track_variable(lambda: self.stride_period, "stride_period")
+        self.data_logger.track_variable(lambda: self.in_swing, "in_swing_flag_bool")
+        self.data_logger.track_variable(lambda: self.torque_setpoint, "torque_setpt")
+
+
     def pre_iterate(self)->None:
         """
         Check inbox for messages from GSE & GUI threads
@@ -163,7 +171,7 @@ class ActuatorThread(BaseWorkerThread):
                 setattr(self, key, value)
 
         except Exception as err:
-            LOGGER.debug(f"Error decoding message: {err}")
+            self.data_logger.debug(f"Error decoding message: {err}")
 
     def iterate(self)->None:
         """
@@ -173,44 +181,39 @@ class ActuatorThread(BaseWorkerThread):
         """
 
         self.actuator.update()
+        self.data_logger.update()
 
         # obtain time in current stride
         self.time_in_stride = time.perf_counter() - self.HS_time
 
         # acquire torque command based on gait estimate
-        LOGGER.debug("made it to A")
-        LOGGER.debug(f"all data: {self.time_in_stride},{self.stride_period},{float(self.torque_setpoint)},{self.in_swing}")
-
         torque_command = self.assistance_calculator.torque_generator(self.time_in_stride,
                                                                      self.stride_period,
                                                                      float(self.torque_setpoint),
                                                                      self.in_swing)
 
-        LOGGER.debug("made it to B")
-
-        LOGGER.debug(f"torque command: {torque_command:.2f}")
-        LOGGER.debug(f"     time in stride: {self.time_in_stride:.2f}")
-        LOGGER.debug(f"     stride period: {self.stride_period:.2f}")
-        LOGGER.debug(f"     peak torque setpoint: {self.torque_setpoint:.2f}")
-        LOGGER.debug(f"     in swing flag: {self.in_swing:.2f}")
+        self.data_logger.debug(f"torque command: {torque_command:.2f}")
+        self.data_logger.debug(f"     time in stride: {self.time_in_stride:.2f}")
+        self.data_logger.debug(f"     stride period: {self.stride_period:.2f}")
+        self.data_logger.debug(f"     peak torque setpoint: {self.torque_setpoint:.2f}")
+        self.data_logger.debug(f"     in swing flag: {self.in_swing:.2f}")
 
         # determine appropriate current setpoint that matches the torque setpoint
         current_setpoint = self.actuator.torque_to_current(torque_command)
-        LOGGER.debug("made it to C")
 
-        LOGGER.debug(f"current command: {current_setpoint:.2f}")
+        self.data_logger.debug(f"current command: {current_setpoint:.2f}")
 
         # command appropriate current setpoint using DephyExoboots class
         if current_setpoint is not None:
             # self.actuator.set_motor_current(current_setpoint)
-            LOGGER.info(f"Finished setting current setpoint for {self.actuator.tag}")
+            self.data_logger.info(f"Finished setting current setpoint for {self.actuator.tag}")
         else:
-            LOGGER.warning(f"Unable to command current for {self.actuator.tag}. Skipping.")
+            self.data_logger.warning(f"Unable to command current for {self.actuator.tag}. Skipping.")
 
     def post_iterate(self)->None:
         # TODO add rest of stuff
         if self.log_event.is_set():
-            LOGGER.debug(f"[{self.name}] log_event True")
+            self.data_logger.debug(f"[{self.name}] log_event True")
 
     def on_pause(self)->None:
         pass
@@ -249,7 +252,11 @@ class GaitStateEstimatorThread(BaseWorkerThread):
             selected_topic = f"fz_{actuator}"  # e.g., 'fz_left' or 'fz_right'
 
             # TODO: REMOVE -- FOR TESTING ONLY
-            self.bertec_estimators[actuator]  = WalkingSimulator(stride_period=1.20)
+            walker = WalkingSimulator(stride_period=1.20)
+            walker.set_percent_toe_off(67)
+
+            self.bertec_estimators[actuator] = walker
+
 
             # TODO: UNCOMMENT
             # bertec_subscriber = Subscriber(publisher_ip=IP_ADDRESSES.VICON_IP, topic_filter=selected_topic, timeout_ms=5)
@@ -271,18 +278,17 @@ class GaitStateEstimatorThread(BaseWorkerThread):
 
             # TODO: update the gait state estimator for the actuator
             # self.bertec_estimators[actuator].update()
-            self.bertec_estimators[actuator].update_time_in_stride()
-            # self.bertec_estimators[actuator].update_ank_angle()
+            self.bertec_estimators[actuator].update()
 
             # send message to actuator inboxes
-
             try:
-                print(self.bertec_estimators[actuator].return_estimate())
+                self.data_logger.debug(self.bertec_estimators[actuator].return_estimate())
+
                 msg_router.send(sender=self.name,
                                 recipient=actuator,
                                 contents=self.bertec_estimators[actuator].return_estimate())
             except:
-                LOGGER.debug(f"UNABLE TO SEND msg to '{actuator}' actuator from GaitStateEstimatorThread. Skipping.")
+                self.data_logger.debug(f"UNABLE TO SEND msg to '{actuator}' actuator from GaitStateEstimatorThread. Skipping.")
                 continue
 
     def post_iterate(self)->None:
@@ -347,9 +353,9 @@ class GUICommunication(BaseWorkerThread):
                             recipient="right",
                             contents={"torque_setpoint": self.torque_setpoint})
 
-            LOGGER.debug(f"sent torque setpoint {self.torque_setpoint} to actuators")
+            self.data_logger.debug(f"sent torque setpoint {self.torque_setpoint} to actuators")
         except:
-            LOGGER.debug(f"UNABLE TO SEND msg to actuator from GUICommunication thread. Skipping.")
+            self.data_logger.debug(f"UNABLE TO SEND msg to actuator from GUICommunication thread. Skipping.")
 
     def post_iterate(self)->None:
         pass
