@@ -9,7 +9,7 @@ from opensourceleg.utilities import SoftRealtimeLoop
 
 # TODO: fix these next 3 imports:
 from src.utils.filing_utils import get_logging_info
-from opensourceleg.logging import Logger, LogLevel
+from opensourceleg.logging import Logger, LogLevel, LOGGER
 CONSOLE_LOGGER = Logger(enable_csv_logging=False,
                         log_path=get_logging_info(user_input_flag=False)[0],
                         stream_level = LogLevel.INFO,
@@ -23,7 +23,15 @@ from src.settings.constants import (
 )
 from dephyEB51 import DephyEB51Actuator
 
+
 class DephyExoboots(RobotBase[DephyEB51Actuator, SensorBase]):
+    """
+    Bilateral Dephy EB51 Exoskeleton class derived from RobotBase.
+
+    This class creates a DephyExoboots Robot, using the structure
+    provided by the RobotBase class. A robot is composed of a collection
+    of actuators and sensors.
+    """
 
     def start(self) -> None:
         """
@@ -38,22 +46,6 @@ class DephyExoboots(RobotBase[DephyEB51Actuator, SensorBase]):
 
         super().stop()
 
-    def set_actuator_mode_and_gains(self, actuator)-> None:
-        """
-        Call the setup_controller method for all actuators.
-        This method selects current control mode and sets PID gains for each actuator.
-        """
-        actuator.set_control_mode(CONTROL_MODES.CURRENT)
-        LOGGER.info("finished setting control mode")
-
-        actuator.set_current_gains(
-            kp=DEFAULT_CURRENT_GAINS.kp,
-            ki=DEFAULT_CURRENT_GAINS.ki,
-            kd=DEFAULT_CURRENT_GAINS.kd,
-            ff=DEFAULT_CURRENT_GAINS.ff,
-        )
-        LOGGER.info("finished setting gains")
-
     def update(self) -> None:
         """
         Update the exoskeleton.
@@ -61,7 +53,25 @@ class DephyExoboots(RobotBase[DephyEB51Actuator, SensorBase]):
         # print(f"Updating exoskeleton robot: {self.tag}")
         super().update()
 
-    def spool_belts(self):
+    def setup_control_modes(self) -> None:
+        """
+        Call the setup_controller method for all actuators.
+        This method selects current control mode and sets PID gains for each actuator.
+        """
+
+        for actuator in self.actuators.values():
+            actuator.set_control_mode(CONTROL_MODES.CURRENT)
+            CONSOLE_LOGGER.info("finished setting control mode")
+
+            actuator.set_current_gains(
+                kp=DEFAULT_PID_GAINS.KP,
+                ki=DEFAULT_PID_GAINS.KI,
+                kd=DEFAULT_PID_GAINS.KD,
+                ff=DEFAULT_PID_GAINS.FF,
+            )
+            CONSOLE_LOGGER.info("finished setting gains")
+
+    def spool_belts(self) -> None:
         """
         Spool the belts of both actuators.
         This method is called to prepare the actuators for operation.
@@ -77,7 +87,7 @@ class DephyExoboots(RobotBase[DephyEB51Actuator, SensorBase]):
         self.update_current_setpoints(current_inputs=0, asymmetric=False)
         self.command_currents()
 
-    def detect_active_actuators(self) -> Union[str, list[str]]:
+    def detect_active_actuators(self) -> Union[start, list[str]]:
         """
         Detect active actuators.
         Returns a string if only one actuator is active, otherwise a list of strings.
@@ -125,7 +135,7 @@ class DephyExoboots(RobotBase[DephyEB51Actuator, SensorBase]):
                 actuator = getattr(self, side)
                 self.current_setpoints[side] = int(current_inputs) * actuator.motor_sign
 
-    def convert_torque_to_current_setpoints(self, torque_setpoint: float) -> dict:
+    def convert_torque_to_current_setpoints(self, torque_setpoint: float) -> None:
         """
         Find the appropriate current setpoint for the actuators.
         This method is called to determine the current setpoint based on the torque setpoint.
@@ -133,31 +143,32 @@ class DephyExoboots(RobotBase[DephyEB51Actuator, SensorBase]):
         arguments:
             torque_setpoint: float, the desired torque setpoint in Nm.
 
-
         returns:
-            current_setpoints:   dict of currents for each active actuator.
+            currents:   dict of currents for each active actuator.
                         key is the side of the actuator (left or right).
         """
         for actuator in self.actuators.values():
             self.current_setpoints[actuator.side] = actuator.torque_to_current(torque_setpoint)
-            CONSOLE_LOGGER.info(f"finished finding current setpoint for {actuator.side}")
-
-            return self.current_setpoints
+            # CONSOLE_LOGGER.info(f"finished finding current setpoint for {actuator.side}")
 
     def command_currents(self) -> None:
         """
-        Commands current setpoints to each actuator based on the current_setpoints dictionary.
+        Commands current setpoints to each actuator.
         The setpoints can be unique.
+
+        arguments:
+            current_setpoints: dict of currents for each active actuator.
+                              key is the side of the actuator (left or right).
         """
+
         # TODO: ensure current_setpoints values are integers, no greater than max current limit, and are not None
 
         for actuator in self.actuators.values():
-
             current_setpoint = self.current_setpoints.get(actuator.side)
 
             if current_setpoint is not None:
                 actuator.set_motor_current(current_setpoint)
-                CONSOLE_LOGGER.info(f"Finished setting current setpoint for {actuator.side}")
+                # CONSOLE_LOGGER.info(f"Finished setting current setpoint for {actuator.side}")
             else:
                 CONSOLE_LOGGER.warning(f"Unknown side '{actuator.side}' and unable to command current. Skipping.")
 
@@ -279,7 +290,7 @@ class DephyExoboots(RobotBase[DephyEB51Actuator, SensorBase]):
         for actuator in self.actuators.values():
             dummy_grpc_value = 5.0
             dummy_ankle_torque_setpt = 20
-            logger.track_variable(lambda: time.time(), "pitime")
+            logger.track_variable(lambda: time.time(), f"pitime")
             logger.track_variable(lambda: dummy_grpc_value, "dollar_value")
             logger.track_variable(lambda: dummy_ankle_torque_setpt, "torque_setpt_Nm")
 
@@ -311,6 +322,7 @@ class DephyExoboots(RobotBase[DephyEB51Actuator, SensorBase]):
 
 # DEMO:
 if __name__ == "__main__":
+
     # define dictionary of actuators & sensors
     actuators = create_actuators(1, EXO_SETUP_CONST.BAUD_RATE, EXO_SETUP_CONST.FLEXSEA_FREQ, EXO_SETUP_CONST.LOG_LEVEL)
     sensors = {}
