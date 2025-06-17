@@ -83,16 +83,17 @@ if __name__ == "__main__":
         # setup dict of current setpoints depending on active actuators
         exoboots.create_current_setpts_dict()
 
-        # pause exos for buffer time
-        time.sleep(float(args.alignment_event_time))
-        print(f"{args.alignment_event_time} SEC SLEEP COMPLETED.")
-
         for t in clock:
             try:
                 # update robot sensor states
                 exoboots.update()
 
-                if (t <= ramp_period):
+                if (t > 0.0) and (t <= float(args.alignment_event_time)):
+                    exoboots.set_to_transparent_mode()
+                    print(f"in transparent mode")
+
+                elif (t > float(args.alignment_event_time)) and (t <= ramp_period):
+                    print(f"{args.alignment_event_time} SEC SLEEP COMPLETED.")
                     # ramp to torque linearly
                     ramp_current = float(args.current_setpt_mA) * t/ramp_period
                     exoboots.update_current_setpoints(current_inputs=ramp_current, asymmetric=False)
