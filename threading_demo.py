@@ -146,12 +146,20 @@ class ActuatorThread(BaseWorkerThread):
         self.stride_period:float = 1.2
         self.in_swing:bool = True
         self.torque_setpoint:float = 0.0
+        self.torque_command:float = 0.0
+        self.current_setpoint:int = 0
+
+        self.thread_start_time:float = time.perf_counter()
+        self.time_since_start:float = 0.0
 
         # track vars for csv logging
+        self.data_logger.track_variable(lambda: self.time_since_start, "time_since_start")
         self.data_logger.track_variable(lambda: self.HS_time, "HS_time")
         self.data_logger.track_variable(lambda: self.stride_period, "stride_period")
         self.data_logger.track_variable(lambda: self.in_swing, "in_swing_flag_bool")
-        self.data_logger.track_variable(lambda: self.torque_setpoint, "torque_setpt")
+        self.data_logger.track_variable(lambda: self.torque_setpoint, "peak_torque_setpt")
+        self.data_logger.track_variable(lambda: self.torque_command, "torque_cmd")
+        self.data_logger.track_variable(lambda: self.current_setpoint, "current_setpoint")
 
     def pre_iterate(self)->None:
         """
@@ -170,10 +178,26 @@ class ActuatorThread(BaseWorkerThread):
         try:
             for key, value in mail.contents.items():
                 # TODO: value validation (not None or something)
-                setattr(self, key, value)
+
+                if key == "torque_setpoint":
+                    self.peak_torque_update_monitor(key, value)
+                else:
+                    setattr(self, key, value)
 
         except Exception as err:
             self.data_logger.debug(f"Error decoding message: {err}")
+
+    def peak_torque_update_monitor(self, key, value):
+        """
+        This method monitors changes in the peak torque setpoint from the GUI thread
+        and ensures that a new setpoint is shared ONLY if the user is in swing-phase
+
+        This is to prevent the current command from being altered mid-stride.
+        A new torque will only be felt upon the termination of the current stride.
+        """
+
+        if self.in_swing:
+            setattr(self, key, value)
 
     def iterate(self)->None:
         """
@@ -182,6 +206,7 @@ class ActuatorThread(BaseWorkerThread):
         It handles the actuator's state updates.
         """
 
+        self.time_since_start = time.perf_counter() - self.thread_start_time
         self.actuator.update()
         self.data_logger.update()   # update logger
 
@@ -189,24 +214,16 @@ class ActuatorThread(BaseWorkerThread):
         self.time_in_stride = time.perf_counter() - self.HS_time
 
         # acquire torque command based on gait estimate
-        torque_command = self.assistance_calculator.torque_generator(self.time_in_stride,
+        self.torque_command = self.assistance_calculator.torque_generator(self.time_in_stride,
                                                                      self.stride_period,
                                                                      float(self.torque_setpoint),
                                                                      self.in_swing)
 
-        # self.data_logger.debug(f"torque command: {torque_command:.2f}")
-        # self.data_logger.debug(f"     time in stride: {self.time_in_stride:.2f}")
-        # self.data_logger.debug(f"     stride period: {self.stride_period:.2f}")
-        # self.data_logger.debug(f"     peak torque setpoint: {self.torque_setpoint:.2f}")
-        # self.data_logger.debug(f"     in swing flag: {self.in_swing:.2f}")
-
         # determine appropriate current setpoint that matches the torque setpoint
-        current_setpoint = self.actuator.torque_to_current(torque_command)
-
-        # self.data_logger.debug(f"current command: {current_setpoint:.2f}")
+        self.current_setpoint = self.actuator.torque_to_current(self.torque_command)
 
         # command appropriate current setpoint using DephyExoboots class
-        if current_setpoint is not None:
+        if self.current_setpoint is not None:
             # self.actuator.set_motor_current(current_setpoint)
             pass
         else:
@@ -244,7 +261,7 @@ class GaitStateEstimatorThread(BaseWorkerThread):
         super().__init__(quit_event, pause_event, log_event, name=name, frequency=frequency)
 
         self.msg_router = msg_router
-        self.mailbox = None # will be instantiated
+        self.inbox = None # will be instantiated
 
         self.active_actuators = active_actuators
         self.bertec_estimators = {}
@@ -333,6 +350,7 @@ class GUICommunication(BaseWorkerThread):
                  quit_event:Type[threading.Event],
                  pause_event:Type[threading.Event],
                  log_event: Type[threading.Event],
+                 active_actuators:list[str],
                  name:Optional[str] = None,
                  frequency:int=100)->None:
 
@@ -341,7 +359,11 @@ class GUICommunication(BaseWorkerThread):
 
         self.msg_router = msg_router
         self.inbox = None
-        self.torque_setpoint = 20.0
+        self.active_actuators = active_actuators
+        self.torque_setpoint:float = 20.0
+
+        self.thread_start_time:float = time.perf_counter()
+        self.time_since_start:float = 0.0
 
         # track vars for csv logging
         self.data_logger.track_variable(lambda: self.torque_setpoint, "torque_setpt")
@@ -359,23 +381,21 @@ class GUICommunication(BaseWorkerThread):
         If the user doesn't input a new value, the current setpoint is used.
         """
 
+        self.time_since_start = time.perf_counter() - self.thread_start_time
+
         # update csv logging
         self.data_logger.update()
 
         # set a random torque setpoint
         self.torque_setpoint = random.randint(1,4)*10
 
-        # send torque setpoint to the actuator thread
-        # msg_router.send(sender=self.name,
-        #                 recipient="left",
-        #                 contents={"torque_setpoint": self.torque_setpoint})
-
-        try:
-            msg_router.send(sender=self.name,
-                            recipient="right",
-                            contents={"torque_setpoint": self.torque_setpoint})
-        except:
-            self.data_logger.debug(f"UNABLE TO SEND msg to actuator from GUICommunication thread. Skipping.")
+        for actuator in self.active_actuators:
+            try:
+                msg_router.send(sender=self.name,
+                                recipient=actuator,
+                                contents={"torque_setpoint": self.torque_setpoint})
+            except:
+                self.data_logger.debug(f"UNABLE TO SEND msg to actuator from GUICommunication thread. Skipping.")
 
     def post_iterate(self)->None:
         pass
@@ -721,7 +741,7 @@ class ThreadManager:
         self.initialize_GSE_thread(active_actuators=self.actuators.keys())
 
         # creating 1 thread for GUI communication
-        self.initialize_GUI_thread()
+        self.initialize_GUI_thread(active_actuators=self.actuators.keys())
 
     def start_all_threads(self)->None:
         """
@@ -788,7 +808,7 @@ class ThreadManager:
         LOGGER.debug(f"created gse thread")
         self._threads[name] = gse_thread
 
-    def initialize_GUI_thread(self) -> None:
+    def initialize_GUI_thread(self, active_actuators:list[str]) -> None:
         """
         Create and start the GUI thread for user input.
         This method is called to set up the GUI communication thread.
@@ -799,6 +819,7 @@ class ThreadManager:
         gui_thread = GUICommunication(quit_event=self._quit_event,
                                       pause_event=self._pause_event,
                                       log_event=self._log_event,
+                                      active_actuators=active_actuators,
                                       name=name,
                                       frequency=100,
                                       msg_router=self.msg_router)
