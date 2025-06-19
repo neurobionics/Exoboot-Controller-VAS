@@ -70,6 +70,8 @@ class BaseWorkerThread(threading.Thread, ABC):
             self.post_iterate()             # run a post-iterate method
             self.rt_loop.pause()
 
+        # close logger instances before exiting threads
+        self.data_logger.close()
         LOGGER.debug(f"[{self.name}] Thread exiting.")
 
     @abstractmethod
@@ -145,11 +147,11 @@ class ActuatorThread(BaseWorkerThread):
         self.in_swing:bool = True
         self.torque_setpoint:float = 0.0
 
+        # track vars for csv logging
         self.data_logger.track_variable(lambda: self.HS_time, "HS_time")
         self.data_logger.track_variable(lambda: self.stride_period, "stride_period")
         self.data_logger.track_variable(lambda: self.in_swing, "in_swing_flag_bool")
         self.data_logger.track_variable(lambda: self.torque_setpoint, "torque_setpt")
-
 
     def pre_iterate(self)->None:
         """
@@ -181,7 +183,7 @@ class ActuatorThread(BaseWorkerThread):
         """
 
         self.actuator.update()
-        self.data_logger.update()
+        self.data_logger.update()   # update logger
 
         # obtain time in current stride
         self.time_in_stride = time.perf_counter() - self.HS_time
@@ -192,21 +194,21 @@ class ActuatorThread(BaseWorkerThread):
                                                                      float(self.torque_setpoint),
                                                                      self.in_swing)
 
-        self.data_logger.debug(f"torque command: {torque_command:.2f}")
-        self.data_logger.debug(f"     time in stride: {self.time_in_stride:.2f}")
-        self.data_logger.debug(f"     stride period: {self.stride_period:.2f}")
-        self.data_logger.debug(f"     peak torque setpoint: {self.torque_setpoint:.2f}")
-        self.data_logger.debug(f"     in swing flag: {self.in_swing:.2f}")
+        # self.data_logger.debug(f"torque command: {torque_command:.2f}")
+        # self.data_logger.debug(f"     time in stride: {self.time_in_stride:.2f}")
+        # self.data_logger.debug(f"     stride period: {self.stride_period:.2f}")
+        # self.data_logger.debug(f"     peak torque setpoint: {self.torque_setpoint:.2f}")
+        # self.data_logger.debug(f"     in swing flag: {self.in_swing:.2f}")
 
         # determine appropriate current setpoint that matches the torque setpoint
         current_setpoint = self.actuator.torque_to_current(torque_command)
 
-        self.data_logger.debug(f"current command: {current_setpoint:.2f}")
+        # self.data_logger.debug(f"current command: {current_setpoint:.2f}")
 
         # command appropriate current setpoint using DephyExoboots class
         if current_setpoint is not None:
             # self.actuator.set_motor_current(current_setpoint)
-            self.data_logger.info(f"Finished setting current setpoint for {self.actuator.tag}")
+            pass
         else:
             self.data_logger.warning(f"Unable to command current for {self.actuator.tag}. Skipping.")
 
@@ -247,6 +249,9 @@ class GaitStateEstimatorThread(BaseWorkerThread):
         self.active_actuators = active_actuators
         self.bertec_estimators = {}
 
+        self.time_since_start = 0
+        self.thread_start_time = time.perf_counter()
+
         # for each active actuator, initialize GSE Bertec
         for actuator in self.active_actuators:
             selected_topic = f"fz_{actuator}"  # e.g., 'fz_left' or 'fz_right'
@@ -257,10 +262,17 @@ class GaitStateEstimatorThread(BaseWorkerThread):
 
             self.bertec_estimators[actuator] = walker
 
-
             # TODO: UNCOMMENT
             # bertec_subscriber = Subscriber(publisher_ip=IP_ADDRESSES.VICON_IP, topic_filter=selected_topic, timeout_ms=5)
             # self.bertec_estimator[actuator] = Bertec_Estimator(zmq_subscriber=bertec_subscriber)
+
+            # track vars for csv logging
+            self.data_logger.track_variable(lambda: self.time_since_start, f"{actuator}_time_since_start")
+            self.data_logger.track_variable(lambda: self.bertec_estimators[actuator].stride_start_time, f"{actuator}_HS_time_")
+            self.data_logger.track_variable(lambda: self.bertec_estimators[actuator].stride_period, f"{actuator}_stride_period")
+            self.data_logger.track_variable(lambda: self.bertec_estimators[actuator].in_swing_flag, f"{actuator}_in_swing_flag_bool")
+            self.data_logger.track_variable(lambda: self.bertec_estimators[actuator].current_time_in_stride, f"{actuator}_current_time_in_stride")
+            self.data_logger.track_variable(lambda: self.bertec_estimators[actuator].current_percent_gait_cycle, f"{actuator}_current_percent_gait_cycle")
 
     def pre_iterate(self)->None:
         pass
@@ -272,6 +284,7 @@ class GaitStateEstimatorThread(BaseWorkerThread):
 
         It updates the gait state estimator and sends the current time in stride and stride period to the actuators.
         """
+        self.time_since_start = time.perf_counter() - self.thread_start_time
 
         # for each active actuator,
         for actuator in self.active_actuators:
@@ -279,6 +292,9 @@ class GaitStateEstimatorThread(BaseWorkerThread):
             # TODO: update the gait state estimator for the actuator
             # self.bertec_estimators[actuator].update()
             self.bertec_estimators[actuator].update()
+
+            # update csv logger
+            self.data_logger.update()
 
             # send message to actuator inboxes
             try:
@@ -327,6 +343,9 @@ class GUICommunication(BaseWorkerThread):
         self.inbox = None
         self.torque_setpoint = 20.0
 
+        # track vars for csv logging
+        self.data_logger.track_variable(lambda: self.torque_setpoint, "torque_setpt")
+
     def pre_iterate(self)->None:
         """
         Pre-iterate method to check for new messages in the mailbox.
@@ -340,6 +359,9 @@ class GUICommunication(BaseWorkerThread):
         If the user doesn't input a new value, the current setpoint is used.
         """
 
+        # update csv logging
+        self.data_logger.update()
+
         # set a random torque setpoint
         self.torque_setpoint = random.randint(1,4)*10
 
@@ -352,8 +374,6 @@ class GUICommunication(BaseWorkerThread):
             msg_router.send(sender=self.name,
                             recipient="right",
                             contents={"torque_setpoint": self.torque_setpoint})
-
-            self.data_logger.debug(f"sent torque setpoint {self.torque_setpoint} to actuators")
         except:
             self.data_logger.debug(f"UNABLE TO SEND msg to actuator from GUICommunication thread. Skipping.")
 
@@ -716,8 +736,8 @@ class ThreadManager:
     def stop(self) -> None:
         """Signal threads to quit and join them"""
 
-        # setting the quit event so all threads recieve the kill signal
-        self._quit_event.set()
+        # clearing the quit event so all threads recieve the kill signal
+        self._quit_event.clear()
         LOGGER.debug("Setting quit event for all threads.")
 
         # ensure that both actuators are properly shut down
@@ -725,7 +745,8 @@ class ThreadManager:
             LOGGER.debug(f"Calling stop method of {actuator.tag}")
             actuator.stop()
 
-        time.sleep(0.25)
+        # ensure time to enact stop method before moving on
+        time.sleep(0.2)
 
     def initialize_actuator_thread(self, actuator:DephyEB51Actuator) -> None:
         """

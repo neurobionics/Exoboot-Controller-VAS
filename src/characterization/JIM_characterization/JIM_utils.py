@@ -122,6 +122,7 @@ class JIM_data_plotter:
             print("Tracked variables:", tracked_vars)
 
 
+# TODO: COMPLETE THIS FUNCTION
 def JIM_time_position_vec_generator(start_velocity:float, final_velocity:float, target_position:float, total_time: float)->None:
     """
     This method reports a time and position vector for use during JIM testing.
@@ -136,8 +137,6 @@ def JIM_time_position_vec_generator(start_velocity:float, final_velocity:float, 
         - time_vec: vector of times
         - position_vec: vector of positions
     """
-
-
 
     return time_vec, position_vec
 
