@@ -10,6 +10,7 @@ CONSOLE_LOGGER = Logger(enable_csv_logging=False,
                         stream_level = LogLevel.INFO,
                         log_format = "%(levelname)s: %(message)s"
                         )
+from gse_imu import IMU_Estimator
 
 class NoActuatorsFoundError(Exception):
     """Raised when no actuators are detected on available ports."""
@@ -76,7 +77,8 @@ def create_actuators(gear_ratio:float, baud_rate:int, freq:int, debug_level:int)
             port=port,
             baud_rate=baud_rate,
             frequency=freq,
-            debug_level=debug_level
+            debug_level=debug_level,
+            imu_estimator = IMU_Estimator()
         )
         # log device ID of the actuator
         CONSOLE_LOGGER.info(f"Device ID: {actuator.dev_id}")

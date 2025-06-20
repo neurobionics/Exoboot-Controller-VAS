@@ -161,6 +161,7 @@ class ActuatorThread(BaseWorkerThread):
         self.data_logger.track_variable(lambda: self.torque_command, "torque_cmd")
         self.data_logger.track_variable(lambda: self.current_setpoint, "current_setpoint")
 
+
     def pre_iterate(self)->None:
         """
         Check inbox for messages from GSE & GUI threads
@@ -179,10 +180,10 @@ class ActuatorThread(BaseWorkerThread):
             for key, value in mail.contents.items():
                 # TODO: value validation (not None or something)
 
-                if key == "torque_setpoint":
-                    self.peak_torque_update_monitor(key, value)
-                else:
-                    setattr(self, key, value)
+                # if key == "torque_setpoint":
+                #     self.peak_torque_update_monitor(key, value)
+                # else:
+                setattr(self, key, value)
 
         except Exception as err:
             self.data_logger.debug(f"Error decoding message: {err}")
@@ -195,7 +196,8 @@ class ActuatorThread(BaseWorkerThread):
         This is to prevent the current command from being altered mid-stride.
         A new torque will only be felt upon the termination of the current stride.
         """
-
+        # TODO: add in more logic to handle continous vs discrete modes (GUI doesn't send continous stream of data)
+        # TODO: potentially add in
         if self.in_swing:
             setattr(self, key, value)
 
@@ -214,18 +216,17 @@ class ActuatorThread(BaseWorkerThread):
         self.time_in_stride = time.perf_counter() - self.HS_time
 
         # acquire torque command based on gait estimate
-        self.torque_command = self.assistance_calculator.torque_generator(self.time_in_stride,
-                                                                     self.stride_period,
-                                                                     float(self.torque_setpoint),
-                                                                     self.in_swing)
+        self.torque_command = self.assistance_calculator.torque_generator(self.actuator.time_in_stride,
+                                                                        self.actuator.stride_period,
+                                                                        float(self.torque_setpoint),
+                                                                        self.actuator.in_swing)
 
         # determine appropriate current setpoint that matches the torque setpoint
         self.current_setpoint = self.actuator.torque_to_current(self.torque_command)
 
         # command appropriate current setpoint using DephyExoboots class
         if self.current_setpoint is not None:
-            # self.actuator.set_motor_current(current_setpoint)
-            pass
+            self.actuator.set_motor_current(self.current_setpoint)
         else:
             self.data_logger.warning(f"Unable to command current for {self.actuator.tag}. Skipping.")
 
@@ -274,14 +275,13 @@ class GaitStateEstimatorThread(BaseWorkerThread):
             selected_topic = f"fz_{actuator}"  # e.g., 'fz_left' or 'fz_right'
 
             # TODO: REMOVE -- FOR TESTING ONLY
-            walker = WalkingSimulator(stride_period=1.20)
-            walker.set_percent_toe_off(67)
-
-            self.bertec_estimators[actuator] = walker
+            # walker = WalkingSimulator(stride_period=1.20)
+            # walker.set_percent_toe_off(67)
+            # self.bertec_estimators[actuator] = walker
 
             # TODO: UNCOMMENT
-            # bertec_subscriber = Subscriber(publisher_ip=IP_ADDRESSES.VICON_IP, topic_filter=selected_topic, timeout_ms=5)
-            # self.bertec_estimator[actuator] = Bertec_Estimator(zmq_subscriber=bertec_subscriber)
+            bertec_subscriber = Subscriber(publisher_ip=IP_ADDRESSES.VICON_IP, topic_filter=selected_topic, timeout_ms=5)
+            self.bertec_estimators[actuator] = Bertec_Estimator(zmq_subscriber=bertec_subscriber)
 
             # track vars for csv logging
             self.data_logger.track_variable(lambda: self.time_since_start, f"{actuator}_time_since_start")
@@ -307,7 +307,6 @@ class GaitStateEstimatorThread(BaseWorkerThread):
         for actuator in self.active_actuators:
 
             # TODO: update the gait state estimator for the actuator
-            # self.bertec_estimators[actuator].update()
             self.bertec_estimators[actuator].update()
 
             # update csv logger
@@ -387,7 +386,7 @@ class GUICommunication(BaseWorkerThread):
         self.data_logger.update()
 
         # set a random torque setpoint
-        self.torque_setpoint = random.randint(1,4)*10
+        self.torque_setpoint = 10 #random.randint(1,4)*1
 
         for actuator in self.active_actuators:
             try:
@@ -413,294 +412,6 @@ from opensourceleg.actuators.base import CONTROL_MODES
 from opensourceleg.actuators.dephy import DEFAULT_CURRENT_GAINS
 from typing import Union, Dict
 import time
-
-
-class DephyExoboots(RobotBase[DephyEB51Actuator, SensorBase]):
-
-    def start(self) -> None:
-        """
-        Start the Exoskeleton.
-        """
-        super().start()
-
-    def stop(self) -> None:
-        """
-        Stop the Exoskeleton.
-        """
-
-        super().stop()
-
-    def set_actuator_mode_and_gains(self, actuator)-> None:
-        """
-        Call the setup_controller method for all actuators.
-        This method selects current control mode and sets PID gains for each actuator.
-        """
-        actuator.set_control_mode(CONTROL_MODES.CURRENT)
-        LOGGER.info("finished setting control mode")
-
-        actuator.set_current_gains(
-            kp=DEFAULT_CURRENT_GAINS.kp,
-            ki=DEFAULT_CURRENT_GAINS.ki,
-            kd=DEFAULT_CURRENT_GAINS.kd,
-            ff=DEFAULT_CURRENT_GAINS.ff,
-        )
-        LOGGER.info("finished setting gains")
-
-    def update(self) -> None:
-        """
-        Update the exoskeleton.
-        """
-        # print(f"Updating exoskeleton robot: {self.tag}")
-        super().update()
-
-    def spool_belts(self):
-        """
-        Spool the belts of both actuators.
-        This method is called to prepare the actuators for operation.
-        """
-        for actuator in self.actuators.values():
-            actuator.spool_belt()
-            LOGGER.info(f"finished spooling belt of {actuator.side}")
-
-    def set_to_transparent_mode(self):
-        """
-        Set the exo currents to 0mA.
-        """
-        self.update_current_setpoints(current_inputs=0, asymmetric=False)
-        self.command_currents()
-
-    def detect_active_actuators(self) -> Union[str, list[str]]:
-        """
-        Detect active actuators.
-        Returns a string if only one actuator is active, otherwise a list of strings.
-        """
-
-        active_sides = list(self.actuators.keys())
-
-        if len(active_sides) == 1:
-            return active_sides[0]
-
-        return active_sides
-
-    def create_current_setpts_dict(self) -> None:
-        """
-        create dictionary of current setpoints (in mA) corresponding to actuator side
-        """
-        self.current_setpoints = {}
-        for actuator in self.actuators.values():
-            self.current_setpoints[actuator.side] = 0.0
-
-        # TODO: generate test to determine if current_setpoints dict has the same keys as the actuators dict
-
-    def update_current_setpoints(self, current_inputs: Union[int, Dict[str, int]], asymmetric:bool=False) -> None:
-        """
-        Directly assign currents to the 'current_setpoints' dictionary for current control.
-
-        If symmetric, the same current value is applied to both sides (with motor sign).
-        If asymmetric, the user must pass a dictionary specifying currents for each side.
-
-        Args:
-            - current: int or dict. If symmetric=False, this should be a dict with 'left' and 'right' keys.
-            - asymmetric: bool. If True, use side-specific currents from the dictionary.
-        """
-        # TODO: ensure that current_inputs matches the number of active sides
-            # TODO: if more than the number of active sides provided, trim to active one only
-            # TODO: handle missing sides
-
-        # TODO: clip current setpoints to below max limit
-
-        if asymmetric:
-            for side, current in current_inputs.items():    # assign different currents for each actuator
-                actuator = getattr(self, side)
-                self.current_setpoints[side] = int(current) * actuator.motor_sign
-        else:
-            for side in self.actuators.keys():              # assign the same current for both actuators
-                actuator = getattr(self, side)
-                self.current_setpoints[side] = int(current_inputs) * actuator.motor_sign
-
-    def convert_torque_to_current_setpoints(self, torque_setpoint: float) -> dict:
-        """
-        Find the appropriate current setpoint for the actuators.
-        This method is called to determine the current setpoint based on the torque setpoint.
-
-        arguments:
-            torque_setpoint: float, the desired torque setpoint in Nm.
-
-
-        returns:
-            current_setpoints:   dict of currents for each active actuator.
-                        key is the side of the actuator (left or right).
-        """
-        for actuator in self.actuators.values():
-            self.current_setpoints[actuator.side] = actuator.torque_to_current(torque_setpoint)
-            LOGGER.info(f"finished finding current setpoint for {actuator.side}")
-
-            return self.current_setpoints
-
-    def command_currents(self) -> None:
-        """
-        Commands current setpoints to each actuator based on the current_setpoints dictionary.
-        The setpoints can be unique.
-        """
-        # TODO: ensure current_setpoints values are integers, no greater than max current limit, and are not None
-
-        for actuator in self.actuators.values():
-
-            current_setpoint = self.current_setpoints.get(actuator.side)
-
-            if current_setpoint is not None:
-                actuator.set_motor_current(current_setpoint)
-                LOGGER.info(f"Finished setting current setpoint for {actuator.side}")
-            else:
-                LOGGER.warning(f"Unknown side '{actuator.side}' and unable to command current. Skipping.")
-
-    def initialize_rt_plots(self) -> list:
-        """
-        Initialize real-time plots for the exoskeleton robot.
-        Naming and plotting is flexible to each active actuator.
-
-        The following time series are plotted:
-        - Current (A)
-        - Temperature (°C)
-        - Ankle Angle (°)
-        - Transmission Ratio
-        - Ankle Torque Setpoint (Nm)
-
-        """
-        # converting actuator dictionary keys to a list
-        active_sides_list = list(self.actuators.keys())
-
-        print("Active actuators:", active_sides_list)
-
-        # pre-slice colors based on the number of active actuators
-        colors = ['r', 'b'][:len(active_sides_list)]
-        if len(active_sides_list) > len(colors):
-            raise ValueError("Not enough unique colors for the number of active actuators.")
-
-        # repeat line styles and widths for each active actuator
-        line_styles = ['-' for _ in active_sides_list]
-        line_widths = [2 for _ in active_sides_list]
-
-        current_plt_config = {'names' : active_sides_list,
-                        'colors' : colors,
-                        'line_style': line_styles,
-                        'title' : "Exo Current (A) vs. Sample",
-                        'ylabel': "Current (A)",
-                        'xlabel': "timestep",
-                        'line_width': line_widths,
-                        'yrange': [0,30]
-                        }
-
-        temp_plt_config = {'names' : active_sides_list,
-                        'colors' : colors,
-                        'line_style': line_styles,
-                        'title' : "Case Temperature (°C) vs. Sample",
-                        'ylabel': "Temperature (°C)",
-                        'xlabel': "timestep",
-                        'line_width': line_widths,
-                        'yrange': [20,60]
-                        }
-
-        in_swing_plt_config = {'names' : active_sides_list,
-                        'colors' : colors,
-                        'line_style': line_styles,
-                        'title' : "Bertec in-swing vs. Sample",
-                        'ylabel': "Bool",
-                        'xlabel': "timestep",
-                        'line_width': line_widths,
-                        'yrange': [0,150]
-                        }
-
-        TR_plt_config = {'names' : active_sides_list,
-                        'colors' : colors,
-                        'line_style': line_styles,
-                        'title' : "TR (°) vs. Sample",
-                        'ylabel': "N",
-                        'xlabel': "timestep",
-                        'line_width': line_widths,
-                        'yrange': [0,20]
-                        }
-
-        imu_plt_config = {'names' : active_sides_list,
-                        'colors' : colors,
-                        'line_style': line_styles,
-                        'title' : "Activations vs. Sample",
-                        'ylabel': "Bool",
-                        'xlabel': "timestep",
-                        'line_width': line_widths,
-                        'yrange': [0,50]
-                        }
-
-        plot_config = [current_plt_config, temp_plt_config, in_swing_plt_config, TR_plt_config, imu_plt_config]
-
-        return plot_config
-
-    def update_rt_plots(self, bertec_swing_flag, imu_activations) -> list:
-        """
-        Updates the real-time plots with current values for:
-        - Current (A)
-        - Temperature (°C)
-        - Bertec In swing
-        - Transmission Ratio
-        - IMU estimator activations
-
-        The data is collected from the exoboots object and returned as a list of arrays.
-        This is done for each active actuator only.
-
-        Returns:
-            plot_data_array: A list of data arrays (for active actuators) for each plot.
-        """
-
-        data_to_plt = []
-
-        for actuator in self.actuators.values():
-            data_to_plt.extend([
-                abs(actuator.motor_current),  # Motor current
-                actuator.case_temperature,    # Case temperature
-                bertec_swing_flag,
-                actuator.gear_ratio,          # Gear ratio
-                imu_activations
-            ])
-
-        return data_to_plt
-
-    def track_variables_for_logging(self, logger: Logger) -> None:
-        """
-        Track variables for each active actuator for logging to a single file
-        """
-
-        for actuator in self.actuators.values():
-            dummy_grpc_value = 5.0
-            dummy_ankle_torque_setpt = 20
-            logger.track_variable(lambda: time.time(), "pitime")
-            logger.track_variable(lambda: dummy_grpc_value, "dollar_value")
-            logger.track_variable(lambda: dummy_ankle_torque_setpt, "torque_setpt_Nm")
-
-            logger.track_variable(lambda: actuator.accelx, f"{actuator._tag}_accelx_mps2")
-            logger.track_variable(lambda: actuator.motor_current, f"{actuator._tag}_current_mA")
-            logger.track_variable(lambda: actuator.motor_position, f"{actuator._tag}_position_rad")
-            logger.track_variable(lambda: actuator.motor_encoder_counts, f"{actuator._tag}_encoder_counts")
-            logger.track_variable(lambda: actuator.case_temperature, f"{actuator._tag}_case_temp_C")
-
-            tracked_vars = logger.get_tracked_variables()
-            print("Tracked variables:", tracked_vars)
-
-    @property
-    def left(self) -> DephyEB51Actuator:
-        try:
-            return self.actuators["left"]
-        except KeyError:
-            LOGGER.error("Ankle actuator not found. Please check for `left` key in the actuators dictionary.")
-            exit(1)
-
-    @property
-    def right(self) -> DephyEB51Actuator:
-        try:
-            return self.actuators["right"]
-        except KeyError:
-            LOGGER.error("Ankle actuator not found. Please check for `right` key in the actuators dictionary.")
-            exit(1)
-
 
 
 class ThreadManager:
@@ -912,7 +623,6 @@ class ThreadManager:
         return self._threads.get("gui")
 
 
-
 # Example main loop
 from opensourceleg.utilities import SoftRealtimeLoop
 from src.utils.actuator_utils import create_actuators
@@ -920,6 +630,7 @@ from src.settings.constants import EXO_SETUP_CONST
 from src.utils.walking_simulator import WalkingSimulator
 from exoboot_messenger_hub import MessageRouter
 from rtplot import client
+from exoboots import DephyExoboots
 
 if __name__ == '__main__':
 
@@ -933,6 +644,12 @@ if __name__ == '__main__':
     exoboots = DephyExoboots(tag="exoboots",
                              actuators=actuators,
                              sensors={})
+
+    # set actuator modes
+    exoboots.setup_control_modes()
+
+    # spool belts
+    exoboots.spool_belts()
 
     # create a message router for inter-thread communication
     msg_router = MessageRouter()

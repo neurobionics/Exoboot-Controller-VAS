@@ -63,6 +63,7 @@ class DephyEB51Actuator(DephyLegacyActuator):
         dephy_log: bool = False,
         offline: bool = False,
         gear_ratio: float = 1.0,
+        imu_estimator: object = None
     ) -> None:
 
         CONSOLE_LOGGER.info("Initializing DephyEB51 actuator...")
@@ -112,6 +113,9 @@ class DephyEB51Actuator(DephyLegacyActuator):
         self.tr_gen = VariableTransmissionRatio(self.side, TEST_TR_FILE)
         CONSOLE_LOGGER.info("instantiated variable transmission ratio")
 
+        # adding in imu estimator
+        self.imu_estimator = imu_estimator
+
 
     def update_gear_ratio(self)-> None:
         """
@@ -146,15 +150,18 @@ class DephyEB51Actuator(DephyLegacyActuator):
         Updates the actuator state.
         """
 
+        # update the actuator state
+        # super().update_allData()
+        super().update()
+
         # filter the temperature before updating the thermal model
         self.filter_temp()
-
-        # update the actuator state
-        super().update()
 
         # update the gear ratio
         self.update_gear_ratio()
 
+        # update imu gait state
+        # self.activation = self.imu_estimator.update(self.accelz)
 
     def assign_id_to_side(self)-> str:
         """
@@ -168,14 +175,10 @@ class DephyEB51Actuator(DephyLegacyActuator):
 
         LOGGER.info(
             f"Spooling {self.side} joint. "
-            "Please make sure the joint is free to move and press Enter to continue."
+            "Please make sure the joint is free to move."
         )
 
-        input()
         self.set_motor_current(value=self.motor_sign * EXO_DEFAULT_CONFIG.BIAS_CURRENT)  # in mA
-
-        time.sleep(0.3)
-
 
     def filter_temp(self):
         """
@@ -198,7 +201,6 @@ class DephyEB51Actuator(DephyLegacyActuator):
 
                 CONSOLE_LOGGER.warning(f"HAD TO ANTI-SPIKE the TEMP: {self.case_temperature}")
 
-
     def torque_to_current(self, torque: float) -> int:
         """
         Converts torque setpoint (Nm) to a corresponding current (in mA)
@@ -220,8 +222,6 @@ class DephyEB51Actuator(DephyLegacyActuator):
         des_current = des_current * 1000 * self.motor_sign
 
         return int(des_current)
-
-
 
     def current_to_torque(self)-> float:
         """

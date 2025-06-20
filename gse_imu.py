@@ -17,7 +17,6 @@ class IMU_Estimator:
         self.std = 1
         self.zscore = 0
 
-        self.activation_state = False
         self.activations_pitime_local = 0
         self.activations_zscore_local = 0
         self.activations_pitime_start = []
@@ -38,7 +37,7 @@ class IMU_Estimator:
 
         return state_dict
 
-    def update(self, accel):
+    def update(self, accel) -> dict:
         diff = abs(accel - self.prev_accel)
 
         # Mean/STD real-time
@@ -77,7 +76,9 @@ class IMU_Estimator:
         else:
             pass
 
-        self.activations_status.append(self.activation_state)
+        # self.activations_status.append(self.activation_state)
+
+        return self.activation_state
 
 
 
