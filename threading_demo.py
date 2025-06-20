@@ -368,6 +368,10 @@ class GUICommunication(BaseWorkerThread):
         # track vars for csv logging
         self.data_logger.track_variable(lambda: self.torque_setpoint, "torque_setpt")
 
+        # TODO: connect to existing GUI communication module:
+        self.exoboot_remote_servicer = ExobootCommServicer(self.mainwrapper, startstamp, filingcabinet, usebackup=usebackup, quit_event=self.quit_event)
+
+
     def pre_iterate(self)->None:
         """
         Pre-iterate method to check for new messages in the mailbox.
