@@ -1,6 +1,7 @@
 """
 Collection of all the constants used throughout exoboot controller
 """
+import time, argparse, sys
 
 from .constants_dataclasses import (
     SPLINE_PARAMS,
@@ -13,7 +14,8 @@ from .constants_dataclasses import (
     EXO_PID_GAINS,
     IMU_CONSTANTS,
     BERTEC_THRESHOLDS,
-    STATIC_IP_ADDRESSES
+    STATIC_IP_ADDRESSES,
+    SESSION_INPUTS
 )
 
 """ Static IP addresses """
@@ -24,7 +26,7 @@ IP_ADDRESSES = STATIC_IP_ADDRESSES(
 
 """ File Paths on Pi """
 PORT_CFG_PATH = '/home/pi/VAS_exoboot_controller/ports.yaml' # DEPRECATED
-SUBJECT_DATA_PATH = "subject_data"
+SUBJECT_DATA_DIR_NAME = "subject_data"
 
 
 """ TRIAL TYPES AND CONDITIONS """

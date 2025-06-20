@@ -3,7 +3,7 @@
 import grpc
 import warnings
 
-import exoboot_remote_pb2 as exoboot__remote__pb2
+import src.GUI_communication.exoboot_remote_pb2 as exoboot__remote__pb2
 
 GRPC_GENERATED_VERSION = '1.64.1'
 GRPC_VERSION = grpc.__version__

@@ -335,6 +335,26 @@ class GaitStateEstimatorThread(BaseWorkerThread):
 import sys
 import select
 import random
+from src.GUI_communication.exoboot_remote_control import ExobootCommServicer
+import grpc
+import src.GUI_communication.exoboot_remote_pb2 as pb2
+import src.GUI_communication.exoboot_remote_pb2_grpc as pb2_grpc
+from concurrent import futures
+import socket
+
+
+def get_IP_for_gRPC_server()->str:
+    """
+    Obtains IP address of the gRPC server (i.e. the rpi if it is communicating with an external UI)
+    """
+
+    s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    s.connect(('10.255.255.255', 1))
+    my_IP = s.getsockname()[0] + ":50055"
+
+    print("myIP: {}".format(my_IP))
+
+    return my_IP
 
 class GUICommunication(BaseWorkerThread):
     """
@@ -347,6 +367,7 @@ class GUICommunication(BaseWorkerThread):
 
     def __init__(self,
                  msg_router,
+                 filing_cabinet,
                  quit_event:Type[threading.Event],
                  pause_event:Type[threading.Event],
                  log_event: Type[threading.Event],
@@ -360,7 +381,7 @@ class GUICommunication(BaseWorkerThread):
         self.msg_router = msg_router
         self.inbox = None
         self.active_actuators = active_actuators
-        self.torque_setpoint:float = 20.0
+        self.torque_setpoint:float = 0.0
 
         self.thread_start_time:float = time.perf_counter()
         self.time_since_start:float = 0.0
@@ -368,9 +389,21 @@ class GUICommunication(BaseWorkerThread):
         # track vars for csv logging
         self.data_logger.track_variable(lambda: self.torque_setpoint, "torque_setpt")
 
-        # TODO: connect to existing GUI communication module:
-        self.exoboot_remote_servicer = ExobootCommServicer(self.mainwrapper, startstamp, filingcabinet, usebackup=usebackup, quit_event=self.quit_event)
+        # obtain the IP address of the rpi (server)
+        server_IP = get_IP_for_gRPC_server()
 
+        # TODO: connect to existing GUI communication module:
+        self.exoboot_remote_servicer = ExobootCommServicer(mainwrapper=self,
+                                                           filingcabinet=filing_cabinet,
+                                                           quit_event=quit_event,
+                                                           session_details=SESSION_DETAILS)
+
+        # start the server to enable message reception & response to the GUI
+        server = grpc.server(futures.ThreadPoolExecutor(max_workers=10))
+        pb2_grpc.add_exoboot_over_networkServicer_to_server(self.exoboot_remote_servicer, server)
+        server.add_insecure_port(server_IP)
+        server.start()
+        server.wait_for_termination()
 
     def pre_iterate(self)->None:
         """
@@ -391,7 +424,7 @@ class GUICommunication(BaseWorkerThread):
         self.data_logger.update()
 
         # set a random torque setpoint
-        self.torque_setpoint = random.randint(1,4)*10
+        # self.torque_setpoint = random.randint(1,4)*10
 
         for actuator in self.active_actuators:
             try:
@@ -706,15 +739,15 @@ class DephyExoboots(RobotBase[DephyEB51Actuator, SensorBase]):
             exit(1)
 
 
-
 class ThreadManager:
     """
     This class manages thread creation, communication and termination for the exoskeleton system.
     """
 
-    def __init__(self, msg_router, actuators:Dict) -> None:
+    def __init__(self, msg_router, actuators:Dict, filing_cabinet:object) -> None:
 
         self.actuators = actuators              # Dictionary of Actuators
+        self.filing_cabinet = filing_cabinet    # Filing Cabinet class instance
         self.msg_router = msg_router            # MessageRouter class instance
 
         # create threading events common to all threads
@@ -745,7 +778,7 @@ class ThreadManager:
         self.initialize_GSE_thread(active_actuators=self.actuators.keys())
 
         # creating 1 thread for GUI communication
-        self.initialize_GUI_thread(active_actuators=self.actuators.keys())
+        self.initialize_GUI_thread(self.filing_cabinet, active_actuators=self.actuators.keys())
 
     def start_all_threads(self)->None:
         """
@@ -812,13 +845,12 @@ class ThreadManager:
         LOGGER.debug(f"created gse thread")
         self._threads[name] = gse_thread
 
-    def initialize_GUI_thread(self, active_actuators:list[str]) -> None:
+    def initialize_GUI_thread(self, filing_cabinet:object, active_actuators:list[str]) -> None:
         """
         Create and start the GUI thread for user input.
         This method is called to set up the GUI communication thread.
         """
 
-        # create a FIFO queue with max size for inter-thread communication
         name = "gui"
         gui_thread = GUICommunication(quit_event=self._quit_event,
                                       pause_event=self._pause_event,
@@ -826,7 +858,9 @@ class ThreadManager:
                                       active_actuators=active_actuators,
                                       name=name,
                                       frequency=100,
-                                      msg_router=self.msg_router)
+                                      msg_router=self.msg_router,
+                                      filing_cabinet=filing_cabinet)
+
         LOGGER.debug(f"created gui thread")
         self._threads[name] = gui_thread
 
@@ -916,16 +950,24 @@ class ThreadManager:
         return self._threads.get("gui")
 
 
-
 # Example main loop
 from opensourceleg.utilities import SoftRealtimeLoop
 from src.utils.actuator_utils import create_actuators
-from src.settings.constants import EXO_SETUP_CONST
+from src.utils.filing_utils import get_user_inputs
+from src.settings.constants import EXO_SETUP_CONST, SUBJECT_DATA_DIR_NAME
 from src.utils.walking_simulator import WalkingSimulator
 from exoboot_messenger_hub import MessageRouter
 from rtplot import client
+from src.custom_logging.LoggingClass import FilingCabinet
+
+# for testing only
+import time
+from dataclasses import dataclass
 
 if __name__ == '__main__':
+
+    # get user inputs
+    SESSION_DETAILS = get_user_inputs()
 
     # create actuators
     actuators = create_actuators(gear_ratio=1,
@@ -938,11 +980,17 @@ if __name__ == '__main__':
                              actuators=actuators,
                              sensors={})
 
+    # create a filing cabinet using user inputs
+    filing_cabinet = FilingCabinet(SUBJECT_DATA_DIR_NAME, SESSION_DETAILS.SUBJECT_ID)
+    if SESSION_DETAILS.USE_BACKUP:
+        loadstatus = filing_cabinet.loadbackup(SESSION_DETAILS.FILENAME, rule="newest")
+        print("Backup Load Status: {}".format("SUCCESS" if loadstatus else "FAILURE"))
+
     # create a message router for inter-thread communication
     msg_router = MessageRouter()
 
     # instantiate thread manager
-    system_manager = ThreadManager(msg_router=msg_router, actuators=actuators)
+    system_manager = ThreadManager(msg_router=msg_router, actuators=actuators, filing_cabinet=filing_cabinet)
 
     # instantiate soft real-time clock
     clock = SoftRealtimeLoop(dt = 1 / 1) # Hz

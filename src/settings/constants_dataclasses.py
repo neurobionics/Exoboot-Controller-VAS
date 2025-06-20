@@ -5,6 +5,32 @@ Collection of data classes to support constants used throughout the exoboot cont
 from dataclasses import dataclass
 
 @dataclass
+class SESSION_INPUTS:
+    """
+    Class to define the experimental session details.
+
+    Examples:
+        >>> constants = SESSION_INPUTS(
+        ...     SUBJECT_ID = AB10,          % ABX
+        ...     TRIAL_TYPE = acclimation,   % VAS/Vickrey/Acclimation/JND/Pref
+        ...     TRIAL_COND = slider,        % slider, dial, btn-type/trial/group (for VAS)
+        ...     DESC = 67,                  % Usually the date in this format: MMDDYY (i.e. 01312025, which is Jan 31, 2025)
+        ...     BACKUP = yes,               % specify if data should be pickled
+        ...     FILENAME
+        ...     START_STAMP = time.time()   % time at whichmain loop/program started
+        ... )
+        >>> print(SESSION_INPUTS.TRIAL_COND)
+        slider
+    """
+    SUBJECT_ID:str
+    TRIAL_TYPE:str
+    TRIAL_CONDITION:str
+    DESCRIPTION:str
+    USE_BACKUP:str
+    FILENAME:str
+    START_STAMP:float
+
+@dataclass
 class SPLINE_PARAMS:
     """
     Class to define the four-point-spline assistance parameters.
