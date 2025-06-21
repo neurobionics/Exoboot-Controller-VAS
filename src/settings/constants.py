@@ -117,7 +117,7 @@ EXO_CURRENT_SAFETY_LIMITS = EXO_CURRENT_SAFETY_CONSTANTS(
 """ Default Configuration """
 EXO_DEFAULT_CONFIG = EXO_DEFAULT_CONSTANTS(
     HOLDING_TORQUE = 2,  # in Nm
-    BIAS_CURRENT = 500   # mA (not the same as transparent mode)
+    BIAS_CURRENT = 750   # mA (not the same as transparent mode)
     )
 
 """ IMU/GYRO Constants """

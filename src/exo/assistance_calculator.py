@@ -19,14 +19,15 @@ from opensourceleg.utilities import SoftRealtimeLoop
 from opensourceleg.logging import Logger, LogLevel
 
 from settings.constants import(
-    INCLINE_WALK_TIMINGS,
+    FLAT_WALK_TIMINGS,
     EXO_DEFAULT_CONFIG)
 
+# TODO: add argument for spline params
 class AssistanceCalculator:
     def __init__(self,
-                 t_rise:float=INCLINE_WALK_TIMINGS.P_RISE,
-                 t_peak:float=INCLINE_WALK_TIMINGS.P_PEAK,
-                 t_fall:float=INCLINE_WALK_TIMINGS.P_FALL,
+                 t_rise:float=FLAT_WALK_TIMINGS.P_RISE,
+                 t_peak:float=FLAT_WALK_TIMINGS.P_PEAK,
+                 t_fall:float=FLAT_WALK_TIMINGS.P_FALL,
                  holding_torque:float=EXO_DEFAULT_CONFIG.HOLDING_TORQUE,
                  resolution:int=10000)->None:
 
@@ -122,7 +123,7 @@ class AssistanceCalculator:
         self.t_dropoff = self.t_peak + self.t_fall
 
         # check that dropoff is less than toe-off (in percent stride units)
-        toe_off_percent = INCLINE_WALK_TIMINGS.P_TOE_OFF / self.end_of_stride_in_percent
+        toe_off_percent = FLAT_WALK_TIMINGS.P_TOE_OFF / self.end_of_stride_in_percent
         if self.t_dropoff >= toe_off_percent:
             raise ValueError("Drop-off time must be <= toe-off time; "
                              "Please change the fall time to be within toe-off bounds.")
@@ -241,7 +242,8 @@ class AssistanceCalculator:
 
             # If torque_command is negative, raise ValueError and set to holding torque
             if torque_command < 0:
-                raise ValueError(f"Negative torque command generated: {torque_command}. Setting to holding torque.")
+                # TODO: comment back in:
+                # raise ValueError(f"Negative torque command generated: {torque_command}. Setting to holding torque.")
                 torque_command = self.holding_torque
 
         return torque_command
@@ -280,7 +282,7 @@ if __name__ == "__main__":
     for t in clock:
         try:
             # Update in_swing_flag based on percent_stride
-            if assistance_generator.percent_stride > INCLINE_WALK_TIMINGS.P_TOE_OFF:
+            if assistance_generator.percent_stride > FLAT_WALK_TIMINGS.P_TOE_OFF:
                 in_swing_flag = True
             else:
                 in_swing_flag = False

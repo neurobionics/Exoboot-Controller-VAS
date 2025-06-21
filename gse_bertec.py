@@ -30,7 +30,7 @@ class Bertec_Estimator:
             c) in swing
 
         """
-        state_dict = {"HS": self.HS,
+        state_dict = {"HS_time": self.HS,
                       "stride_period": self.stride_period_tracker.average(),
                       "in_swing": not self.in_contact
                       }

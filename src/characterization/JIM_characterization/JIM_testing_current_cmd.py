@@ -10,10 +10,8 @@ from opensourceleg.logging import Logger, LogLevel
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '../../..')))
 
 from src.settings.constants import (TR_DATE_FORMATTER,
-                                    BAUD_RATE,
-                                    FLEXSEA_FREQ,
-                                    LOG_LEVEL,
-                                    RTPLOT_IP)
+                                    EXO_SETUP_CONST,
+                                    IP_ADDRESSES)
 from src.custom_logging.LoggingClass import FilingCabinet, LoggingNexus
 from exoboots import DephyExoboots
 from src.utils.actuator_utils import create_actuators
@@ -28,13 +26,14 @@ class userInputTest():
         self.time = input("time in sec: ")
         self.rom = input("rom: ")
         self.dps = input("speed in °/s: " )
+        self.alignment_event_time = input("alignment time in sec: " )
 
 if __name__ == "__main__":
     # get user inputs
     args = userInputTest()
 
     # detect active serial ports & create actuator objects
-    actuators = create_actuators(1, BAUD_RATE, FLEXSEA_FREQ, LOG_LEVEL)
+    actuators = create_actuators(1, EXO_SETUP_CONST.BAUD_RATE, EXO_SETUP_CONST.FLEXSEA_FREQ, EXO_SETUP_CONST.LOG_LEVEL)
 
     # assign actuators to Exoboots Robot
     exoboots = DephyExoboots(
@@ -57,7 +56,7 @@ if __name__ == "__main__":
     log_path = os.path.abspath(filingcabinet.getpfolderpath())
     logger = Logger(log_path=log_path,
                     file_name=fname,
-                    buffer_size=10*FLEXSEA_FREQ,
+                    buffer_size=10*EXO_SETUP_CONST.FLEXSEA_FREQ,
                     file_level = LogLevel.DEBUG,
                     stream_level = LogLevel.INFO,
                     enable_csv_logging = True
@@ -65,7 +64,7 @@ if __name__ == "__main__":
 
     # set-up real-time plots:
     JIM_data_plotter = JIM_data_plotter(exoboots.actuators)
-    client.configure_ip(RTPLOT_IP)
+    client.configure_ip(IP_ADDRESSES.RTPLOT_IP)
     plot_config = JIM_data_plotter.initialize_JIM_rt_plots()
     client.initialize_plots(plot_config)
 
@@ -89,14 +88,20 @@ if __name__ == "__main__":
                 # update robot sensor states
                 exoboots.update()
 
-                if (t <= ramp_period):
+                if (t > 0.0) and (t <= float(args.alignment_event_time)):
+                    exoboots.set_to_transparent_mode()
+                    print(f"in transparent mode")
+
+                elif (t > float(args.alignment_event_time)) and (t <= ramp_period):
+                    print(f"{args.alignment_event_time} SEC SLEEP COMPLETED.")
                     # ramp to torque linearly
                     ramp_current = float(args.current_setpt_mA) * t/ramp_period
                     exoboots.update_current_setpoints(current_inputs=ramp_current, asymmetric=False)
                     exoboots.command_currents()
 
                 elif (t > ramp_period) and (t <= float(args.time)):
-                    print("RAMP COMPLETED. Current setpoint is now {} mA".format(args.current_setpt_mA))
+
+                    print(f"RAMP COMPLETED. Current setpoint is now {args.current_setpt_mA} mA")
                     # Command the exo to peak set point current & hold for specified duration
                     exoboots.update_current_setpoints(current_inputs=int(args.current_setpt_mA), asymmetric=False)
                     exoboots.command_currents()

@@ -1,5 +1,5 @@
 import time
-from opensourceleg.logging import Logger
+from opensourceleg.logging import Logger, LogLevel
 
 class JIM_data_plotter:
     def __init__(self, actuators: dict) -> None:
@@ -120,3 +120,40 @@ class JIM_data_plotter:
 
             tracked_vars = logger.get_tracked_variables()
             print("Tracked variables:", tracked_vars)
+
+
+# TODO: COMPLETE THIS FUNCTION
+def JIM_time_position_vec_generator(start_velocity:float, final_velocity:float, target_position:float, total_time: float)->None:
+    """
+    This method reports a time and position vector for use during JIM testing.
+
+    Args:
+        - start_velocity: starting speed of JIM in dps
+        - final_velocity: final speed of the JIM to hit in dps
+        - target_position: final position of JIM (to accelerate to) in °
+        - total_time: total time of JIM test in seconds
+
+    Returns:
+        - time_vec: vector of times
+        - position_vec: vector of positions
+    """
+
+    return time_vec, position_vec
+
+
+if __name__ == "__main__":
+
+    logger = Logger(log_path='JIM_vec_test/',
+                    file_name='JIM_vec_test',
+                    buffer_size=1000,
+                    file_level = LogLevel.DEBUG,
+                    stream_level = LogLevel.INFO,
+                    enable_csv_logging = True
+                )
+
+    start_dps = input("start speed in dps: ")
+    end_dps = input("end speed in dps: ")
+    pos = input("deg to accelerate to: ")
+    total_time = input("desired end time for JIM test: ")
+
+    time_vec, position_vec = JIM_time_position_vec_generator(start_dps, end_dps, pos, total_time)
