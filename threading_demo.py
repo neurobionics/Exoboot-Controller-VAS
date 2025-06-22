@@ -113,7 +113,7 @@ class BaseWorkerThread(threading.Thread, ABC):
         pass
 
 from src.exo.assistance_calculator import AssistanceCalculator
-from src.settings.constants import CONTINUOUS_MODE_FLAG
+from src.settings.constants import CONTINUOUS_MODE_FLAG, FLAT_WALK_TIMINGS, EXO_DEFAULT_CONFIG
 
 class ActuatorThread(BaseWorkerThread):
     """
@@ -139,7 +139,9 @@ class ActuatorThread(BaseWorkerThread):
         self.inbox = None
 
         # instantiate assistance generator
-        self.assistance_calculator = AssistanceCalculator()
+        self.assistance_calculator = AssistanceCalculator(t_rise=FLAT_WALK_TIMINGS.P_RISE,
+                                                          t_peak=FLAT_WALK_TIMINGS.P_PEAK,
+                                                          t_fall=FLAT_WALK_TIMINGS.P_FALL)
 
         # set-up vars:
         self.HS_time:float = 0.0
@@ -213,10 +215,10 @@ class ActuatorThread(BaseWorkerThread):
         self.time_in_stride = time.perf_counter() - self.HS_time
 
         # acquire torque command based on gait estimate
-        self.torque_command = self.assistance_calculator.torque_generator(self.actuator.time_in_stride,
-                                                                        self.actuator.stride_period,
-                                                                        float(self.torque_setpoint),
-                                                                        self.actuator.in_swing)
+        self.torque_command = self.assistance_calculator.torque_generator(current_time=self.actuator.time_in_stride,
+                                                                          stride_period=self.actuator.stride_period,
+                                                                          peak_torque=float(self.torque_setpoint),
+                                                                          in_swing=self.actuator.in_swing)
 
         # determine appropriate current setpoint that matches the torque setpoint
         self.current_setpoint = self.actuator.torque_to_current(self.torque_command)
