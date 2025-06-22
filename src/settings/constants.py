@@ -137,5 +137,5 @@ GYROZ_W0: float = 1.0105  # Hz
 TEMPANTISPIKE = 100  # °C
 
 """ Gait State Estimation Toggle"""
-RUN_BERTEC_GSE:bool = False         # if true, an additional thread will be spun up that obtains bertec gait state estimates
-USE_SIMULATED_WALKER:bool = True    # if true, a simulated walker will output gait state estimates in the thread instead of the bertec
+RUN_BERTEC_GSE:bool = True          # if true, an additional thread will be spun up that obtains bertec gait state estimates
+USE_SIMULATED_WALKER:bool = True    # if true, a simulated walker will output gait state estimates INSTEAD of the bertec in the thread

@@ -113,6 +113,7 @@ class BaseWorkerThread(threading.Thread, ABC):
         pass
 
 from src.exo.assistance_calculator import AssistanceCalculator
+from src.settings.constants import CONTINUOUS_MODE_FLAG
 
 class ActuatorThread(BaseWorkerThread):
     """
@@ -160,7 +161,6 @@ class ActuatorThread(BaseWorkerThread):
         self.data_logger.track_variable(lambda: self.torque_command, "torque_cmd")
         self.data_logger.track_variable(lambda: self.current_setpoint, "current_setpoint")
 
-
     def pre_iterate(self)->None:
         """
         Check inbox for messages from GSE & GUI threads
@@ -177,12 +177,10 @@ class ActuatorThread(BaseWorkerThread):
         """
         try:
             for key, value in mail.contents.items():
-                # TODO: value validation (not None or something)
-
-                # if key == "torque_setpoint":
-                #     self.peak_torque_update_monitor(key, value)
-                # else:
-                setattr(self, key, value)
+                if CONTINUOUS_MODE_FLAG and key == "torque_setpoint":
+                    self.peak_torque_update_monitor(key, value)
+                else:
+                    setattr(self, key, value)
 
         except Exception as err:
             self.data_logger.debug(f"Error decoding message: {err}")
@@ -196,7 +194,7 @@ class ActuatorThread(BaseWorkerThread):
         A new torque will only be felt upon the termination of the current stride.
         """
         # TODO: add in more logic to handle continous vs discrete modes (GUI doesn't send continous stream of data)
-        # TODO: potentially add in
+
         if self.in_swing:
             setattr(self, key, value)
 
