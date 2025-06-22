@@ -113,7 +113,7 @@ class BaseWorkerThread(threading.Thread, ABC):
         pass
 
 from src.exo.assistance_calculator import AssistanceCalculator
-from src.settings.constants import CONTINUOUS_MODE_FLAG, FLAT_WALK_TIMINGS, EXO_DEFAULT_CONFIG
+from src.settings.constants import CONTINUOUS_MODE_FLAG, FLAT_WALK_TIMINGS
 
 class ActuatorThread(BaseWorkerThread):
     """
@@ -150,6 +150,7 @@ class ActuatorThread(BaseWorkerThread):
         self.torque_setpoint:float = 0.0
         self.torque_command:float = 0.0
         self.current_setpoint:int = 0
+        self.time_in_stride:float = 0.0
 
         self.thread_start_time:float = time.perf_counter()
         self.time_since_start:float = 0.0
@@ -208,17 +209,17 @@ class ActuatorThread(BaseWorkerThread):
         """
 
         self.time_since_start = time.perf_counter() - self.thread_start_time
-        self.actuator.update()
+        self.actuator.update()      # update actuator states
         self.data_logger.update()   # update logger
 
         # obtain time in current stride
         self.time_in_stride = time.perf_counter() - self.HS_time
 
         # acquire torque command based on gait estimate
-        self.torque_command = self.assistance_calculator.torque_generator(current_time=self.actuator.time_in_stride,
-                                                                          stride_period=self.actuator.stride_period,
+        self.torque_command = self.assistance_calculator.torque_generator(current_time=self.time_in_stride,
+                                                                          stride_period=self.stride_period,
                                                                           peak_torque=float(self.torque_setpoint),
-                                                                          in_swing=self.actuator.in_swing)
+                                                                          in_swing=self.in_swing)
 
         # determine appropriate current setpoint that matches the torque setpoint
         self.current_setpoint = self.actuator.torque_to_current(self.torque_command)
@@ -230,6 +231,19 @@ class ActuatorThread(BaseWorkerThread):
             self.data_logger.warning(f"Unable to command current for {self.actuator.tag}. Skipping.")
 
     def post_iterate(self)->None:
+        # send data to main thread for rtplotting
+        try:
+            msg_router.send(sender=self.name,
+                            recipient="main",
+                            contents={"time_since_start":self.time_since_start,
+                                      "peak_torque_setpoint": self.torque_setpoint,
+                                      "torque_cmd": self.torque_command,
+                                      "current_setpoint": self.current_setpoint,
+                                      })
+        except:
+            self.data_logger.debug(f"UNABLE TO SEND msg to MAIN from {self.name} thread. Skipping.")
+
+
         # TODO add rest of stuff
         if self.log_event.is_set():
             self.data_logger.debug(f"[{self.name}] log_event True")
@@ -358,7 +372,7 @@ class GUICommunication(BaseWorkerThread):
         self.msg_router = msg_router
         self.inbox = None
         self.active_actuators = active_actuators
-        self.torque_setpoint:float = 20.0
+        self.torque_setpoint:float = 0.0
 
         self.thread_start_time:float = time.perf_counter()
         self.time_since_start:float = 0.0
@@ -385,7 +399,7 @@ class GUICommunication(BaseWorkerThread):
         self.data_logger.update()
 
         # set a random torque setpoint
-        self.torque_setpoint = 10 #random.randint(1,4)*1
+        self.torque_setpoint = 7 #random.randint(1,4)*10
 
         for actuator in self.active_actuators:
             try:
@@ -619,6 +633,120 @@ class ThreadManager:
         return self._threads.get("gui")
 
 
+class MainThreadMessageReception():
+
+    def __init__(self, actuators):
+        """
+        Main thread named and set-up.
+
+        Args:
+            - actuators(DephyEB51): dictonary of actuator objects
+        """
+
+        self.name = "main"
+        self.inbox = None
+        self.actuators = actuators
+
+        # define initial vars to be recepted
+        self.current_setpoint:int = 0
+        self.torque_setpoint:float = 0.0
+        self.torque_command:float = 0.0
+
+    def check_msg_inbox(self):
+        """
+        Main thread checks it's message inbox.
+        """
+        mail_list = self.inbox.get_all_mail()
+        for mail in mail_list:
+            self.decode_message(mail)
+
+    def decode_message(self, mail):
+        """
+        Decode a message from the inbox.
+        This method extracts the contents of the message and updates the class states accordingly.
+
+        Args:
+            Mail: mail object
+        """
+        try:
+            for key, value in mail.contents.items():
+                setattr(self, key, value)
+
+        except Exception as err:
+            LOGGER.debug(f"Error decoding message: {err}")
+
+    def initialize_rt_plots(self) -> list:
+        """
+        Initialize real-time plots.
+
+        """
+        # converting actuator dictionary keys to a list
+        active_sides_list = list(self.actuators.keys())
+
+        print("Active actuators:", active_sides_list)
+
+        # pre-slice colors based on the number of active actuators
+        colors = ['r', 'b'][:len(active_sides_list)]
+        if len(active_sides_list) > len(colors):
+            raise ValueError("Not enough unique colors for the number of active actuators.")
+
+        # repeat line styles and widths for each active actuator
+        line_styles = ['-' for _ in active_sides_list]
+        line_widths = [2 for _ in active_sides_list]
+
+        current_plt_config = {'names' : active_sides_list,
+                        'colors' : colors,
+                        'line_style': line_styles,
+                        'title' : "Exo Current (A) vs. Sample",
+                        'ylabel': "Current (A)",
+                        'xlabel': "timestep",
+                        'line_width': line_widths,
+                        'yrange': [0,30]
+                        }
+
+        torque_setpt_plt_config = {'names' : active_sides_list,
+                        'colors' : colors,
+                        'line_style': line_styles,
+                        'title' : "Exo Torque Setpt (Nm) vs. Sample",
+                        'ylabel': "Torque (Nm)",
+                        'xlabel': "timestep",
+                        'line_width': line_widths,
+                        'yrange': [0,30]
+                        }
+
+        torque_cmd_plt_config = {'names' : active_sides_list,
+                        'colors' : colors,
+                        'line_style': line_styles,
+                        'title' : "Exo Torque Cmds (A) vs. Sample",
+                        'ylabel': "Torque (Nm)",
+                        'xlabel': "timestep",
+                        'line_width': line_widths,
+                        'yrange': [0,30]
+                        }
+
+        plot_config = [current_plt_config, torque_setpt_plt_config, torque_cmd_plt_config]
+
+        return plot_config
+
+    def update_rt_plots(self) -> list:
+        """
+        Updates the real-time plots with current values for:
+
+        Returns:
+            plot_data_array: A list of data arrays (for active actuators) for each plot.
+        """
+
+        data_to_plt = []
+        for actuator in self.actuators.values():
+            data_to_plt.extend([
+                abs(actuator.motor_current),
+                actuator.torque_setpoint,
+                actuator.torque_command
+            ])
+
+        return data_to_plt
+
+
 # Example main loop
 from opensourceleg.utilities import SoftRealtimeLoop
 from src.utils.actuator_utils import create_actuators
@@ -630,22 +758,27 @@ from exoboots import DephyExoboots
 
 if __name__ == '__main__':
 
-    # create actuators
+    # create actuators & Exoboots Robot
     actuators = create_actuators(gear_ratio=1,
-                                 baud_rate=EXO_SETUP_CONST.BAUD_RATE,
-                                 freq=EXO_SETUP_CONST.FLEXSEA_FREQ,
-                                 debug_level=EXO_SETUP_CONST.LOG_LEVEL)
+                                baud_rate=EXO_SETUP_CONST.BAUD_RATE,
+                                freq=EXO_SETUP_CONST.FLEXSEA_FREQ,
+                                debug_level=EXO_SETUP_CONST.LOG_LEVEL)
 
-    # create Exoboots Robot
     exoboots = DephyExoboots(tag="exoboots",
                              actuators=actuators,
                              sensors={})
 
-    # set actuator modes
+    # set actuator modes & spool belts
     exoboots.setup_control_modes()
-
-    # spool belts
     exoboots.spool_belts()
+
+    # initialize class responsible for recieving data & rtplotting for the main thread
+    main_thread_receptor = MainThreadMessageReception(actuators)
+
+    # initalize rtplotting
+    client.configure_ip(IP_ADDRESSES.RTPLOT_IP)
+    plot_config = main_thread_receptor.initialize_rt_plots()
+    client.initialize_plots(plot_config)
 
     # create a message router for inter-thread communication
     msg_router = MessageRouter()
@@ -658,7 +791,7 @@ if __name__ == '__main__':
 
     with system_manager:
         # set-up addressbook for the PostOffice & create inboxes for each thread
-        msg_router.setup_addressbook(*system_manager.return_active_threads())
+        msg_router.setup_addressbook(*system_manager.return_active_threads(), main_thread_receptor)
 
         # start all threads
         system_manager.start_all_threads()
@@ -668,7 +801,13 @@ if __name__ == '__main__':
 
         for t in clock:
             try:
-                pass
+                # decode messages from actuator threads
+
+
+                # send data to server & update real-time plots
+                data_to_plt = main_thread_receptor.update_rt_plots()
+                client.send_array(data_to_plt)
+
 
             except KeyboardInterrupt:
                 print("KeyboardInterrupt received.")

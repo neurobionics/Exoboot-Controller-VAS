@@ -88,6 +88,10 @@ if __name__ == "__main__":
                 # update robot sensor states
                 exoboots.update()
 
+                # send data to server & update real-time plots
+                data_to_plt = JIM_data_plotter.update_JIM_rt_plots()
+                client.send_array(data_to_plt)
+
                 if (t > 0.0) and (t <= float(args.alignment_event_time)):
                     exoboots.set_to_transparent_mode()
                     print(f"in transparent mode")
@@ -100,15 +104,10 @@ if __name__ == "__main__":
                     exoboots.command_currents()
 
                 elif (t > ramp_period) and (t <= float(args.time)):
-
                     print(f"RAMP COMPLETED. Current setpoint is now {args.current_setpt_mA} mA")
                     # Command the exo to peak set point current & hold for specified duration
                     exoboots.update_current_setpoints(current_inputs=int(args.current_setpt_mA), asymmetric=False)
                     exoboots.command_currents()
-
-                    # send data to server & update real-time plots
-                    data_to_plt = JIM_data_plotter.update_JIM_rt_plots()
-                    client.send_array(data_to_plt)
 
                 else:
                     exoboots.set_to_transparent_mode()

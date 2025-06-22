@@ -17,6 +17,7 @@ from .constants_dataclasses import (
 )
 
 """ Static IP addresses """
+# run rtplot with this command: python3 -m rtplot.server -p !!!INSERT CLIENT IP HERE!!!
 IP_ADDRESSES = STATIC_IP_ADDRESSES(RTPLOT_IP="35.3.69.66", VICON_IP="141.212.77.30")
 
 """ File Paths on Pi """

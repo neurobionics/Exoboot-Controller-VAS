@@ -108,9 +108,9 @@ class MessageRouter:
                     CONSOLE_LOGGER.info(f"Inbox already exists for thread: {thread.name}")
                     continue
 
-                elif not isinstance(thread, Thread):
-                    # if thread is not a Thread instance, raise error
-                    raise TypeError("Addressbook expected a Thread instance.")
+                # elif not isinstance(thread, Thread):
+                #     # if thread is not a Thread instance, raise error
+                #     raise TypeError("Addressbook expected a Thread instance.")
 
                 elif thread.name in self._addressbook:
                     # if thread name already exists in addressbook, skip

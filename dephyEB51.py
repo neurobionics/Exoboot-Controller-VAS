@@ -172,7 +172,6 @@ class DephyEB51Actuator(DephyLegacyActuator):
         self.update_imu_gait_state(self.accelz)
         print("updated IMU estimate")
 
-
     def assign_id_to_side(self)-> str:
         """
         Determines side (left/right) of the actuator based on previously mapped device ID number.
