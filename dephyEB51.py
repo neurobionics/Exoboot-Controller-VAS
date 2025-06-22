@@ -27,6 +27,7 @@ from src.settings.constants import (
     TEST_TR_FILE
 )
 from src.exo.variable_transmission_ratio import VariableTransmissionRatio
+from gse_imu import IMU_Estimator
 
 
 class DephyEB51Actuator(DephyLegacyActuator):
@@ -113,9 +114,8 @@ class DephyEB51Actuator(DephyLegacyActuator):
         self.tr_gen = VariableTransmissionRatio(self.side, TEST_TR_FILE)
         CONSOLE_LOGGER.info("instantiated variable transmission ratio")
 
-        # adding in imu estimator
-        self.imu_estimator = imu_estimator
-
+        # instantiate IMU-based gait-state estimator
+        self.imu_estimator = IMU_Estimator()
 
     def update_gear_ratio(self)-> None:
         """
@@ -124,6 +124,13 @@ class DephyEB51Actuator(DephyLegacyActuator):
         self._gear_ratio = self.tr_gen.get_TR(self.ankle_angle)
 
         return self._gear_ratio
+
+    def update_imu_gait_state(self, accelz:float):
+        """"
+        Update gait state using imu based thresholding
+        """
+
+        self.activation = self.imu_estimator.update(accelz)
 
     # TODO: recharacterize transmission ratio without ENC_CLICKS_TO_DEG constant. That constant is redundant since Dephy already reports in degrees
     @property
@@ -160,8 +167,11 @@ class DephyEB51Actuator(DephyLegacyActuator):
         # update the gear ratio
         self.update_gear_ratio()
 
-        # update imu gait state
-        # self.activation = self.imu_estimator.update(self.accelz)
+        # update gait state estimate
+        print("about to update IMU estimate")
+        self.update_imu_gait_state(self.accelz)
+        print("updated IMU estimate")
+
 
     def assign_id_to_side(self)-> str:
         """
