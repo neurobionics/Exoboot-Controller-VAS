@@ -22,21 +22,25 @@ class BaseWorkerThread(threading.Thread, ABC):
     handles the thread's main loop.
     """
 
-    def __init__(self,
-                 quit_event:Type[threading.Event],
-                 pause_event:Type[threading.Event],
-                 log_event:Type[threading.Event],
-                 name:str,
-                 frequency:int=100)->None:
+    def __init__(
+        self,
+        quit_event: Type[threading.Event],
+        pause_event: Type[threading.Event],
+        log_event: Type[threading.Event],
+        name: str,
+        frequency: int = 100,
+    ) -> None:
 
         super().__init__(name=name)
-        self.quit_event = quit_event    # event to signal quitting
+        self.quit_event = quit_event  # event to signal quitting
         self.pause_event = pause_event  # event to signal pausing
-        self.log_event = log_event      # event to signal logging
+        self.log_event = log_event  # event to signal logging
 
         self.daemon = True
         self.frequency = int(frequency)
-        self.rt_loop = FlexibleSleeper(dt=1/frequency)  # create a soft real-time loop with the specified frequency
+        self.rt_loop = FlexibleSleeper(
+            dt=1 / frequency
+        )  # create a soft real-time loop with the specified frequency
 
         # set-up a logger for each thread/instance
         logger_name = f"{name}_logger"
@@ -46,28 +50,28 @@ class BaseWorkerThread(threading.Thread, ABC):
             file_name=logger_name,
             file_level=logging.DEBUG,
             stream_level=logging.INFO,
-            buffer_size=100
+            buffer_size=100,
         )
 
-    def run(self)->None:
+    def run(self) -> None:
         """
         Main loop structure for each instantiated thread.
         """
         LOGGER.debug(f"[{self.name}] Thread running.")
 
-        while self.quit_event.is_set():     # while not quitting
-            self.pre_iterate()              # run a pre-iterate method
+        while self.quit_event.is_set():  # while not quitting
+            self.pre_iterate()  # run a pre-iterate method
 
             if not self.pause_event.is_set():
-                self.on_pause()             # if paused, run once
+                self.on_pause()  # if paused, run once
             else:
 
                 try:
-                    self.iterate()          # call the iterate method to perform the thread's task
+                    self.iterate()  # call the iterate method to perform the thread's task
                 except Exception as e:
                     LOGGER.debug(f"Exception in thread {self.name}: {e}")
 
-            self.post_iterate()             # run a post-iterate method
+            self.post_iterate()  # run a post-iterate method
             self.rt_loop.pause()
 
         # close logger instances before exiting threads
@@ -114,6 +118,8 @@ class BaseWorkerThread(threading.Thread, ABC):
 
 
 from src.exo.assistance_calculator import AssistanceCalculator
+from src.settings.constants import CONTINUOUS_MODE_FLAG
+
 
 class ActuatorThread(BaseWorkerThread):
     """
@@ -121,19 +127,21 @@ class ActuatorThread(BaseWorkerThread):
     This class handles the actuator's state updates and manages the actuator's control loop.
     """
 
-    def __init__(self,
-                 name: str,
-                 actuator,
-                 msg_router,
-                 quit_event: Type[threading.Event],
-                 pause_event: Type[threading.Event],
-                 log_event: Type[threading.Event],
-                 frequency: int = 100) -> None:
+    def __init__(
+        self,
+        name: str,
+        actuator,
+        msg_router,
+        quit_event: Type[threading.Event],
+        pause_event: Type[threading.Event],
+        log_event: Type[threading.Event],
+        frequency: int = 100,
+    ) -> None:
 
         super().__init__(quit_event, pause_event, log_event, name, frequency=frequency)
 
         self.actuator = actuator
-        self.actuator.start()   # start actuator
+        self.actuator.start()  # start actuator
 
         self.msg_router = msg_router
         self.inbox = None
@@ -142,27 +150,36 @@ class ActuatorThread(BaseWorkerThread):
         self.assistance_calculator = AssistanceCalculator()
 
         # set-up vars:
-        self.HS_time:float = 0.0
-        self.stride_period:float = 1.2
-        self.in_swing:bool = True
-        self.torque_setpoint:float = 0.0
-        self.torque_command:float = 0.0
-        self.current_setpoint:int = 0
+        self.HS_time: float = 0.0
+        self.stride_period: float = 1.2
+        self.in_swing: bool = True
+        self.torque_setpoint: float = 0.0
+        self.torque_command: float = 0.0
+        self.current_setpoint: int = 0
 
-        self.thread_start_time:float = time.perf_counter()
-        self.time_since_start:float = 0.0
+        self.thread_start_time: float = time.perf_counter()
+        self.time_since_start: float = 0.0
 
-        # track vars for csv logging
-        self.data_logger.track_variable(lambda: self.time_since_start, "time_since_start")
+    def log_vars(self):
+        """
+        log desired variables to a csv file
+        """
+
+        self.data_logger.track_variable(
+            lambda: self.time_since_start, "time_since_start"
+        )
         self.data_logger.track_variable(lambda: self.HS_time, "HS_time")
         self.data_logger.track_variable(lambda: self.stride_period, "stride_period")
         self.data_logger.track_variable(lambda: self.in_swing, "in_swing_flag_bool")
-        self.data_logger.track_variable(lambda: self.torque_setpoint, "peak_torque_setpt")
+        self.data_logger.track_variable(
+            lambda: self.torque_setpoint, "peak_torque_setpt"
+        )
         self.data_logger.track_variable(lambda: self.torque_command, "torque_cmd")
-        self.data_logger.track_variable(lambda: self.current_setpoint, "current_setpoint")
+        self.data_logger.track_variable(
+            lambda: self.current_setpoint, "current_setpoint"
+        )
 
-
-    def pre_iterate(self)->None:
+    def pre_iterate(self) -> None:
         """
         Check inbox for messages from GSE & GUI threads
         """
@@ -178,12 +195,10 @@ class ActuatorThread(BaseWorkerThread):
         """
         try:
             for key, value in mail.contents.items():
-                # TODO: value validation (not None or something)
-
-                # if key == "torque_setpoint":
-                #     self.peak_torque_update_monitor(key, value)
-                # else:
-                setattr(self, key, value)
+                if CONTINUOUS_MODE_FLAG and key == "torque_setpoint":
+                    self.peak_torque_update_monitor(key, value)
+                else:
+                    setattr(self, key, value)
 
         except Exception as err:
             self.data_logger.debug(f"Error decoding message: {err}")
@@ -197,11 +212,11 @@ class ActuatorThread(BaseWorkerThread):
         A new torque will only be felt upon the termination of the current stride.
         """
         # TODO: add in more logic to handle continous vs discrete modes (GUI doesn't send continous stream of data)
-        # TODO: potentially add in
+
         if self.in_swing:
             setattr(self, key, value)
 
-    def iterate(self)->None:
+    def iterate(self) -> None:
         """
         Main loop for the actuator thread.
         This method is called repeatedly in the thread's run loop.
@@ -210,16 +225,18 @@ class ActuatorThread(BaseWorkerThread):
 
         self.time_since_start = time.perf_counter() - self.thread_start_time
         self.actuator.update()
-        self.data_logger.update()   # update logger
+        self.data_logger.update()  # update logger
 
         # obtain time in current stride
         self.time_in_stride = time.perf_counter() - self.HS_time
 
         # acquire torque command based on gait estimate
-        self.torque_command = self.assistance_calculator.torque_generator(self.actuator.time_in_stride,
-                                                                        self.actuator.stride_period,
-                                                                        float(self.torque_setpoint),
-                                                                        self.actuator.in_swing)
+        self.torque_command = self.assistance_calculator.torque_generator(
+            self.actuator.time_in_stride,
+            self.actuator.stride_period,
+            float(self.torque_setpoint),
+            self.actuator.in_swing,
+        )
 
         # determine appropriate current setpoint that matches the torque setpoint
         self.current_setpoint = self.actuator.torque_to_current(self.torque_command)
@@ -228,21 +245,23 @@ class ActuatorThread(BaseWorkerThread):
         if self.current_setpoint is not None:
             self.actuator.set_motor_current(self.current_setpoint)
         else:
-            self.data_logger.warning(f"Unable to command current for {self.actuator.tag}. Skipping.")
+            self.data_logger.warning(
+                f"Unable to command current for {self.actuator.tag}. Skipping."
+            )
 
-    def post_iterate(self)->None:
+    def post_iterate(self) -> None:
         # TODO add rest of stuff
         if self.log_event.is_set():
             self.data_logger.debug(f"[{self.name}] log_event True")
 
-    def on_pause(self)->None:
+    def on_pause(self) -> None:
         pass
-
 
 
 from gse_bertec import Bertec_Estimator
 from src.exo.gait_state_estimator.forceplate.ZMQ_PubSub import Subscriber
 from src.settings.constants import IP_ADDRESSES
+
 
 class GaitStateEstimatorThread(BaseWorkerThread):
     """
@@ -250,19 +269,23 @@ class GaitStateEstimatorThread(BaseWorkerThread):
     This class handles gait state estimation for BOTH exoskeletons/sides together.
     """
 
-    def __init__(self,
-                 msg_router,
-                 quit_event:Type[threading.Event],
-                 pause_event:Type[threading.Event],
-                 log_event: Type[threading.Event],
-                 active_actuators:list[str],
-                 name:Optional[str] = None,
-                 frequency:int=100)->None:
+    def __init__(
+        self,
+        msg_router,
+        quit_event: Type[threading.Event],
+        pause_event: Type[threading.Event],
+        log_event: Type[threading.Event],
+        active_actuators: list[str],
+        name: Optional[str] = None,
+        frequency: int = 100,
+    ) -> None:
 
-        super().__init__(quit_event, pause_event, log_event, name=name, frequency=frequency)
+        super().__init__(
+            quit_event, pause_event, log_event, name=name, frequency=frequency
+        )
 
         self.msg_router = msg_router
-        self.inbox = None # will be instantiated
+        self.inbox = None  # will be instantiated
 
         self.active_actuators = active_actuators
         self.bertec_estimators = {}
@@ -280,18 +303,46 @@ class GaitStateEstimatorThread(BaseWorkerThread):
             # self.bertec_estimators[actuator] = walker
 
             # TODO: UNCOMMENT
-            bertec_subscriber = Subscriber(publisher_ip=IP_ADDRESSES.VICON_IP, topic_filter=selected_topic, timeout_ms=5)
-            self.bertec_estimators[actuator] = Bertec_Estimator(zmq_subscriber=bertec_subscriber)
+            bertec_subscriber = Subscriber(
+                publisher_ip=IP_ADDRESSES.VICON_IP,
+                topic_filter=selected_topic,
+                timeout_ms=5,
+            )
+            self.bertec_estimators[actuator] = Bertec_Estimator(
+                zmq_subscriber=bertec_subscriber
+            )
 
-            # track vars for csv logging
-            self.data_logger.track_variable(lambda: self.time_since_start, f"{actuator}_time_since_start")
-            self.data_logger.track_variable(lambda: self.bertec_estimators[actuator].stride_start_time, f"{actuator}_HS_time_")
-            self.data_logger.track_variable(lambda: self.bertec_estimators[actuator].stride_period, f"{actuator}_stride_period")
-            self.data_logger.track_variable(lambda: self.bertec_estimators[actuator].in_swing_flag, f"{actuator}_in_swing_flag_bool")
-            self.data_logger.track_variable(lambda: self.bertec_estimators[actuator].current_time_in_stride, f"{actuator}_current_time_in_stride")
-            self.data_logger.track_variable(lambda: self.bertec_estimators[actuator].current_percent_gait_cycle, f"{actuator}_current_percent_gait_cycle")
+            self.log_vars(actuator)
 
-    def pre_iterate(self)->None:
+    def log_vars(self, actuator: str):
+        """
+        log desired variables to a csv file
+        """
+        self.data_logger.track_variable(
+            lambda: self.time_since_start, f"{actuator}_time_since_start"
+        )
+        self.data_logger.track_variable(
+            lambda: self.bertec_estimators[actuator].stride_start_time,
+            f"{actuator}_HS_time_",
+        )
+        self.data_logger.track_variable(
+            lambda: self.bertec_estimators[actuator].stride_period,
+            f"{actuator}_stride_period",
+        )
+        self.data_logger.track_variable(
+            lambda: self.bertec_estimators[actuator].in_swing_flag,
+            f"{actuator}_in_swing_flag_bool",
+        )
+        self.data_logger.track_variable(
+            lambda: self.bertec_estimators[actuator].current_time_in_stride,
+            f"{actuator}_current_time_in_stride",
+        )
+        self.data_logger.track_variable(
+            lambda: self.bertec_estimators[actuator].current_percent_gait_cycle,
+            f"{actuator}_current_percent_gait_cycle",
+        )
+
+    def pre_iterate(self) -> None:
         pass
 
     def iterate(self):
@@ -314,26 +365,32 @@ class GaitStateEstimatorThread(BaseWorkerThread):
 
             # send message to actuator inboxes
             try:
-                self.data_logger.debug(self.bertec_estimators[actuator].return_estimate())
+                self.data_logger.debug(
+                    self.bertec_estimators[actuator].return_estimate()
+                )
 
-                msg_router.send(sender=self.name,
-                                recipient=actuator,
-                                contents=self.bertec_estimators[actuator].return_estimate())
+                msg_router.send(
+                    sender=self.name,
+                    recipient=actuator,
+                    contents=self.bertec_estimators[actuator].return_estimate(),
+                )
             except:
-                self.data_logger.debug(f"UNABLE TO SEND msg to '{actuator}' actuator from GaitStateEstimatorThread. Skipping.")
+                self.data_logger.debug(
+                    f"UNABLE TO SEND msg to '{actuator}' actuator from GaitStateEstimatorThread. Skipping."
+                )
                 continue
 
-    def post_iterate(self)->None:
+    def post_iterate(self) -> None:
         pass
 
-    def on_pause(self)->None:
+    def on_pause(self) -> None:
         pass
-
 
 
 import sys
 import select
 import random
+
 
 class GUICommunication(BaseWorkerThread):
     """
@@ -344,30 +401,39 @@ class GUICommunication(BaseWorkerThread):
     It then sends these setpoints to the actuators to handle.
     """
 
-    def __init__(self,
-                 msg_router,
-                 quit_event:Type[threading.Event],
-                 pause_event:Type[threading.Event],
-                 log_event: Type[threading.Event],
-                 active_actuators:list[str],
-                 name:Optional[str] = None,
-                 frequency:int=100)->None:
+    def __init__(
+        self,
+        msg_router,
+        quit_event: Type[threading.Event],
+        pause_event: Type[threading.Event],
+        log_event: Type[threading.Event],
+        active_actuators: list[str],
+        name: Optional[str] = None,
+        frequency: int = 100,
+    ) -> None:
 
-
-        super().__init__(quit_event, pause_event, log_event, name=name, frequency=frequency)
+        super().__init__(
+            quit_event, pause_event, log_event, name=name, frequency=frequency
+        )
 
         self.msg_router = msg_router
         self.inbox = None
         self.active_actuators = active_actuators
-        self.torque_setpoint:float = 20.0
+        self.torque_setpoint: float = 20.0
 
-        self.thread_start_time:float = time.perf_counter()
-        self.time_since_start:float = 0.0
+        self.thread_start_time: float = time.perf_counter()
+        self.time_since_start: float = 0.0
 
-        # track vars for csv logging
+        self.log_vars()
+
+    def log_vars(self):
+        """
+        log desired variables to a csv file
+        """
+
         self.data_logger.track_variable(lambda: self.torque_setpoint, "torque_setpt")
 
-    def pre_iterate(self)->None:
+    def pre_iterate(self) -> None:
         """
         Pre-iterate method to check for new messages in the mailbox.
         """
@@ -386,20 +452,24 @@ class GUICommunication(BaseWorkerThread):
         self.data_logger.update()
 
         # set a random torque setpoint
-        self.torque_setpoint = 10 #random.randint(1,4)*1
+        self.torque_setpoint = 10  # random.randint(1,4)*1
 
         for actuator in self.active_actuators:
             try:
-                msg_router.send(sender=self.name,
-                                recipient=actuator,
-                                contents={"torque_setpoint": self.torque_setpoint})
+                msg_router.send(
+                    sender=self.name,
+                    recipient=actuator,
+                    contents={"torque_setpoint": self.torque_setpoint},
+                )
             except:
-                self.data_logger.debug(f"UNABLE TO SEND msg to actuator from GUICommunication thread. Skipping.")
+                self.data_logger.debug(
+                    f"UNABLE TO SEND msg to actuator from GUICommunication thread. Skipping."
+                )
 
-    def post_iterate(self)->None:
+    def post_iterate(self) -> None:
         pass
 
-    def on_pause(self)->None:
+    def on_pause(self) -> None:
         pass
 
 
@@ -419,20 +489,20 @@ class ThreadManager:
     This class manages thread creation, communication and termination for the exoskeleton system.
     """
 
-    def __init__(self, msg_router, actuators:Dict) -> None:
+    def __init__(self, msg_router, actuators: Dict) -> None:
 
-        self.actuators = actuators              # Dictionary of Actuators
-        self.msg_router = msg_router            # MessageRouter class instance
+        self.actuators = actuators  # Dictionary of Actuators
+        self.msg_router = msg_router  # MessageRouter class instance
 
         # create threading events common to all threads
-        self._quit_event = threading.Event()    # Event to signal threads to quit.
-        self._pause_event = threading.Event()   # Event to signal threads to pause.
-        self._log_event = threading.Event()     # Event to signal threads to log
+        self._quit_event = threading.Event()  # Event to signal threads to quit.
+        self._pause_event = threading.Event()  # Event to signal threads to pause.
+        self._log_event = threading.Event()  # Event to signal threads to log
 
         # initialize thread events
-        self._quit_event.set()      # exo is running
-        self._pause_event.clear()   # exo starts paused
-        self._log_event.clear()     # exo starts not logging
+        self._quit_event.set()  # exo is running
+        self._pause_event.clear()  # exo starts paused
+        self._log_event.clear()  # exo starts not logging
 
         # initialize dict of threads
         self._threads = {}
@@ -454,7 +524,7 @@ class ThreadManager:
         # creating 1 thread for GUI communication
         self.initialize_GUI_thread(active_actuators=self.actuators.keys())
 
-    def start_all_threads(self)->None:
+    def start_all_threads(self) -> None:
         """
         Start all threads in the thread manager.
         This method is called to start all threads after they have been initialized.
@@ -479,25 +549,26 @@ class ThreadManager:
         # ensure time to enact stop method before moving on
         time.sleep(0.2)
 
-    def initialize_actuator_thread(self, actuator:DephyEB51Actuator) -> None:
+    def initialize_actuator_thread(self, actuator: DephyEB51Actuator) -> None:
         """
         Create and start a thread for the specified actuator.
         This method is called to set up the actuator communication thread.
         """
 
-        actuator_thread = ActuatorThread(actuator=actuator,
-                                         quit_event=self._quit_event,
-                                         pause_event=self._pause_event,
-                                         log_event=self._log_event,
-                                         name=f"{actuator.side}",
-                                         frequency=1000,
-                                         msg_router=self.msg_router,
-                                         )
+        actuator_thread = ActuatorThread(
+            actuator=actuator,
+            quit_event=self._quit_event,
+            pause_event=self._pause_event,
+            log_event=self._log_event,
+            name=f"{actuator.side}",
+            frequency=1000,
+            msg_router=self.msg_router,
+        )
 
         LOGGER.debug(f"created {actuator.side} actuator thread")
         self._threads[actuator.side] = actuator_thread
 
-    def initialize_GSE_thread(self, active_actuators:list[str]) -> None:
+    def initialize_GSE_thread(self, active_actuators: list[str]) -> None:
         """
         Create and start the Gait State Estimator thread.
         This method is called to set up the GSE communication thread.
@@ -508,18 +579,20 @@ class ThreadManager:
         """
         # create a FIFO queue with max size for inter-thread communication
         name = "gse"
-        gse_thread = GaitStateEstimatorThread(quit_event=self._quit_event,
-                                              pause_event=self._pause_event,
-                                              log_event=self._log_event,
-                                              active_actuators=active_actuators,
-                                              name=name,
-                                              frequency=250,
-                                              msg_router=self.msg_router)
+        gse_thread = GaitStateEstimatorThread(
+            quit_event=self._quit_event,
+            pause_event=self._pause_event,
+            log_event=self._log_event,
+            active_actuators=active_actuators,
+            name=name,
+            frequency=250,
+            msg_router=self.msg_router,
+        )
 
         LOGGER.debug(f"created gse thread")
         self._threads[name] = gse_thread
 
-    def initialize_GUI_thread(self, active_actuators:list[str]) -> None:
+    def initialize_GUI_thread(self, active_actuators: list[str]) -> None:
         """
         Create and start the GUI thread for user input.
         This method is called to set up the GUI communication thread.
@@ -527,17 +600,19 @@ class ThreadManager:
 
         # create a FIFO queue with max size for inter-thread communication
         name = "gui"
-        gui_thread = GUICommunication(quit_event=self._quit_event,
-                                      pause_event=self._pause_event,
-                                      log_event=self._log_event,
-                                      active_actuators=active_actuators,
-                                      name=name,
-                                      frequency=100,
-                                      msg_router=self.msg_router)
+        gui_thread = GUICommunication(
+            quit_event=self._quit_event,
+            pause_event=self._pause_event,
+            log_event=self._log_event,
+            active_actuators=active_actuators,
+            name=name,
+            frequency=100,
+            msg_router=self.msg_router,
+        )
         LOGGER.debug(f"created gui thread")
         self._threads[name] = gui_thread
 
-    def return_active_threads(self)->list:
+    def return_active_threads(self) -> list:
         """
         Return list of active thread addresses.
         """
@@ -632,18 +707,18 @@ from exoboot_messenger_hub import MessageRouter
 from rtplot import client
 from exoboots import DephyExoboots
 
-if __name__ == '__main__':
+if __name__ == "__main__":
 
     # create actuators
-    actuators = create_actuators(gear_ratio=1,
-                                 baud_rate=EXO_SETUP_CONST.BAUD_RATE,
-                                 freq=EXO_SETUP_CONST.FLEXSEA_FREQ,
-                                 debug_level=EXO_SETUP_CONST.LOG_LEVEL)
+    actuators = create_actuators(
+        gear_ratio=1,
+        baud_rate=EXO_SETUP_CONST.BAUD_RATE,
+        freq=EXO_SETUP_CONST.FLEXSEA_FREQ,
+        debug_level=EXO_SETUP_CONST.LOG_LEVEL,
+    )
 
     # create Exoboots Robot
-    exoboots = DephyExoboots(tag="exoboots",
-                             actuators=actuators,
-                             sensors={})
+    exoboots = DephyExoboots(tag="exoboots", actuators=actuators, sensors={})
 
     # set actuator modes
     exoboots.setup_control_modes()
@@ -658,7 +733,7 @@ if __name__ == '__main__':
     system_manager = ThreadManager(msg_router=msg_router, actuators=actuators)
 
     # instantiate soft real-time clock
-    clock = SoftRealtimeLoop(dt = 1 / 1) # Hz
+    clock = SoftRealtimeLoop(dt=1 / 1)  # Hz
 
     with system_manager:
         # set-up addressbook for the PostOffice & create inboxes for each thread
