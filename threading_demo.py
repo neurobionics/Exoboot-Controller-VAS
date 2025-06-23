@@ -235,6 +235,9 @@ class ActuatorThread(BaseWorkerThread):
         # obtain time in current stride
         self.time_in_stride = time.perf_counter() - self.HS_time
 
+        # TODO add delay compensation
+        # 
+
         # acquire torque command based on gait estimate
         self.torque_command = self.assistance_calculator.torque_generator(
             current_time=self.time_in_stride,

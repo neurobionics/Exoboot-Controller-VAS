@@ -86,7 +86,8 @@ class Bertec_Estimator:
                 stride_period_new = HS_new - self.HS
                 stride_period_avg = self.stride_period_tracker.average()
 
-                if abs((stride_period_new - stride_period_avg) / stride_period_avg) < BERTEC_THRESH.ACCEPT_STRIDE_THRESHOLD: #TODO do when pause_event and updatefilters:
+                # Make sure new stride is "reasonable"
+                if abs((stride_period_new - stride_period_avg) / stride_period_avg) < BERTEC_THRESH.ACCEPT_STRIDE_THRESHOLD: # TODO do when pause_event and updatefilters:
                     self.stride_period_tracker.update(stride_period_new)
 
                 self.HS = HS_new
