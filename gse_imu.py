@@ -1,18 +1,28 @@
 import time
 from math import sqrt
+from src.utils.filter_utils import MovingAverageFilter
 
+from src.settings.constants import TIME_METHOD
 
 class IMU_Estimator:
     """
     IMU_Estimator estimates activation events from onboard exoboot IMU acceleration data (z-axis)
     using real-time mean/std tracking and z-score thresholding.
+
+    Outputs:
+        - stride_period: time between two heel-strike activations
+        - in_swing: flag that indicates that foot is in swing
+        - HS_time: timestamp of most recent activation (heel strike)
+
     """
 
     def __init__(
         self,
         std_threshold: float = 2,
         run_len_threshold: int = 10,
-        time_method: float = time.time,
+        time_method: float = TIME_METHOD,
+        stride_period_init: float = 1.20,
+        filter_size:int = 10
     ):
         """
         Initialize the IMU_Estimator.
@@ -20,7 +30,7 @@ class IMU_Estimator:
         Args:
             std_threshold (float): Z-score threshold for activation detection.
             run_len_threshold (int): Number of consecutive samples below threshold to end activation.
-            time_method (callable): Function to get the current time (default: time.time).
+            time_method (callable): Function to get the current time (default: TIME_METHOD).
         """
 
         self.std_threhold = std_threshold
@@ -46,6 +56,10 @@ class IMU_Estimator:
 
         self.time_method = time_method
 
+        self.HS_time:float = self.time_method()
+        self.in_swing:bool = True
+        self.stride_period_tracker = MovingAverageFilter(initial_value=stride_period_init, size=filter_size)
+
     def __repr__(self):
         """
         Return a string representation of the estimator's current state.
@@ -67,11 +81,17 @@ class IMU_Estimator:
             dict: Dictionary with the current activation state.
         """
 
-        state_dict = {"activation": self.activation_state}
+        # state_dict = {"activation": self.activation_state}
+
+        state_dict = {"HS_time": self.HS_time,
+                      "stride_period": self.stride_period_tracker.average(),
+                      "in_swing": self.in_swing,
+                      "activation": self.activation_state
+                      }
 
         return state_dict
 
-    def update(self, accel: float) -> dict:
+    def update(self, accel:float, ank_ang:float):
         """
         Update the estimator with a new acceleration value, compute statistics,
         and manage activation state.
@@ -121,9 +141,33 @@ class IMU_Estimator:
         else:
             pass
 
-        # self.activations_status.append(self.activation_state)
+        self.detect_which_gait_event(ank_ang)
 
-        return self.activation_state
+    def detect_which_gait_event(self, ank_ang:float):
+        """
+        Detects gait event depending on activation state.
+
+        Updates the last heel strike time, stride period and in_swing flag
+        """
+
+        # TODO: ensure that only the first activation is detected as heel strike
+        # if some gait event registered
+        if self.activation_state:
+            # check if heel strike event
+            if self.in_swing and (ank_ang > 20) and (ank_ang < 40):
+                self.in_swing = False                                           # now in stance, i.e. heel strike just occured
+                self.latest_HS = self.time_method()                                    # record the latest heel strike time
+                latest_stride_period = self.latest_HS - self.HS_time            # compute the latest stride period
+                self.stride_period_tracker.update(latest_stride_period)         # update the stride period estimate
+
+                self.HS_time = self.latest_HS
+
+            # check if toe-off event
+            elif (self.in_swing==False) and (ank_ang > 60):
+                self.in_swing = True                                            # now in swing, i.e. toe-off just occured
+
+        else:
+            pass
 
 
 if __name__ == "__main__":
@@ -132,8 +176,9 @@ if __name__ == "__main__":
     print(asdf)
 
     for i in range(20):
-        asdf.update(i)
-        print(asdf)
+        asdf.update(i, i+20)
+        asdf.return_estimate()
+        print(asdf.return_estimate())
 
-    asdf.update(100)
+    asdf.update(100, 60)
     print(asdf)

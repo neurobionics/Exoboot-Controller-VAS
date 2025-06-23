@@ -1,6 +1,7 @@
 """
 Collection of all the constants used throughout exoboot controller
 """
+import time
 
 from .constants_dataclasses import (
     SPLINE_PARAMS,
@@ -127,8 +128,7 @@ EXO_IMU_CONSTANTS = IMU_CONSTANTS(
 BERTEC_THRESH = BERTEC_THRESHOLDS(
     HS_THRESHOLD=80,
     TO_THRESHOLD=30,
-    ACCEPT_STRIDE_THRESHOLD=0.2,
-    ACCEPT_STANCE_THRESHOLD=0.2,
+    ACCEPT_STRIDE_THRESHOLD=1,
     BERTEC_ACC_LEFT=0.25,
     BERTEC_ACC_RIGHT=0.25,
 )
@@ -139,4 +139,8 @@ TEMPANTISPIKE = 100  # °C
 
 """ Gait State Estimation Toggle"""
 RUN_BERTEC_GSE:bool = True          # if true, an additional thread will be spun up that obtains bertec gait state estimates
-USE_SIMULATED_WALKER:bool = True    # if true, a simulated walker will output gait state estimates INSTEAD of the bertec in the thread
+USE_SIMULATED_WALKER:bool = False    # if true, a simulated walker will output gait state estimates INSTEAD of the bertec in the thread
+
+
+"""" TIME METHOD """
+TIME_METHOD = time.perf_counter

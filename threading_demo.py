@@ -179,6 +179,10 @@ class ActuatorThread(BaseWorkerThread):
         self.data_logger.track_variable(
             lambda: self.current_setpoint, "current_setpoint"
         )
+        # track gse_imu vars
+        self.data_logger.track_variable(lambda: self.actuator.imu_gait_state_estimate("HS_time"), "HS_time_imu")
+        self.data_logger.track_variable(lambda: self.actuator.imu_gait_state_estimate("stride_period"), "stride_period_imu")
+        self.data_logger.track_variable(lambda: self.actuator.imu_gait_state_estimate("in_swing"), "in_swing_imu")
 
     def pre_iterate(self) -> None:
         """
@@ -225,8 +229,8 @@ class ActuatorThread(BaseWorkerThread):
         """
 
         self.time_since_start = time.perf_counter() - self.thread_start_time
-        self.actuator.update()  # update actuator states
-        self.data_logger.update()  # update logger
+        self.actuator.update()      # update actuator states
+        self.data_logger.update()   # update logger
 
         # obtain time in current stride
         self.time_in_stride = time.perf_counter() - self.HS_time
@@ -244,8 +248,8 @@ class ActuatorThread(BaseWorkerThread):
 
         # command appropriate current setpoint using DephyExoboots class
         if self.current_setpoint is not None:
-            # self.actuator.set_motor_current(self.current_setpoint)
-            pass
+            self.actuator.set_motor_current(self.current_setpoint)
+            # pass
         else:
             self.data_logger.warning(
                 f"Unable to command current for {self.actuator.tag}. Skipping."
@@ -262,6 +266,8 @@ class ActuatorThread(BaseWorkerThread):
                     "peak_torque_setpoint": self.peak_torque_setpoint,
                     "torque_command": self.torque_command,
                     "current_setpoint": self.current_setpoint,
+                    "motor_current": self.actuator.motor_current,
+                    "activation_status": self.actuator.imu_gait_state_estimate("activation")
                 },
             )
 
@@ -317,48 +323,66 @@ class GaitStateEstimatorThread(BaseWorkerThread):
         for actuator in self.active_actuators:
             selected_topic = f"fz_{actuator}"  # e.g., 'fz_left' or 'fz_right'
 
-            if USE_SIMULATED_WALKER:
-                walker = WalkingSimulator(stride_period=1.20)
-                walker.set_percent_toe_off(67)
-                self.bertec_estimators[actuator] = walker
+            # if USE_SIMULATED_WALKER:
+            #     walker = WalkingSimulator(stride_period=1.20)
+            #     walker.set_percent_toe_off(67)
+            #     self.bertec_estimators[actuator] = walker
 
-                # track vars for csv logging
-                self.data_logger.track_variable(
-                    lambda: self.time_since_start, f"{actuator}_time_since_start"
-                )
-                self.data_logger.track_variable(
-                    lambda: self.bertec_estimators[actuator].stride_start_time,
-                    f"{actuator}_HS_time_",
-                )
-                self.data_logger.track_variable(
-                    lambda: self.bertec_estimators[actuator].stride_period,
-                    f"{actuator}_stride_period",
-                )
-                self.data_logger.track_variable(
-                    lambda: self.bertec_estimators[actuator].in_swing_flag,
-                    f"{actuator}_in_swing_flag_bool",
-                )
-                self.data_logger.track_variable(
-                    lambda: self.bertec_estimators[actuator].current_time_in_stride,
-                    f"{actuator}_current_time_in_stride",
-                )
-                self.data_logger.track_variable(
-                    lambda: self.bertec_estimators[actuator].current_percent_gait_cycle,
-                    f"{actuator}_current_percent_gait_cycle",
-                )
+            #     # track vars for csv logging
+            #     self.data_logger.track_variable(
+            #         lambda: self.time_since_start, f"{actuator}_time_since_start"
+            #     )
+            #     self.data_logger.track_variable(
+            #         lambda: self.bertec_estimators[actuator].stride_start_time,
+            #         f"{actuator}_HS_time_",
+            #     )
+            #     self.data_logger.track_variable(
+            #         lambda: self.bertec_estimators[actuator].stride_period,
+            #         f"{actuator}_stride_period",
+            #     )
+            #     self.data_logger.track_variable(
+            #         lambda: self.bertec_estimators[actuator].in_swing_flag,
+            #         f"{actuator}_in_swing_flag_bool",
+            #     )
+            #     self.data_logger.track_variable(
+            #         lambda: self.bertec_estimators[actuator].current_time_in_stride,
+            #         f"{actuator}_current_time_in_stride",
+            #     )
+            #     self.data_logger.track_variable(
+            #         lambda: self.bertec_estimators[actuator].current_percent_gait_cycle,
+            #         f"{actuator}_current_percent_gait_cycle",
+            #     )
 
-            else:
-                bertec_subscriber = Subscriber(
-                    publisher_ip=IP_ADDRESSES.VICON_IP,
-                    topic_filter=selected_topic,
-                    timeout_ms=5,
-                )
-                self.bertec_estimators[actuator] = Bertec_Estimator(
-                    zmq_subscriber=bertec_subscriber
-                )
+            # else:
+            bertec_subscriber = Subscriber(
+                publisher_ip=IP_ADDRESSES.VICON_IP,
+                topic_filter=selected_topic,
+                timeout_ms=5,
+            )
+            self.bertec_estimators[actuator] = Bertec_Estimator(
+                zmq_subscriber=bertec_subscriber
+            )
+
+                # # track vars for csv logging
+                # self.data_logger.track_variable(
+                #     lambda: self.time_since_start, f"{actuator}_time_since_start"
+                # )
+                # self.data_logger.track_variable(
+                #     lambda: self.bertec_estimators[actuator].HS,
+                #     f"{actuator}_HS_time_",
+                # )
+                # self.data_logger.track_variable(
+                #     lambda: self.bertec_estimators[actuator].stride_period_tracker.average(),
+                #     f"{actuator}_stride_period",
+                # )
+                # self.data_logger.track_variable(
+                #     lambda: not self.bertec_estimators[actuator].in_contact,
+                #     f"{actuator}_in_swing_flag_bool",
+                # )
 
     def pre_iterate(self) -> None:
         pass
+
 
     def iterate(self):
         """
@@ -372,8 +396,9 @@ class GaitStateEstimatorThread(BaseWorkerThread):
         # for each active actuator,
         for actuator in self.active_actuators:
 
-            # TODO: update the gait state estimator for the actuator
+            # Update the gait state estimator for the actuator
             self.bertec_estimators[actuator].update()
+            print(f"asdf {actuator}: {self.bertec_estimators[actuator].return_estimate()}")
 
             # update csv logger
             self.data_logger.update()
@@ -461,7 +486,7 @@ class GUICommunication(BaseWorkerThread):
         self.data_logger.update()
 
         # set a random torque setpoint
-        self.peak_torque_setpoint = 7  # random.randint(1,4)*10
+        self.peak_torque_setpoint = 15.0 #random.randint(2,4)*10
 
         for actuator in self.active_actuators:
             try:
@@ -721,7 +746,9 @@ class MainThreadMessageReception:
         # define list of vars to be recepted
         recepted_vars = ["peak_torque_setpoint",
                          "torque_command",
-                         "current_setpoint"
+                         "current_setpoint",
+                         "motor_current",
+                         "activation_status"
                          ]
 
         # loop through actuator names & assign vars as attributes of class
@@ -750,7 +777,10 @@ class MainThreadMessageReception:
             sender = mail.sender  # i.e., "left" or "right"
             for key, value in mail.contents.items():
                 # e.g. store as left_peak_torque_setpoint or right_peak_torque_setpoint
-                setattr(self, f"{sender}_{key}", value/1000 if key == "current_setpoint" else value)
+                if key == "current_setpoint":
+                    setattr(self, f"{sender}_{key}", value/1000)
+                else:
+                    setattr(self, f"{sender}_{key}", value)
 
         except Exception as err:
             LOGGER.debug(f"Error decoding message: {err}")
@@ -809,9 +839,34 @@ class MainThreadMessageReception:
             "yrange": [0, 30],
         }
 
+        mot_current_plt_config = {
+            "names": active_sides_list,
+            "colors": colors,
+            "line_style": line_styles,
+            "title": "Exo Motor Current (A) vs. Sample",
+            "ylabel": "Motor Current (A)",
+            "xlabel": "timestep",
+            "line_width": line_widths,
+            "yrange": [0, 30],
+        }
+
+        activation_plt_config = {
+            "names": active_sides_list,
+            "colors": colors,
+            "line_style": line_styles,
+            "title": "Activation vs. Sample",
+            "ylabel": "Gait Event Activation",
+            "xlabel": "timestep",
+            "line_width": line_widths,
+            "yrange": [0, 1],
+        }
+
+
         plot_config = [torque_setpt_plt_config,
                        torque_cmd_plt_config,
-                       current_plt_config]
+                       current_plt_config,
+                       mot_current_plt_config,
+                       activation_plt_config]
 
         return plot_config
 
@@ -836,6 +891,12 @@ class MainThreadMessageReception:
         for actuator in self.actuators.keys():
             data_to_plt.append(abs(getattr(self, f"{actuator}_current_setpoint")))
 
+        for actuator in self.actuators.keys():
+            data_to_plt.append(abs(getattr(self, f"{actuator}_motor_current")))
+
+        for actuator in self.actuators.keys():
+            data_to_plt.append(abs(getattr(self, f"{actuator}_activation_status")))
+
         return data_to_plt
 
 
@@ -849,6 +910,12 @@ from rtplot import client
 from exoboots import DephyExoboots
 
 if __name__ == "__main__":
+    # import time
+    # time1 = time.perf_counter()
+    # time2 = time.time()
+
+    # print("blah: ", time1 - time2)
+    # time.sleep(10)
 
     # create actuators & Exoboots Robot
     actuators = create_actuators(

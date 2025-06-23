@@ -175,7 +175,6 @@ class BERTEC_THRESHOLDS:
         ...     HS_THRESHOLD = 15,    % threshold to detect heel strike (N)
         ...     TO_THRESHOLD = 50,    % threshold to detect toe off (N)
         ...     ACCEPT_STRIDE_THRESHOLD = 0.2,    % acceptable stride threshold (sec)
-        ...     ACCEPT_STANCE_THRESHOLD = 0.2,    % acceptable stance threshold (sec)
         ...     BERTEC_ACC_LEFT = 0.2   % left tread acceleration
         ...     BERTEC_ACC_RIGHT = 0.2  % right tread acceleration
         ... )
@@ -187,7 +186,6 @@ class BERTEC_THRESHOLDS:
     TO_THRESHOLD:int
 
     ACCEPT_STRIDE_THRESHOLD:float
-    ACCEPT_STANCE_THRESHOLD:float
 
     BERTEC_ACC_LEFT:float
     BERTEC_ACC_RIGHT:float

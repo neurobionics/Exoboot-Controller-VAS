@@ -125,13 +125,6 @@ class DephyEB51Actuator(DephyLegacyActuator):
 
         return self._gear_ratio
 
-    def update_imu_gait_state(self, accelz:float):
-        """"
-        Update gait state using imu based thresholding
-        """
-
-        self.activation = self.imu_estimator.update(accelz)
-
     # TODO: recharacterize transmission ratio without ENC_CLICKS_TO_DEG constant. That constant is redundant since Dephy already reports in degrees
     @property
     def ankle_angle(self) -> float:
@@ -168,7 +161,18 @@ class DephyEB51Actuator(DephyLegacyActuator):
         self.update_gear_ratio()
 
         # update gait state estimate
-        self.update_imu_gait_state(self.accelz)
+        self.imu_estimator.update(self.accelz, self.ankle_angle)
+
+    def imu_gait_state_estimate(self, var:str)->dict:
+        """
+        Returns the IMU's gait state estimate
+
+        Args:
+            - desired variable from imu estimate to return
+        """
+        state_dict = self.imu_estimator.return_estimate()
+
+        return state_dict[var]
 
     def assign_id_to_side(self)-> str:
         """
