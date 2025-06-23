@@ -100,11 +100,11 @@ class WalkingSimulator():
 
             self.stride_start_time = time.perf_counter()
             self.stride_num += 1
-            print(f'{self.stride_num} stride(s) completed')
+            # print(f'{self.stride_num} stride(s) completed')
 
         elif self.current_time_in_stride < self.stride_period:
             self.current_time_in_stride = time.perf_counter() - self.stride_start_time
-            print(f"time in curr stride: {self.current_time_in_stride:.3f}")
+            # print(f"time in curr stride: {self.current_time_in_stride:.3f}")
 
         return self.current_time_in_stride
 

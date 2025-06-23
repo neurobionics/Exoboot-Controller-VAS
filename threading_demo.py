@@ -157,7 +157,7 @@ class ActuatorThread(BaseWorkerThread):
         self.HS_time: float = 0.0
         self.stride_period: float = 1.2
         self.in_swing: bool = True
-        self.torque_setpoint: float = 0.0
+        self.peak_torque_setpoint: float = 0.0
         self.torque_command: float = 0.0
         self.current_setpoint: int = 0
         self.time_in_stride: float = 0.0
@@ -173,9 +173,9 @@ class ActuatorThread(BaseWorkerThread):
         self.data_logger.track_variable(lambda: self.stride_period, "stride_period")
         self.data_logger.track_variable(lambda: self.in_swing, "in_swing_flag_bool")
         self.data_logger.track_variable(
-            lambda: self.torque_setpoint, "peak_torque_setpt"
+            lambda: self.peak_torque_setpoint, "peak_torque_setpt"
         )
-        self.data_logger.track_variable(lambda: self.torque_command, "torque_cmd")
+        self.data_logger.track_variable(lambda: self.torque_command, "torque_command")
         self.data_logger.track_variable(
             lambda: self.current_setpoint, "current_setpoint"
         )
@@ -196,7 +196,7 @@ class ActuatorThread(BaseWorkerThread):
         """
         try:
             for key, value in mail.contents.items():
-                if CONTINUOUS_MODE_FLAG and key == "torque_setpoint":
+                if CONTINUOUS_MODE_FLAG and key == "peak_torque_setpoint":
                     self.peak_torque_update_monitor(key, value)
                 else:
                     setattr(self, key, value)
@@ -235,7 +235,7 @@ class ActuatorThread(BaseWorkerThread):
         self.torque_command = self.assistance_calculator.torque_generator(
             current_time=self.time_in_stride,
             stride_period=self.stride_period,
-            peak_torque=float(self.torque_setpoint),
+            peak_torque=float(self.peak_torque_setpoint),
             in_swing=self.in_swing,
         )
 
@@ -244,7 +244,8 @@ class ActuatorThread(BaseWorkerThread):
 
         # command appropriate current setpoint using DephyExoboots class
         if self.current_setpoint is not None:
-            self.actuator.set_motor_current(self.current_setpoint)
+            # self.actuator.set_motor_current(self.current_setpoint)
+            pass
         else:
             self.data_logger.warning(
                 f"Unable to command current for {self.actuator.tag}. Skipping."
@@ -258,11 +259,12 @@ class ActuatorThread(BaseWorkerThread):
                 recipient="main",
                 contents={
                     # "time_since_start": self.time_since_start,
-                    "peak_torque_setpoint": self.torque_setpoint,
-                    "torque_cmd": self.torque_command,
+                    "peak_torque_setpoint": self.peak_torque_setpoint,
+                    "torque_command": self.torque_command,
                     "current_setpoint": self.current_setpoint,
                 },
             )
+
         except:
             self.data_logger.debug(
                 f"UNABLE TO SEND msg to MAIN from {self.name} thread. Skipping."
@@ -432,13 +434,13 @@ class GUICommunication(BaseWorkerThread):
         self.msg_router = msg_router
         self.inbox = None
         self.active_actuators = active_actuators
-        self.torque_setpoint: float = 0.0
+        self.peak_torque_setpoint: float = 0.0
 
         self.thread_start_time: float = time.perf_counter()
         self.time_since_start: float = 0.0
 
         # track vars for csv logging
-        self.data_logger.track_variable(lambda: self.torque_setpoint, "torque_setpt")
+        self.data_logger.track_variable(lambda: self.peak_torque_setpoint, "torque_setpt")
 
     def pre_iterate(self) -> None:
         """
@@ -459,14 +461,14 @@ class GUICommunication(BaseWorkerThread):
         self.data_logger.update()
 
         # set a random torque setpoint
-        self.torque_setpoint = 7  # random.randint(1,4)*10
+        self.peak_torque_setpoint = 7  # random.randint(1,4)*10
 
         for actuator in self.active_actuators:
             try:
                 msg_router.send(
                     sender=self.name,
                     recipient=actuator,
-                    contents={"torque_setpoint": self.torque_setpoint},
+                    contents={"peak_torque_setpoint": self.peak_torque_setpoint},
                 )
             except:
                 self.data_logger.debug(
@@ -565,7 +567,7 @@ class ThreadManager:
             pause_event=self._pause_event,
             log_event=self._log_event,
             name=f"{actuator.side}",
-            frequency=1000,
+            frequency=500,
             msg_router=self.msg_router,
         )
 
@@ -610,7 +612,7 @@ class ThreadManager:
             log_event=self._log_event,
             active_actuators=active_actuators,
             name=name,
-            frequency=100,
+            frequency=1,
             msg_router=self.msg_router,
         )
         LOGGER.debug(f"created gui thread")
@@ -716,24 +718,16 @@ class MainThreadMessageReception:
         self.inbox = None
         self.actuators = actuators
 
-        # define initial vars to be recepted
-        current_setpoint: int = 0
-        torque_cmd: float = 0.0
-        torque_setpoint: float = 0.0
+        # define list of vars to be recepted
+        recepted_vars = ["peak_torque_setpoint",
+                         "torque_command",
+                         "current_setpoint"
+                         ]
 
-        recepted_vars = [current_setpoint, torque_cmd, torque_setpoint]
-
-        for actuator in self.actuators.values():
+        # loop through actuator names & assign vars as attributes of class
+        for actuator in self.actuators.keys():
             for var in recepted_vars:
                 setattr(self, f"{actuator}_{var}", 0)
-
-        # self.left_current_setpoint: int = 0
-        # self.left_torque_cmd: float = 0.0
-        # self.left_peak_torque_setpoint: float = 0.0
-
-        # self.right_current_setpoint: int = 0
-        # self.right_torque_cmd: float = 0.0
-        # self.right_peak_torque_setpoint: float = 0.0
 
     def check_msg_inbox(self):
         """
@@ -755,8 +749,9 @@ class MainThreadMessageReception:
         try:
             sender = mail.sender  # i.e., "left" or "right"
             for key, value in mail.contents.items():
-                # e.g. store as left_torque_setpoint or right_torque_setpoint
-                setattr(self, f"{sender}_{key}", value)
+                # e.g. store as left_peak_torque_setpoint or right_peak_torque_setpoint
+                setattr(self, f"{sender}_{key}", value/1000 if key == "current_setpoint" else value)
+
         except Exception as err:
             LOGGER.debug(f"Error decoding message: {err}")
 
@@ -781,6 +776,28 @@ class MainThreadMessageReception:
         line_styles = ["-" for _ in active_sides_list]
         line_widths = [2 for _ in active_sides_list]
 
+        torque_setpt_plt_config = {
+            "names": active_sides_list,
+            "colors": colors,
+            "line_style": line_styles,
+            "title": "Exo Torque Setpt (Nm) vs. Sample",
+            "ylabel": "Torque (Nm)",
+            "xlabel": "timestep",
+            "line_width": line_widths,
+            "yrange": [0, 45],
+        }
+
+        torque_cmd_plt_config = {
+            "names": active_sides_list,
+            "colors": colors,
+            "line_style": line_styles,
+            "title": "Exo Torque Cmds (A) vs. Sample",
+            "ylabel": "Torque (Nm)",
+            "xlabel": "timestep",
+            "line_width": line_widths,
+            "yrange": [0, 45],
+        }
+
         current_plt_config = {
             "names": active_sides_list,
             "colors": colors,
@@ -792,33 +809,9 @@ class MainThreadMessageReception:
             "yrange": [0, 30],
         }
 
-        torque_setpt_plt_config = {
-            "names": active_sides_list,
-            "colors": colors,
-            "line_style": line_styles,
-            "title": "Exo Torque Setpt (Nm) vs. Sample",
-            "ylabel": "Torque (Nm)",
-            "xlabel": "timestep",
-            "line_width": line_widths,
-            "yrange": [0, 30],
-        }
-
-        torque_cmd_plt_config = {
-            "names": active_sides_list,
-            "colors": colors,
-            "line_style": line_styles,
-            "title": "Exo Torque Cmds (A) vs. Sample",
-            "ylabel": "Torque (Nm)",
-            "xlabel": "timestep",
-            "line_width": line_widths,
-            "yrange": [0, 30],
-        }
-
-        plot_config = [
-            current_plt_config,
-            torque_setpt_plt_config,
-            torque_cmd_plt_config,
-        ]
+        plot_config = [torque_setpt_plt_config,
+                       torque_cmd_plt_config,
+                       current_plt_config]
 
         return plot_config
 
@@ -831,23 +824,17 @@ class MainThreadMessageReception:
         """
 
         data_to_plt = []
-        for actuator in self.actuators.values():
-            if actuator == "left":
-                data_to_plt.extend(
-                    [
-                        abs(self.left_current_setpoint),
-                        self.left_torque_setpoint,
-                        self.left_torque_cmd,
-                    ]
-                )
-            else:
-                data_to_plt.extend(
-                    [
-                        abs(self.right_current_setpoint),
-                        self.right_torque_setpoint,
-                        self.right_torque_cmd,
-                    ]
-                )
+
+        # looping through actuator names, plot data that is sent from actuator thread
+        # does not contain actual motor currents in response to commands (just what's commanded)
+        for actuator in self.actuators.keys():
+            data_to_plt.append(getattr(self, f"{actuator}_peak_torque_setpoint"))
+
+        for actuator in self.actuators.keys():
+            data_to_plt.append(getattr(self, f"{actuator}_torque_command"))
+
+        for actuator in self.actuators.keys():
+            data_to_plt.append(abs(getattr(self, f"{actuator}_current_setpoint")))
 
         return data_to_plt
 
@@ -875,7 +862,7 @@ if __name__ == "__main__":
 
     # set actuator modes & spool belts
     exoboots.setup_control_modes()
-    exoboots.spool_belts()
+    # exoboots.spool_belts()
 
     # initialize class responsible for recieving data & rtplotting for the main thread
     main_thread_receptor = MainThreadMessageReception(actuators)
@@ -892,7 +879,7 @@ if __name__ == "__main__":
     system_manager = ThreadManager(msg_router=msg_router, actuators=actuators)
 
     # instantiate soft real-time clock
-    clock = SoftRealtimeLoop(dt=1 / 1)  # Hz
+    clock = SoftRealtimeLoop(dt=1 / 200)  # Hz
 
     with system_manager:
         # set-up addressbook for the PostOffice & create inboxes for each thread
@@ -909,6 +896,7 @@ if __name__ == "__main__":
         for t in clock:
             try:
                 # decode messages from actuator threads
+                main_thread_receptor.check_msg_inbox()
 
                 # send data to server & update real-time plots
                 data_to_plt = main_thread_receptor.update_rt_plots()

@@ -168,9 +168,7 @@ class DephyEB51Actuator(DephyLegacyActuator):
         self.update_gear_ratio()
 
         # update gait state estimate
-        print("about to update IMU estimate")
         self.update_imu_gait_state(self.accelz)
-        print("updated IMU estimate")
 
     def assign_id_to_side(self)-> str:
         """
