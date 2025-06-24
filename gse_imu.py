@@ -2,7 +2,7 @@ import time
 from math import sqrt
 from src.utils.filter_utils import MovingAverageFilter
 
-from src.settings.constants import TIME_METHOD
+from src.settings.constants import TIME_METHOD, BERTEC_THRESH
 
 
 class IMU_Estimator:
@@ -58,6 +58,7 @@ class IMU_Estimator:
         self.time_method = time_method
 
         self.HS_time: float = self.time_method()
+        self.HS_time_prev: float = self.time_method()
         self.in_swing: bool = True
         self.stride_period_tracker = MovingAverageFilter(
             initial_value=stride_period_init, size=filter_size
@@ -158,26 +159,25 @@ class IMU_Estimator:
         # if some gait event registered
         if self.activation_state:
             # check if heel strike event
-            if self.in_swing and (ank_ang > 20) and (ank_ang < 40):
+            if self.in_swing and (ank_ang > 30) and (ank_ang < 55):
                 self.in_swing = False  # now in stance, i.e. heel strike just occured
-                self.latest_HS = (
-                    self.time_method()
-                )  # record the latest heel strike time
-                latest_stride_period = (
-                    self.latest_HS - self.HS_time
-                )  # compute the latest stride period
-                self.stride_period_tracker.update(
-                    latest_stride_period
-                )  # update the stride period estimate
 
-                self.HS_time = self.latest_HS
+                # Update HS and HS_prev
+                self.HS_time_prev = self.HS_time
+                self.HS_time = self.activations_pitime_local
+                stride_period_new = self.HS_time - self.HS_time_prev
+
+                stride_period_avg = self.stride_period_tracker.average()
+
+                if abs((stride_period_new - stride_period_avg) / stride_period_avg) < BERTEC_THRESH.ACCEPT_STRIDE_THRESHOLD: # TODO do when pause_event and updatefilters:
+                    self.stride_period_tracker.update(stride_period_new)  # update the stride period estimate
 
             # check if toe-off event
-            elif (self.in_swing == False) and (ank_ang > 60):
+            elif (self.in_swing == False) and (ank_ang > 55):
                 self.in_swing = True  # now in swing, i.e. toe-off just occured
 
         else:
-            pass
+           pass
 
 
 if __name__ == "__main__":

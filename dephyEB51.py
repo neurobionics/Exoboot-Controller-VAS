@@ -138,7 +138,7 @@ class DephyEB51Actuator(DephyLegacyActuator):
         # TODO look over ank_ang/100 versus ank_ang*ENC_CLICKS_TO_DEG
         if self._data is not None:
             ank_ang_in_deg = self.ank_ang * EB51_CONSTANTS.MOT_ENC_CLICKS_TO_DEG
-            return float( (self.ank_enc_sign * ank_ang_in_deg) - self.tr_gen.get_offset() )
+            return float((self.ank_enc_sign * ank_ang_in_deg) - self.tr_gen.get_offset())
         else:
             LOGGER.debug(
                 msg="Actuator data is none, please ensure that the actuator is connected and streaming. Returning 0.0."
@@ -163,7 +163,7 @@ class DephyEB51Actuator(DephyLegacyActuator):
         # update gait state estimate
         self.imu_estimator.update(self.accelz, self.ankle_angle)
 
-    def imu_gait_state_estimate(self, var:str)->dict:
+    def imu_gait_state_estimate(self, var:str):
         """
         Returns the IMU's gait state estimate
 
@@ -173,6 +173,7 @@ class DephyEB51Actuator(DephyLegacyActuator):
         state_dict = self.imu_estimator.return_estimate()
 
         return state_dict[var]
+
 
     def assign_id_to_side(self)-> str:
         """

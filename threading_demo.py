@@ -118,7 +118,7 @@ class BaseWorkerThread(threading.Thread, ABC):
 
 
 from src.exo.assistance_calculator import AssistanceCalculator
-from src.settings.constants import CONTINUOUS_MODE_FLAG, FLAT_WALK_TIMINGS
+from src.settings.constants import CONTINUOUS_MODE_FLAG, FLAT_WALK_TIMINGS, INCLINE_WALK_TIMINGS
 
 
 class ActuatorThread(BaseWorkerThread):
@@ -148,9 +148,9 @@ class ActuatorThread(BaseWorkerThread):
 
         # instantiate assistance generator
         self.assistance_calculator = AssistanceCalculator(
-            t_rise=FLAT_WALK_TIMINGS.P_RISE,
-            t_peak=FLAT_WALK_TIMINGS.P_PEAK,
-            t_fall=FLAT_WALK_TIMINGS.P_FALL,
+            t_rise=INCLINE_WALK_TIMINGS.P_RISE,
+            t_peak=INCLINE_WALK_TIMINGS.P_PEAK,
+            t_fall=INCLINE_WALK_TIMINGS.P_FALL,
         )
 
         # set-up vars:
@@ -183,6 +183,8 @@ class ActuatorThread(BaseWorkerThread):
         self.data_logger.track_variable(lambda: self.actuator.imu_gait_state_estimate("HS_time"), "HS_time_imu")
         self.data_logger.track_variable(lambda: self.actuator.imu_gait_state_estimate("stride_period"), "stride_period_imu")
         self.data_logger.track_variable(lambda: self.actuator.imu_gait_state_estimate("in_swing"), "in_swing_imu")
+        # self.data_logger.track_variable(lambda: self.actuator.ankle_angle, "ank_ang")
+        # self.data_logger.track_variable(lambda: self.actuator.gear_ratio, "gear_ratio")
 
     def pre_iterate(self) -> None:
         """
@@ -232,11 +234,20 @@ class ActuatorThread(BaseWorkerThread):
         self.actuator.update()      # update actuator states
         self.data_logger.update()   # update logger
 
+        # IMU OVERRIDE
+        # try:
+        #     # full_dict = self.actuator.imu_gait_state_estimate()
+        #     self.HS_time = self.actuator.imu_gait_state_estimate("HS_time")
+        #     self.stride_period = self.actuator.imu_gait_state_estimate("stride_period")
+        #     self.in_swing = self.actuator.imu_gait_state_estimate("in_swing")
+        # except Exception as e:
+        #     LOGGER.error(f"Ur dumb: {e}")
+
         # obtain time in current stride
         self.time_in_stride = time.perf_counter() - self.HS_time
+        LOGGER.debug(f"boo {self.name}{self.actuator.ankle_angle} {self.actuator.gear_ratio}")
 
         # TODO add delay compensation
-        # 
 
         # acquire torque command based on gait estimate
         self.torque_command = self.assistance_calculator.torque_generator(
@@ -251,8 +262,8 @@ class ActuatorThread(BaseWorkerThread):
 
         # command appropriate current setpoint using DephyExoboots class
         if self.current_setpoint is not None:
-            self.actuator.set_motor_current(self.current_setpoint)
-            # pass
+            # self.actuator.set_motor_current(self.current_setpoint)
+            pass
         else:
             self.data_logger.warning(
                 f"Unable to command current for {self.actuator.tag}. Skipping."
@@ -270,7 +281,7 @@ class ActuatorThread(BaseWorkerThread):
                     "torque_command": self.torque_command,
                     "current_setpoint": self.current_setpoint,
                     "motor_current": self.actuator.motor_current,
-                    "activation_status": self.actuator.imu_gait_state_estimate("activation")
+                    "activation_status": self.actuator.imu_gait_state_estimate("in_swing")
                 },
             )
 
