@@ -4,6 +4,7 @@ from src.utils.filter_utils import MovingAverageFilter
 
 from src.settings.constants import TIME_METHOD
 
+
 class IMU_Estimator:
     """
     IMU_Estimator estimates activation events from onboard exoboot IMU acceleration data (z-axis)
@@ -22,7 +23,7 @@ class IMU_Estimator:
         run_len_threshold: int = 10,
         time_method: float = TIME_METHOD,
         stride_period_init: float = 1.20,
-        filter_size:int = 10
+        filter_size: int = 10,
     ):
         """
         Initialize the IMU_Estimator.
@@ -56,9 +57,11 @@ class IMU_Estimator:
 
         self.time_method = time_method
 
-        self.HS_time:float = self.time_method()
-        self.in_swing:bool = True
-        self.stride_period_tracker = MovingAverageFilter(initial_value=stride_period_init, size=filter_size)
+        self.HS_time: float = self.time_method()
+        self.in_swing: bool = True
+        self.stride_period_tracker = MovingAverageFilter(
+            initial_value=stride_period_init, size=filter_size
+        )
 
     def __repr__(self):
         """
@@ -83,15 +86,16 @@ class IMU_Estimator:
 
         # state_dict = {"activation": self.activation_state}
 
-        state_dict = {"HS_time": self.HS_time,
-                      "stride_period": self.stride_period_tracker.average(),
-                      "in_swing": self.in_swing,
-                      "activation": self.activation_state
-                      }
+        state_dict = {
+            "HS_time": self.HS_time,
+            "stride_period": self.stride_period_tracker.average(),
+            "in_swing": self.in_swing,
+            "activation": self.activation_state,
+        }
 
         return state_dict
 
-    def update(self, accel:float, ank_ang:float):
+    def update(self, accel: float, ank_ang: float):
         """
         Update the estimator with a new acceleration value, compute statistics,
         and manage activation state.
@@ -143,7 +147,7 @@ class IMU_Estimator:
 
         self.detect_which_gait_event(ank_ang)
 
-    def detect_which_gait_event(self, ank_ang:float):
+    def detect_which_gait_event(self, ank_ang: float):
         """
         Detects gait event depending on activation state.
 
@@ -155,16 +159,22 @@ class IMU_Estimator:
         if self.activation_state:
             # check if heel strike event
             if self.in_swing and (ank_ang > 20) and (ank_ang < 40):
-                self.in_swing = False                                           # now in stance, i.e. heel strike just occured
-                self.latest_HS = self.time_method()                                    # record the latest heel strike time
-                latest_stride_period = self.latest_HS - self.HS_time            # compute the latest stride period
-                self.stride_period_tracker.update(latest_stride_period)         # update the stride period estimate
+                self.in_swing = False  # now in stance, i.e. heel strike just occured
+                self.latest_HS = (
+                    self.time_method()
+                )  # record the latest heel strike time
+                latest_stride_period = (
+                    self.latest_HS - self.HS_time
+                )  # compute the latest stride period
+                self.stride_period_tracker.update(
+                    latest_stride_period
+                )  # update the stride period estimate
 
                 self.HS_time = self.latest_HS
 
             # check if toe-off event
-            elif (self.in_swing==False) and (ank_ang > 60):
-                self.in_swing = True                                            # now in swing, i.e. toe-off just occured
+            elif (self.in_swing == False) and (ank_ang > 60):
+                self.in_swing = True  # now in swing, i.e. toe-off just occured
 
         else:
             pass
@@ -176,9 +186,11 @@ if __name__ == "__main__":
     print(asdf)
 
     for i in range(20):
-        asdf.update(i, i+20)
+        asdf.update(i, i + 20)
         asdf.return_estimate()
         print(asdf.return_estimate())
 
     asdf.update(100, 60)
     print(asdf)
+
+    # test gse_imu with loaded .mat file

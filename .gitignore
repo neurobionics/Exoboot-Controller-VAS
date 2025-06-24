@@ -3,3 +3,4 @@
 *.log
 py39-venv/
 py311-venv/
+*.mat
