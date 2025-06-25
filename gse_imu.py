@@ -4,6 +4,11 @@ from src.utils.filter_utils import MovingAverageFilter
 
 from src.settings.constants import TIME_METHOD, BERTEC_THRESH
 
+INCLINE_HS_ANK_ANG_UPPER_BOUND = 55
+INCLINE_HS_ANK_ANG_LOWER_BOUND = 30
+FLAT_HS_ANK_ANG_UPPER_BOUND = 40
+FLAT_HS_ANK_ANG_LOWER_BOUND = 20
+
 
 class IMU_Estimator:
     """
@@ -12,7 +17,7 @@ class IMU_Estimator:
 
     Outputs:
         - stride_period: time between two heel-strike activations
-        - in_swing: flag that indicates that foot is in swing
+        - in_stance: flag that indicates that foot is in swing
         - HS_time: timestamp of most recent activation (heel strike)
 
     """
@@ -21,7 +26,6 @@ class IMU_Estimator:
         self,
         std_threshold: float = 2,
         run_len_threshold: int = 10,
-        time_method: float = TIME_METHOD,
         stride_period_init: float = 1.20,
         filter_size: int = 10,
     ):
@@ -31,7 +35,6 @@ class IMU_Estimator:
         Args:
             std_threshold (float): Z-score threshold for activation detection.
             run_len_threshold (int): Number of consecutive samples below threshold to end activation.
-            time_method (callable): Function to get the current time (default: TIME_METHOD).
         """
 
         self.std_threhold = std_threshold
@@ -55,11 +58,9 @@ class IMU_Estimator:
         self.activations_zscore_peak = []
         self.activations_status = []
 
-        self.time_method = time_method
-
-        self.HS_time: float = self.time_method()
-        self.HS_time_prev: float = self.time_method()
-        self.in_swing: bool = True
+        self.HS_time: float = TIME_METHOD()
+        self.HS_time_prev: float = TIME_METHOD()
+        self.in_stance: bool = False
         self.stride_period_tracker = MovingAverageFilter(
             initial_value=stride_period_init, size=filter_size
         )
@@ -85,12 +86,10 @@ class IMU_Estimator:
             dict: Dictionary with the current activation state.
         """
 
-        # state_dict = {"activation": self.activation_state}
-
         state_dict = {
             "HS_time": self.HS_time,
             "stride_period": self.stride_period_tracker.average(),
-            "in_swing": self.in_swing,
+            "in_swing": not self.in_stance,
             "activation": self.activation_state,
         }
 
@@ -128,7 +127,7 @@ class IMU_Estimator:
         # Activation Window
         if not self.activation_state and self.run_len <= self.run_len_threshold:
             self.activation_state = True
-            self.activations_pitime_local = self.time_method()
+            self.activations_pitime_local = TIME_METHOD()
             self.activations_zscore_local = self.zscore
 
             self.activations_pitime_start.append(self.activations_pitime_local)
@@ -140,7 +139,7 @@ class IMU_Estimator:
             self.activations_zscore_peak.append(self.activations_zscore_local)
 
         elif self.activation_state and self.zscore > self.activations_zscore_local:
-            self.activations_pitime_local = self.time_method()
+            self.activations_pitime_local = TIME_METHOD()
             self.activations_zscore_local = self.zscore
 
         else:
@@ -152,32 +151,33 @@ class IMU_Estimator:
         """
         Detects gait event depending on activation state.
 
-        Updates the last heel strike time, stride period and in_swing flag
+        Updates the last heel strike time, stride period and in_stance flag
         """
 
-        # TODO: ensure that only the first activation is detected as heel strike
-        # if some gait event registered
         if self.activation_state:
             # check if heel strike event
-            if self.in_swing and (ank_ang > 30) and (ank_ang < 55):
-                self.in_swing = False  # now in stance, i.e. heel strike just occured
+            if (self.in_stance == False) and (ank_ang > FLAT_HS_ANK_ANG_LOWER_BOUND) and (ank_ang < FLAT_HS_ANK_ANG_UPPER_BOUND):
+                self.in_stance = True  # now in stance, i.e. heel strike just occured
 
-                # Update HS and HS_prev
-                self.HS_time_prev = self.HS_time
+                # get latest HS time
                 self.HS_time = self.activations_pitime_local
+
+                # get new stride period
                 stride_period_new = self.HS_time - self.HS_time_prev
 
+                # get averaged stride period
                 stride_period_avg = self.stride_period_tracker.average()
 
+                # only feed new stride period into moving average if it's reasonable
                 if abs((stride_period_new - stride_period_avg) / stride_period_avg) < BERTEC_THRESH.ACCEPT_STRIDE_THRESHOLD: # TODO do when pause_event and updatefilters:
-                    self.stride_period_tracker.update(stride_period_new)  # update the stride period estimate
+                    self.stride_period_tracker.update(stride_period_new)
+
+                # update prev HS time to the latest time
+                self.HS_time_prev = self.HS_time
 
             # check if toe-off event
-            elif (self.in_swing == False) and (ank_ang > 55):
-                self.in_swing = True  # now in swing, i.e. toe-off just occured
-
-        else:
-           pass
+            elif self.in_stance and (ank_ang > FLAT_HS_ANK_ANG_UPPER_BOUND):
+                self.in_stance = False  # now in swing, i.e. toe-off just occured
 
 
 if __name__ == "__main__":

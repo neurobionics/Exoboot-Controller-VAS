@@ -111,7 +111,7 @@ class DephyEB51Actuator(DephyLegacyActuator):
         self.case_temp_buffer = []
 
         # instantiate transmission ratio getter which uses motor-angle curve coefficients from pre-performed calibration
-        self.tr_gen = VariableTransmissionRatio(self.side, TEST_TR_FILE)
+        self.tr_gen = VariableTransmissionRatio(self.side)
         CONSOLE_LOGGER.info("instantiated variable transmission ratio")
 
         # instantiate IMU-based gait-state estimator
@@ -163,7 +163,7 @@ class DephyEB51Actuator(DephyLegacyActuator):
         # update gait state estimate
         self.imu_estimator.update(self.accelz, self.ankle_angle)
 
-    def imu_gait_state_estimate(self, var:str):
+    def get_imu_gait_state_estimate(self, var:str):
         """
         Returns the IMU's gait state estimate
 
@@ -173,7 +173,6 @@ class DephyEB51Actuator(DephyLegacyActuator):
         state_dict = self.imu_estimator.return_estimate()
 
         return state_dict[var]
-
 
     def assign_id_to_side(self)-> str:
         """

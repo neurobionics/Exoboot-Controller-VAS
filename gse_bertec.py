@@ -7,16 +7,13 @@ class Bertec_Estimator:
     """
     Stride phase estimation using forceplate thresholding
     """
-    def __init__(self, zmq_subscriber, stride_period_init=1.2, filter_size=10, hs_threshold = 80, to_threshold = 30, time_method=TIME_METHOD):
+    def __init__(self, zmq_subscriber, stride_period_init=1.2, filter_size=10, hs_threshold = 80, to_threshold = 30):
         # ZMQ subscriber
         self.subscriber = zmq_subscriber
 
         # Constants
         self.hs_threshold = hs_threshold
         self.to_threshold = to_threshold
-
-        # Time Method
-        self.time_method = time_method
 
         # State variables
         self.HS = 0
@@ -35,7 +32,7 @@ class Bertec_Estimator:
 
         """
 
-        state_dict = {"HS_time": self.HS,
+        state_dict = {"HS_time_bertec": self.HS,
                       "stride_period": self.stride_period_tracker.average(),
                       "in_swing": not self.in_contact
                       }
@@ -62,14 +59,14 @@ class Bertec_Estimator:
         force = self.force_prev if force == '' else float(force)
 
         # New stride flag
-        new_stride = False
+        new_stride_flag = False
 
         # Determine state
         if self.in_contact:
             if force < self.to_threshold:
                 # New Toe off
                 self.in_contact = False
-                self.TO = self.time_method()
+                self.TO = TIME_METHOD()
 
             else:
                 # In stance
@@ -79,10 +76,10 @@ class Bertec_Estimator:
             if force >= self.hs_threshold:
                 # New Heel strike
                 self.in_contact = True
-                new_stride = True
+                new_stride_flag = True
 
                 # Record new stride period and update estimate
-                HS_new = self.time_method()
+                HS_new = TIME_METHOD()
                 stride_period_new = HS_new - self.HS
                 stride_period_avg = self.stride_period_tracker.average()
 
@@ -99,4 +96,4 @@ class Bertec_Estimator:
         # Update prev
         self.force_prev = force
 
-        return new_stride, force
+        return new_stride_flag, force

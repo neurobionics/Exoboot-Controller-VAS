@@ -77,6 +77,8 @@ DEV_ID_TO_MOTOR_SIGN_DICT = {
     id: RIGHT_EXO_IDENTIFIERS.MOTOR_SIGN for id in RIGHT_EXO_IDENTIFIERS.EXO_DEV_IDS
 } | {id: LEFT_EXO_IDENTIFIERS.MOTOR_SIGN for id in LEFT_EXO_IDENTIFIERS.EXO_DEV_IDS}
 
+# TODO add thread name constants
+
 """ Device Attributes """
 EB51_CONSTANTS = EXO_MOTOR_CONSTANTS(
     MOT_ENC_CLICKS_TO_REV=2**14,
@@ -139,7 +141,7 @@ TEMPANTISPIKE = 100  # °C
 
 """ Gait State Estimation Toggle"""
 RUN_BERTEC_GSE:bool = True          # if true, an additional thread will be spun up that obtains bertec gait state estimates
-USE_SIMULATED_WALKER:bool = False    # if true, a simulated walker will output gait state estimates INSTEAD of the bertec in the thread
+USE_SIMULATED_WALKER:bool = False   # if true, a simulated walker will output gait state estimates INSTEAD of the bertec in the thread
 
 
 """" TIME METHOD """

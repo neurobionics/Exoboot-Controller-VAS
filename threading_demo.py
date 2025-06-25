@@ -13,6 +13,7 @@ from src.utils.filing_utils import get_logging_info
 from opensourceleg.logging import Logger, LogLevel
 import logging
 
+from src.settings.constants import TIME_METHOD
 
 class BaseWorkerThread(threading.Thread, ABC):
     """
@@ -154,7 +155,7 @@ class ActuatorThread(BaseWorkerThread):
         )
 
         # set-up vars:
-        self.HS_time: float = 0.0
+        self.HS_time_bertec: float = 0.0
         self.stride_period: float = 1.2
         self.in_swing: bool = True
         self.peak_torque_setpoint: float = 0.0
@@ -162,35 +163,41 @@ class ActuatorThread(BaseWorkerThread):
         self.current_setpoint: int = 0
         self.time_in_stride: float = 0.0
 
-        self.thread_start_time: float = time.perf_counter()
-        self.time_since_start: float = 0.0
+        # add in vars for imu:
+        self.HS_time_imu: float = 0.0
+        self.stride_period_imu: float = 1.2
+        self.in_swing_imu: bool = True
+
+        # var for delay:
+        self.delay: float = 0.0
+
+        self.thread_start_time: float = TIME_METHOD()
+        self.time_since_thread_start: float = 0.0
 
         # track vars for csv logging
-        self.data_logger.track_variable(
-            lambda: self.time_since_start, "time_since_start"
-        )
-        self.data_logger.track_variable(lambda: self.HS_time, "HS_time")
+        self.data_logger.track_variable(lambda: self.time_since_thread_start, "time_since_thread_start")
+        self.data_logger.track_variable(lambda: self.HS_time_bertec, "HS_time_bertec")
         self.data_logger.track_variable(lambda: self.stride_period, "stride_period")
         self.data_logger.track_variable(lambda: self.in_swing, "in_swing_flag_bool")
-        self.data_logger.track_variable(
-            lambda: self.peak_torque_setpoint, "peak_torque_setpt"
-        )
+        self.data_logger.track_variable(lambda: self.peak_torque_setpoint, "peak_torque_setpt")
         self.data_logger.track_variable(lambda: self.torque_command, "torque_command")
-        self.data_logger.track_variable(
-            lambda: self.current_setpoint, "current_setpoint"
-        )
+        self.data_logger.track_variable(lambda: self.current_setpoint, "current_setpoint")
+
         # track gse_imu vars
-        self.data_logger.track_variable(lambda: self.actuator.imu_gait_state_estimate("HS_time"), "HS_time_imu")
-        self.data_logger.track_variable(lambda: self.actuator.imu_gait_state_estimate("stride_period"), "stride_period_imu")
-        self.data_logger.track_variable(lambda: self.actuator.imu_gait_state_estimate("in_swing"), "in_swing_imu")
-        # self.data_logger.track_variable(lambda: self.actuator.ankle_angle, "ank_ang")
-        # self.data_logger.track_variable(lambda: self.actuator.gear_ratio, "gear_ratio")
+        self.data_logger.track_variable(lambda: self.actuator.get_imu_gait_state_estimate("HS_time"), "HS_time_imu")
+        self.data_logger.track_variable(lambda: self.actuator.get_imu_gait_state_estimate("stride_period"), "stride_period_imu")
+        self.data_logger.track_variable(lambda: self.actuator.get_imu_gait_state_estimate("in_swing"), "in_swing_imu")
+        self.data_logger.track_variable(lambda: self.actuator.ankle_angle, "ank_ang")
+        self.data_logger.track_variable(lambda: self.actuator.gear_ratio, "gear_ratio")
+        self.data_logger.track_variable(lambda: self.actuator.accelz, "accelz")
+
+        # track delay
+        self.data_logger.track_variable(lambda: self.delay, "delay")
 
     def pre_iterate(self) -> None:
         """
         Check inbox for messages from GSE & GUI threads
         """
-
         mail_list = self.inbox.get_all_mail()
         for mail in mail_list:
             self.decode_message(mail)
@@ -201,11 +208,15 @@ class ActuatorThread(BaseWorkerThread):
         This method extracts the contents of the message and updates the actuator's state accordingly.
         """
         try:
-            for key, value in mail.contents.items():
-                if CONTINUOUS_MODE_FLAG and key == "peak_torque_setpoint":
-                    self.peak_torque_update_monitor(key, value)
-                else:
-                    setattr(self, key, value)
+            if mail.sender == "gse":
+                for key, value in mail.contents.items():
+                    if CONTINUOUS_MODE_FLAG and key == "peak_torque_setpoint":
+                        setattr(self, key, value)
+                    else:
+                        self.peak_torque_update_monitor(key, value)
+
+                # Update delay
+                self.delay = self.HS_time_bertec - self.HS_time_imu
 
         except Exception as err:
             self.data_logger.debug(f"Error decoding message: {err}")
@@ -219,7 +230,6 @@ class ActuatorThread(BaseWorkerThread):
         A new torque will only be felt upon the termination of the current stride.
         """
         # TODO: add in more logic to handle continous vs discrete modes (GUI doesn't send continous stream of data)
-
         if self.in_swing:
             setattr(self, key, value)
 
@@ -230,31 +240,24 @@ class ActuatorThread(BaseWorkerThread):
         It handles the actuator's state updates.
         """
 
-        self.time_since_start = time.perf_counter() - self.thread_start_time
+        self.time_since_thread_start = TIME_METHOD() - self.thread_start_time
         self.actuator.update()      # update actuator states
         self.data_logger.update()   # update logger
 
         # IMU OVERRIDE
-        # try:
-        #     # full_dict = self.actuator.imu_gait_state_estimate()
-        #     self.HS_time = self.actuator.imu_gait_state_estimate("HS_time")
-        #     self.stride_period = self.actuator.imu_gait_state_estimate("stride_period")
-        #     self.in_swing = self.actuator.imu_gait_state_estimate("in_swing")
-        # except Exception as e:
-        #     LOGGER.error(f"Ur dumb: {e}")
+        self.HS_time_imu = self.actuator.get_imu_gait_state_estimate("HS_time")
+        self.stride_period_imu = self.actuator.get_imu_gait_state_estimate("stride_period")
+        self.in_swing_imu = self.actuator.get_imu_gait_state_estimate("in_swing")
 
         # obtain time in current stride
-        self.time_in_stride = time.perf_counter() - self.HS_time
-        LOGGER.debug(f"boo {self.name}{self.actuator.ankle_angle} {self.actuator.gear_ratio}")
-
-        # TODO add delay compensation
+        self.time_in_stride = TIME_METHOD() - self.HS_time_imu
 
         # acquire torque command based on gait estimate
         self.torque_command = self.assistance_calculator.torque_generator(
             current_time=self.time_in_stride,
-            stride_period=self.stride_period,
+            stride_period=self.stride_period_imu,
             peak_torque=float(self.peak_torque_setpoint),
-            in_swing=self.in_swing,
+            in_swing=self.in_swing_imu,
         )
 
         # determine appropriate current setpoint that matches the torque setpoint
@@ -262,8 +265,8 @@ class ActuatorThread(BaseWorkerThread):
 
         # command appropriate current setpoint using DephyExoboots class
         if self.current_setpoint is not None:
-            # self.actuator.set_motor_current(self.current_setpoint)
-            pass
+            self.actuator.set_motor_current(self.current_setpoint)
+            # pass
         else:
             self.data_logger.warning(
                 f"Unable to command current for {self.actuator.tag}. Skipping."
@@ -276,12 +279,12 @@ class ActuatorThread(BaseWorkerThread):
                 sender=self.name,
                 recipient="main",
                 contents={
-                    # "time_since_start": self.time_since_start,
+                    # "time_since_thread_start": self.time_since_thread_start,
                     "peak_torque_setpoint": self.peak_torque_setpoint,
                     "torque_command": self.torque_command,
                     "current_setpoint": self.current_setpoint,
                     "motor_current": self.actuator.motor_current,
-                    "activation_status": self.actuator.imu_gait_state_estimate("in_swing")
+                    "activation_status": self.actuator.get_imu_gait_state_estimate("in_swing")
                 },
             )
 
@@ -330,73 +333,65 @@ class GaitStateEstimatorThread(BaseWorkerThread):
         self.active_actuators = active_actuators
         self.bertec_estimators = {}
 
-        self.time_since_start = 0
-        self.thread_start_time = time.perf_counter()
+        self.time_since_thread_start = 0
+        self.thread_start_time = TIME_METHOD()
 
         # for each active actuator, initialize GSE Bertec
         for actuator in self.active_actuators:
             selected_topic = f"fz_{actuator}"  # e.g., 'fz_left' or 'fz_right'
 
-            # if USE_SIMULATED_WALKER:
-            #     walker = WalkingSimulator(stride_period=1.20)
-            #     walker.set_percent_toe_off(67)
-            #     self.bertec_estimators[actuator] = walker
+            if USE_SIMULATED_WALKER:
+                walker = WalkingSimulator(stride_period=1.20)
+                walker.set_percent_toe_off(67)
+                self.bertec_estimators[actuator] = walker
 
-            #     # track vars for csv logging
-            #     self.data_logger.track_variable(
-            #         lambda: self.time_since_start, f"{actuator}_time_since_start"
-            #     )
-            #     self.data_logger.track_variable(
-            #         lambda: self.bertec_estimators[actuator].stride_start_time,
-            #         f"{actuator}_HS_time_",
-            #     )
-            #     self.data_logger.track_variable(
-            #         lambda: self.bertec_estimators[actuator].stride_period,
-            #         f"{actuator}_stride_period",
-            #     )
-            #     self.data_logger.track_variable(
-            #         lambda: self.bertec_estimators[actuator].in_swing_flag,
-            #         f"{actuator}_in_swing_flag_bool",
-            #     )
-            #     self.data_logger.track_variable(
-            #         lambda: self.bertec_estimators[actuator].current_time_in_stride,
-            #         f"{actuator}_current_time_in_stride",
-            #     )
-            #     self.data_logger.track_variable(
-            #         lambda: self.bertec_estimators[actuator].current_percent_gait_cycle,
-            #         f"{actuator}_current_percent_gait_cycle",
-            #     )
+                # track vars for csv logging
+                self.data_logger.track_variable(
+                    lambda: self.time_since_thread_start, f"{actuator}_time_since_thread_start"
+                )
+                self.data_logger.track_variable(
+                    lambda: self.bertec_estimators[actuator].stride_start_time,
+                    f"{actuator}_HS_time",
+                )
+                self.data_logger.track_variable(
+                    lambda: self.bertec_estimators[actuator].stride_period,
+                    f"{actuator}_stride_period",
+                )
+                self.data_logger.track_variable(
+                    lambda: self.bertec_estimators[actuator].in_swing_flag,
+                    f"{actuator}_in_swing_flag_bool",
+                )
+                self.data_logger.track_variable(
+                    lambda: self.bertec_estimators[actuator].current_time_in_stride,
+                    f"{actuator}_current_time_in_stride",
+                )
+                self.data_logger.track_variable(
+                    lambda: self.bertec_estimators[actuator].current_percent_gait_cycle,
+                    f"{actuator}_current_percent_gait_cycle",
+                )
 
-            # else:
-            bertec_subscriber = Subscriber(
-                publisher_ip=IP_ADDRESSES.VICON_IP,
-                topic_filter=selected_topic,
-                timeout_ms=5,
-            )
-            self.bertec_estimators[actuator] = Bertec_Estimator(
-                zmq_subscriber=bertec_subscriber
-            )
+            else:
+                bertec_subscriber = Subscriber(
+                    publisher_ip=IP_ADDRESSES.VICON_IP,
+                    topic_filter=selected_topic,
+                    timeout_ms=5,
+                )
+                self.bertec_estimators[actuator] = Bertec_Estimator(
+                    zmq_subscriber=bertec_subscriber
+                )
 
-                # # track vars for csv logging
-                # self.data_logger.track_variable(
-                #     lambda: self.time_since_start, f"{actuator}_time_since_start"
-                # )
-                # self.data_logger.track_variable(
-                #     lambda: self.bertec_estimators[actuator].HS,
-                #     f"{actuator}_HS_time_",
-                # )
-                # self.data_logger.track_variable(
-                #     lambda: self.bertec_estimators[actuator].stride_period_tracker.average(),
-                #     f"{actuator}_stride_period",
-                # )
-                # self.data_logger.track_variable(
-                #     lambda: not self.bertec_estimators[actuator].in_contact,
-                #     f"{actuator}_in_swing_flag_bool",
-                # )
+                self.data_logger.track_variable(
+                    lambda: self.time_since_thread_start,
+                    f"time_since_thread_start",
+                )
+
+                self.data_logger.track_variable(
+                    lambda: self.bertec_estimators[actuator].force_prev,
+                    f"{actuator}_force_prev",
+                )
 
     def pre_iterate(self) -> None:
         pass
-
 
     def iterate(self):
         """
@@ -405,34 +400,28 @@ class GaitStateEstimatorThread(BaseWorkerThread):
 
         It updates the gait state estimator and sends the current time in stride and stride period to the actuators.
         """
-        self.time_since_start = time.perf_counter() - self.thread_start_time
+        self.time_since_thread_start = TIME_METHOD() - self.thread_start_time
 
         # for each active actuator,
         for actuator in self.active_actuators:
 
             # Update the gait state estimator for the actuator
-            self.bertec_estimators[actuator].update()
-            print(f"asdf {actuator}: {self.bertec_estimators[actuator].return_estimate()}")
+            new_stride_flag, _force = self.bertec_estimators[actuator].update()
 
             # update csv logger
             self.data_logger.update()
 
             # send message to actuator inboxes
             try:
-                self.data_logger.debug(
-                    self.bertec_estimators[actuator].return_estimate()
-                )
-
-                msg_router.send(
-                    sender=self.name,
-                    recipient=actuator,
-                    contents=self.bertec_estimators[actuator].return_estimate(),
-                )
+                if new_stride_flag:
+                    self.data_logger.debug(self.bertec_estimators[actuator].return_estimate())
+                    msg_router.send(
+                        sender=self.name,
+                        recipient=actuator,
+                        contents=self.bertec_estimators[actuator].return_estimate(),
+                    )
             except:
-                self.data_logger.debug(
-                    f"UNABLE TO SEND msg to '{actuator}' actuator from GaitStateEstimatorThread. Skipping."
-                )
-                continue
+                self.data_logger.debug(f"UNABLE TO SEND msg to '{actuator}' actuator from GaitStateEstimatorThread. Skipping.")
 
     def post_iterate(self) -> None:
         pass
@@ -475,8 +464,8 @@ class GUICommunication(BaseWorkerThread):
         self.active_actuators = active_actuators
         self.peak_torque_setpoint: float = 0.0
 
-        self.thread_start_time: float = time.perf_counter()
-        self.time_since_start: float = 0.0
+        self.thread_start_time: float = TIME_METHOD()
+        self.time_since_thread_start: float = 0.0
 
         # track vars for csv logging
         self.data_logger.track_variable(lambda: self.peak_torque_setpoint, "torque_setpt")
@@ -494,7 +483,7 @@ class GUICommunication(BaseWorkerThread):
         If the user doesn't input a new value, the current setpoint is used.
         """
 
-        self.time_since_start = time.perf_counter() - self.thread_start_time
+        self.time_since_thread_start = TIME_METHOD() - self.thread_start_time
 
         # update csv logging
         self.data_logger.update()
@@ -943,7 +932,7 @@ if __name__ == "__main__":
 
     # set actuator modes & spool belts
     exoboots.setup_control_modes()
-    # exoboots.spool_belts()
+    exoboots.spool_belts()
 
     # initialize class responsible for recieving data & rtplotting for the main thread
     main_thread_receptor = MainThreadMessageReception(actuators)

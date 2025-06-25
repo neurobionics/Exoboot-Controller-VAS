@@ -239,3 +239,7 @@ class STATIC_IP_ADDRESSES:
     """
     RTPLOT_IP: str
     VICON_IP: str
+
+
+
+# TODO add dataclass for threadnames

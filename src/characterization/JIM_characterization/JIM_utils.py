@@ -117,6 +117,7 @@ class JIM_data_plotter:
             logger.track_variable(lambda: actuator.motor_current, f"{actuator._tag}_current_mA")
             logger.track_variable(lambda: actuator.ankle_angle, f"{actuator._tag}_ankang_deg")
             logger.track_variable(lambda: actuator.case_temperature, f"{actuator._tag}_case_temp_C")
+            # logger.track_variable(lambda: actuator.mot_volt, f"{actuator._tag}_mot_volt_mV")
 
             tracked_vars = logger.get_tracked_variables()
             print("Tracked variables:", tracked_vars)

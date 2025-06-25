@@ -223,7 +223,7 @@ if __name__ == "__main__":
     print("Starting TR Characterization")
     frequency = 1000
     for side, device in zip(sides, devices):
-        if device and side=="right":
+        if device:
 
             device._start_streaming(frequency, log_en=False)
             device.set_gains(DEFAULT_PID_GAINS.KP,
