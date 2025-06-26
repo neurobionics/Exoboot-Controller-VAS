@@ -27,7 +27,9 @@ class ExobootThread(BaseThread):
         """
         TODO make overview
         """
+        print("im here b")
         super().__init__(name, daemon, quit_event, pause_event, log_event)
+        print("im here c")
         # Necessary Inputs for Exo Class
         self.side = side
         self.flexdevice = flexdevice # In ref to flexsea Device class
@@ -45,15 +47,16 @@ class ExobootThread(BaseThread):
 
         # Set Transmission Ratio and Motor-Angle Curve Coefficients	from pre-performed calibration
         self.tr_gen = TransmissionRatioGenerator(self.side, coefs_prefix=TR_COEFS_PREFIX, filepath=TR_FOLDER_PATH, max_allowable_angle=180, min_allowable_angle=0, min_allowable_TR=10, granularity=10000)
-
+        print("im here d")
         # Instantiate AssistanceGenerator (DOES NOT HAVE PROFILE ON INITIALIZATION)
         self.assistance_generator = AssistanceGenerator()
-
+        print("im here e")
         # Instantiate GSE_IMU
         self.gse_imu = IMU_Estimator(filter_size=10)
-
+        print("im here f")
         # Instantiate Thermal Model and specify thermal limits
         self.thermalModel = ThermalModel(temp_limit_windings=100,soft_border_C_windings=10,temp_limit_case=75,soft_border_C_case=5)
+        print("im here g")
         self.case_temperature = 0
         self.winding_temperature = 0
         self.max_case_temperature = MAX_CASE_TEMP
@@ -71,7 +74,13 @@ class ExobootThread(BaseThread):
         self.in_swing = False
 
         # Logging Nexus
-        self.fields = EXOTHREAD_FIELDS
+        if GSE_MODE == "IMU":
+            self.fields = IMU_EXOTHREAD_FIELDS
+        elif GSE_MODE == "BERTEC":
+            self.fields = EXOTHREAD_FIELDS
+        elif GSE_MODE == "COMBO":
+            self.fields = COMBO_EXOTHREAD_FIELDS
+
         self.data_dict = dict.fromkeys(self.fields)
         self.startstamp = startstamp
         self.lastlogstamp = TIME_METHOD()
@@ -212,14 +221,13 @@ class ExobootThread(BaseThread):
         self.data_dict['motor_velocity'] = data.mot_vel
 
         # TODO clamp motor current to not get bad readings
-        motor_current = data['mot_cur']
-        self.data_dict['motor_current'] = motor_current
+        self.data_dict['motor_current'] = data.mot_cur
         self.data_dict['motor_voltage'] = data.mot_volt
         self.data_dict['battery_voltage'] = data.batt_volt
         self.data_dict['battery_current'] = data.batt_curr
 
         ## ====Calculate Delivered Ankle Torque from Measured Current====
-        actual_mot_torque_left = motor_current * Kt / 1000 * self.motor_sign # Nm
+        actual_mot_torque_left = self.data_dict['motor_current'] * Kt / 1000 * self.motor_sign # Nm
         N = self.tr_gen.get_TR(ankle_angle)
         self.data_dict['N'] = N
         self.data_dict['act_ank_torque'] = N * EFFICIENCY * actual_mot_torque_left
@@ -268,6 +276,12 @@ class ExobootThread(BaseThread):
         # self.case_temperature = measured_temp
         # exo_safety_shutoff_flag = self.get_modelled_temps(motor_current)
 
+
+    def set_peak_torque(self, T):
+        self.peak_torque = T
+        if self.continuousmode:
+            self.peak_torque = self.T
+
     def set_state_estimate(self, HS, stride_period, peak_torque, in_swing):
         """
         Sets gait estimate to track stride
@@ -283,25 +297,29 @@ class ExobootThread(BaseThread):
         """
         Obtains gait state estimates from
         """
-        self.gse_imu.update(self.data_dict["accel_z"], self.data_dict["ankle_angle"])
+
+        self.gse_imu.update_testing(self.data_dict["accel_z"], self.data_dict["ankle_angle"])
 
     def log_state_estimate(self):
         """
         Add state estimate to data_dict
         """
+
         # logged imu states
-        imu_state_dict = self.gse_imu.return_estimate()
-        self.data_dict['HS_imu'] = imu_state_dict["HS_time"]
-        self.data_dict['stride_period_imu'] = imu_state_dict["stride_period_imu"]
-        self.data_dict['in_swing_imu'] = imu_state_dict["in_swing_imu"]
-        self.data_dict['imu_activations'] = imu_state_dict["imu_activations"]
+        if GSE_MODE == "IMU" or "COMBO":
+            imu_state_dict = self.gse_imu.return_estimate()
+            self.data_dict['HS_imu'] = imu_state_dict["HS_time"]
+            self.data_dict['stride_period_imu'] = imu_state_dict["stride_period"]
+            self.data_dict['in_swing_imu'] = imu_state_dict["in_swing"]
+            self.data_dict['imu_activations'] = imu_state_dict["activation"]
 
         # logged bertec states
-        self.data_dict['HS'] = self.HS
-        self.data_dict['current_time'] = self.current_time
-        self.data_dict['stride_period'] = self.stride_period
-        self.data_dict['peak_torque'] = self.peak_torque
-        self.data_dict['in_swing'] = self.in_swing
+        if GSE_MODE == "BERTEC" or "COMBO":
+            self.data_dict['HS'] = self.HS
+            self.data_dict['current_time'] = self.current_time
+            self.data_dict['stride_period'] = self.stride_period
+            self.data_dict['peak_torque'] = self.peak_torque
+            self.data_dict['in_swing'] = self.in_swing
 
     # Threading run() functions
     def on_pre_run(self):
@@ -337,7 +355,7 @@ class ExobootThread(BaseThread):
         """
         # Set starting time stamp
         self.data_dict['pitime'] = TIME_METHOD() - self.startstamp
-        self.data_dict['date_time'] = datetime.datetime.strftime(TR_DATE_FORMATTER)
+        # TODO: self.data_dict['date_time'] = datetime.datetime.strftime(TR_DATE_FORMATTER)
 
         # Read sensors
         self.read_sensors()
@@ -396,7 +414,8 @@ class ExobootThread(BaseThread):
             self.flexdevice.send_motor_command(FX_CURRENT, 0)
             self.pause_event.clear()
         else:
-            self.flexdevice.send_motor_command(FX_CURRENT, self.motor_sign * vetted_current)
+            # self.flexdevice.send_motor_command(FX_CURRENT, self.motor_sign * vetted_current)
+            pass
 
     def post_iterate(self):
         """
@@ -437,6 +456,7 @@ class ExobootThread(BaseThread):
         """
         Main Loop
         """
+
         self.on_pre_run()
         while self.quit_event.is_set():
             self.pre_iterate()

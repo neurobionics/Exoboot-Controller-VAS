@@ -5,7 +5,7 @@ from concurrent import futures
 import exoboot_remote_pb2 as pb2
 import exoboot_remote_pb2_grpc as pb2_grpc
 from BaseExoThread import BaseThread
-
+from constants import GSE_MODE
 
 class ExobootRemoteClient:
     """
@@ -280,8 +280,13 @@ class ExobootCommServicer(pb2_grpc.exoboot_over_networkServicer):
         peak_torque_right = torque_msg.peak_torque_right
 
         # Set torques in GSE
-        self.mainwrapper.gse_thread.set_peak_torque_left(peak_torque_left)
-        self.mainwrapper.gse_thread.set_peak_torque_right(peak_torque_right)
+        if GSE_MODE == "BERTEC" or "COMBO":
+            self.mainwrapper.gse_thread.set_peak_torque_left(peak_torque_left)
+            self.mainwrapper.gse_thread.set_peak_torque_right(peak_torque_right)
+        elif GSE_MODE == "IMU":
+            # TODO: add continuous mode here
+            self.mainwrapper.exothread_left.set_peak_torque(peak_torque_left)
+            self.mainwrapper.exothread_right.set_peak_torque(peak_torque_right)
 
         return pb2.receipt(received=True)
 
@@ -430,7 +435,6 @@ class ExobootCommServicer(pb2_grpc.exoboot_over_networkServicer):
 
         print("Received preference results: {}, {}".format(pres, torque))
         datalist = [pres, torque]
-
         prefpath = self.filingcabinet.getpath("pref")
         with open(prefpath, 'a', newline='') as f:
             csv.writer(f).writerow(datalist)
@@ -445,6 +449,7 @@ class ExobootRemoteServerThread(BaseThread):
 
     Does not pause
     """
+
     def __init__(self, mainwrapper, startstamp, filingcabinet, usebackup=False, name='exoboot_remote_thread', daemon=True, quit_event=Type[threading.Event], pause_event=Type[threading.Event], log_event=Type[threading.Event]):
         super().__init__(name=name, daemon=daemon, pause_event=pause_event, quit_event=quit_event)
         self.mainwrapper = mainwrapper

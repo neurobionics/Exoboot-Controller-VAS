@@ -57,9 +57,12 @@ class IMU_Estimator:
         self.activations_zscore_peak = []
         self.activations_status = []
 
+        self.prev_spike_time = 0
+        self.noticable_spike_flag = False
+
         self.HS_time: float = TIME_METHOD()
         self.HS_time_prev: float = TIME_METHOD()
-        self.in_stance: bool = False
+        self.in_stance: int = 0
         self.stride_period_tracker = MovingAverageFilter(
             initial_value=stride_period_init, size=filter_size
         )
@@ -88,12 +91,25 @@ class IMU_Estimator:
         state_dict = {
             "HS_time": self.HS_time,
             "stride_period": self.stride_period_tracker.average(),
-            "in_swing": not self.in_stance,
+            "in_swing": self.in_stance,
             "activation": self.activation_state,
         }
 
         return state_dict
 
+    def update_testing(self, accel: float, ankle: float):
+        accel_diff = abs(self.prev_accel - accel)
+        if (accel_diff >= 0.5):
+            if abs(time.perf_counter() - self.prev_spike_time) >= 0.3 :
+                self.noticable_spike_flag = True
+                self.prev_spike_time = time.perf_counter()
+
+        if(self.noticable_spike_flag and (0 <= ankle <= 35)):
+            self.in_stance = 10
+            self.noticable_spike_flag = False
+        elif(self.noticable_spike_flag and (ankle > 55)): # TODO: Te ankle angle threshold not necessarily have to be continuous
+            self.in_stance = 0
+            self.noticable_spike_flag = False
     def update(self, accel: float, ank_ang: float):
         """
         Update the estimator with a new acceleration value, compute statistics,
@@ -178,18 +194,18 @@ class IMU_Estimator:
             elif self.in_stance and (ank_ang > FLAT_HS_ANK_ANG_UPPER_BOUND):
                 self.in_stance = False  # now in swing, i.e. toe-off just occured
 
+# Testing
+# if __name__ == "__main__":
+#     asdf = IMU_Estimator()
+#     print("INIT")
+#     print(asdf)
 
-if __name__ == "__main__":
-    asdf = IMU_Estimator()
-    print("INIT")
-    print(asdf)
+#     for i in range(20):
+#         asdf.update(i, i + 20)
+#         asdf.return_estimate()
+#         print(asdf.return_estimate())
 
-    for i in range(20):
-        asdf.update(i, i + 20)
-        asdf.return_estimate()
-        print(asdf.return_estimate())
-
-    asdf.update(100, 60)
-    print(asdf)
+#     asdf.update(100, 60)
+#     print(asdf)
 
     # test gse_imu with loaded .mat file

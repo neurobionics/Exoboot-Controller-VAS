@@ -51,6 +51,7 @@ class TransmissionRatioGenerator:
                     datetimes.append(dt)
 
             most_recent = datestrings[datetimes.index(max(datetimes))]
+            print("im here d.1")
             self.coefs_filename = "{}_{}_{}.csv".format(self.coefs_prefix, self.side, most_recent)
 
         print("TR {} USING: {}".format(self.side, self.coefs_filename))
@@ -67,14 +68,14 @@ class TransmissionRatioGenerator:
             coefs_ankle_vs_motor = next(csv_reader)  # Read the first row, which is the motor_angle_curve_coeffs
             coefs_TR = next(csv_reader)      # Read the second row, which is the TR_coeffs
             max_dorsiflexed_ang = next(csv_reader)
-            
+
             # convert to array of real numbers to allow for polyval evaluation
             TR_curve_coeffs = [float(x) for x in coefs_TR]
             motor_angle_curve_coeffs = [float(y) for y in coefs_ankle_vs_motor]
             max_dorsi_offset = float(max_dorsiflexed_ang[0])
 
         return TR_curve_coeffs, motor_angle_curve_coeffs, max_dorsi_offset
-    
+
     def get_offset(self):
         return self.offset
 
@@ -83,7 +84,7 @@ class TransmissionRatioGenerator:
         Linearly transforms index in [0, granularity] to angle in [min_ang, max_ang]
         """
         return i / self.granularity * (self.max_allowable_angle - self.min_allowable_angle) + self.min_allowable_angle
-    
+
     def angle_to_index(self, ang):
         """
         Linearly transforms angle in [min_ang, max_ang] to index in [0, granularity]

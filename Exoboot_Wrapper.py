@@ -18,7 +18,6 @@ from ExoClass_thread import ExobootThread
 from GaitStateEstimator_thread import GaitStateEstimator
 from exoboot_remote_control import ExobootRemoteServerThread
 from LoggingClass import LoggingNexus, FilingCabinet
-# from curses_HUD.hud_thread import HUDThread
 
 from SoftRTloop import FlexibleSleeper
 from constants import *
@@ -32,6 +31,7 @@ class MainControllerWrapper:
 
     Allows for high level interaction with flexsea controller
     """
+
     def __init__(self, subjectID=None, trial_type=None, trial_cond=None, description=None, usebackup=False, continuousmode = False, overridedefaultcurrentbounds=False, streamingfrequency=FLEXSEA_AND_EXOTHREAD_FREQ, clockspeed=0.2):
         self.streamingfrequency = streamingfrequency
         self.clockspeed = clockspeed
@@ -55,9 +55,10 @@ class MainControllerWrapper:
             print("Backup Load Status: {}".format("SUCCESS" if loadstatus else "FAILURE"))
 
         # Get IP for GRPC server
-        s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-        s.connect(('10.255.255.255', 1))
-        self.myIP = s.getsockname()[0] + ":50055"
+        # s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        # s.connect(('10.255.255.255', 1))
+        # self.myIP = s.getsockname()[0] + ":50055"
+        self.myIP = "35.3.124.243" + ":50055"
         print("myIP: {}".format(self.myIP))
 
     @staticmethod
@@ -113,6 +114,7 @@ class MainControllerWrapper:
             self.startstamp = TIME_METHOD() # Timesync logging between all threads
 
             # Thread 1/2: Left and right exoboots
+            print("im here a")
             self.exothread_left = ExobootThread(side_left, device_left, self.startstamp, "exothread_left", True, self.quit_event, self.pause_event, self.log_event, self.overridedefaultcurrentbounds, ZERO_CURRENT, MAX_ALLOWABLE_CURRENT, FLEXSEA_AND_EXOTHREAD_FREQ)
             self.exothread_right = ExobootThread(side_right, device_right, self.startstamp, "exothread_right", True,  self.quit_event, self.pause_event, self.log_event, self.overridedefaultcurrentbounds, ZERO_CURRENT, MAX_ALLOWABLE_CURRENT, FLEXSEA_AND_EXOTHREAD_FREQ)
             self.exothread_left.start()
@@ -128,14 +130,9 @@ class MainControllerWrapper:
             self.remote_thread.set_target_IP(self.myIP)
             self.remote_thread.start()
 
-            # Thread 5: Curses HUD
-            # self.hud = HUDThread(self, "exohud_layout.json", napms=25, pause_event=self.pause_event, quit_event=self.quit_event)
-            # self.hud.getwidget("si").settextline(0, "{}, {}, {}, {}".format(self.subjectID, self.trial_type, self.trial_cond, self.description))
-            # self.hud.getwidget("ii").settextline(0, str(self.myIP))
-            # self.hud.start()
-
             # LoggingNexus
-            self.loggingnexus = LoggingNexus(self.subjectID, self.file_prefix, self.filingcabinet, self.exothread_left, self.exothread_right, self.gse_thread)
+            # TODO: make sure logging nexus is flexible to gse thread not existing
+            self.loggingnexus = LoggingNexus(self.subjectID, self.file_prefix, self.filingcabinet, self.exothread_left, self.exothread_right)
 
             # ~~~Main Loop~~~
             self.softrtloop = FlexibleSleeper(period=1/self.clockspeed)
@@ -202,8 +199,14 @@ class MainControllerWrapper:
 
 
 if __name__ == "__main__":
-    assert len(sys.argv) - 1 == 5
-    _, subjectID, trial_type, trial_cond, description, usebackup= sys.argv
+    # assert len(sys.argv) - 1 == 5
+    # _, subjectID, trial_type, trial_cond, description, usebackup= sys.argv
+
+    subjectID = "DUMMY"
+    trial_type = "pref"
+    trial_cond = "slider"
+    description = "desc"
+    usebackup = "no"
 
     # Validate args
     Validator(subjectID, trial_type, trial_cond, description, usebackup)

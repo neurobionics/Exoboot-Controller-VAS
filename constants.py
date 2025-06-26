@@ -26,12 +26,17 @@ TRIAL_CONDS_DICT = {"VICKREY": {"COND": ["WNE", "EPO", "NPO"], "DESC": []},
 
 """LoggingNexus Fields for each thread"""
 GENERAL_FIELDS = ['pitime', 'thread_freq']
+# TODO: added HS and stride_period fields to GSE_IMU since ran into exception in logging nexus: dict contains fields not in fieldnames: 'HS', 'stride_period'
+GSE_IMU_FIELDS = ['HS_imu', 'current_time', 'stride_period_imu', 'in_swing_imu', 'imu_activations', 'peak_torque', 'in_swing', 'N', 'torque_command', 'current_command', 'HS', 'stride_period']
 GAIT_ESTIMATE_FIELDS = ['HS', 'current_time', 'stride_period', 'peak_torque', 'in_swing', 'N', 'torque_command', 'current_command']
 SENSOR_FIELDS = ['state_time', 'temperature', 'winding_temp', 'accel_x', 'accel_y', 'accel_z', 'gyro_x', 'gyro_y' ,'gyro_z',
             'ankle_angle', 'ankle_velocity', 'motor_angle', 'motor_velocity', 'motor_current', 'motor_voltage', 'battery_voltage', 'battery_current', 'act_ank_torque', 'forceplate']
 BERTEC_FIELDS = ['forceplate_left', 'forceplate_right']
 RTPLOT_FIELDS = ['pitime_left', 'pitime_right', 'motor_current_left', 'motor_current_right', 'batt_volt_left', 'batt_volt_right', 'case_temp_left', 'case_temp_right']
 
+# TODO: add enums/dataclass
+COMBO_EXOTHREAD_FIELDS = GENERAL_FIELDS + GSE_IMU_FIELDS + GAIT_ESTIMATE_FIELDS + SENSOR_FIELDS
+IMU_EXOTHREAD_FIELDS = GENERAL_FIELDS + GSE_IMU_FIELDS + SENSOR_FIELDS
 EXOTHREAD_FIELDS = GENERAL_FIELDS + GAIT_ESTIMATE_FIELDS + SENSOR_FIELDS
 GSETHREAD_FIELDS = GENERAL_FIELDS + BERTEC_FIELDS
 

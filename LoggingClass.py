@@ -165,6 +165,7 @@ class LoggingNexus:
             threadname = thread.name
             self.thread_names.append(threadname)
             self.thread_fields[threadname] = thread.fields
+            print(f"thread_fields: {thread.fields}")
             self.thread_stashes[threadname] = deque()
             self.filenames[threadname] = "{}_{}".format(self.file_prefix, threadname)
 
@@ -217,19 +218,20 @@ class LoggingNexus:
         """
         Empty data from thread_stashes and write to corresponding file
         """
-        try:
-            for thread in self.thread_names:
-                filename = self.filingcabinet.getpath(thread)
-                fields = self.thread_fields[thread]
-                stash = self.thread_stashes[thread]
-                stash_size = len(stash)
+        # try:
+        for thread in self.thread_names:
+            filename = self.filingcabinet.getpath(thread)
+            fields = self.thread_fields[thread]
+            print(f"fields: {fields}")
+            stash = self.thread_stashes[thread]
+            stash_size = len(stash)
 
-                with open(filename, 'a') as f:
-                    writer = csv.DictWriter(f, fieldnames=fields, lineterminator='\n',quotechar='|')
-                    for _ in range(stash_size):
-                        writer.writerow(stash.popleft())
-        except Exception as e:
-            print("LoggingNexus.log() error: ", e)
+            with open(filename, 'a') as f:
+                writer = csv.DictWriter(f, fieldnames=fields, lineterminator='\n',quotechar='|')
+                for _ in range(stash_size):
+                    writer.writerow(stash.popleft())
+        # except Exception as e:
+        #     print("LoggingNexus.log() error: ", e)
 
 
 if __name__ == "__main__":
