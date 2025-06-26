@@ -44,26 +44,26 @@ TR_DATE_FORMATTER = "%Y_%m_%d_%H_%M"
 
 
 """Assistance Profile Constants"""
-# Timing Parameters for the 4-Point Spline 
+# Timing Parameters for the 4-Point Spline
 
 # Flat Walking (Varun's Pref Optimized Params for 1.20m/s)
-# P_RISE = 27.9		# stance from t_peak
-# P_PEAK = 53.3       # stance from heel strike
-# P_FALL = 7	        # stance from t_peak
-# P_TOE_OFF = 65		# stance from heel strike
+P_RISE = 27.9		# stance from t_peak
+P_PEAK = 53.3       # stance from heel strike
+P_FALL = 7	        # stance from t_peak
+P_TOE_OFF = 65		# stance from heel strike
 
 # Incline Walking
-P_RISE = 15		    # stance from p_peak
-P_PEAK = 54		    # stance from heel strike
-P_FALL = 12		    # stance from p_peak
-P_TOE_OFF = 67		# stance from heel strike
+# P_RISE = 15		    # stance from p_peak
+# P_PEAK = 54		    # stance from heel strike
+# P_FALL = 12		    # stance from p_peak
+# P_TOE_OFF = 67		# stance from heel strike
 
 END_OF_STANCE = P_TOE_OFF
 END_OF_STRIDE = 100
 
 HOLDING_TORQUE = 2	# 2 Nm
-BIAS_CURRENT = 500 # 500 mA
-SPINE_TIMING_PARAMS_DICT = {'P_RISE': P_RISE, 'P_PEAK': P_PEAK, 'P_FALL': P_FALL, 'P_TOE_OFF': P_TOE_OFF, 
+BIAS_CURRENT = 750 # mA
+SPINE_TIMING_PARAMS_DICT = {'P_RISE': P_RISE, 'P_PEAK': P_PEAK, 'P_FALL': P_FALL, 'P_TOE_OFF': P_TOE_OFF,
                             'HOLDING_TORQUE': HOLDING_TORQUE, 'BIAS_CURRENT': BIAS_CURRENT}
 
 
@@ -75,12 +75,14 @@ TEMPANTISPIKE = 200 # Degree C
 
 """Exothread loop frequencies"""
 FLEXSEA_AND_EXOTHREAD_FREQ = 500 # Hz
+BERTEC_STREAMING_FREQ = 250 # Hz
 EXOTHREAD_LOGGING_FREQ = 250 # Hz
+STREAMING_FREQ = 1000 # Hz
 
 
 """Safety Limits"""
 ZERO_CURRENT = 0 # mA
-MAX_ALLOWABLE_CURRENT = 17000 # mA
+MAX_ALLOWABLE_CURRENT = 26500 # mA
 
 
 """Device Identifiers"""
@@ -120,11 +122,11 @@ DEFAULT_FF = 128  # 128 is 100% feedforward
 
 
 """IMU/GYRO Constants"""
-# Inferred from https://invensense.tdk.com/products/motion-tracking/6-axis/mpu-6050/ 
+# Inferred from https://invensense.tdk.com/products/motion-tracking/6-axis/mpu-6050/
 # Link:https://github.com/kriswiner/MPU6050/blob/master/MPU6050BasicExample.ino#L364
 # ALSO on Dephy FlexSea Website
 ACCEL_GAIN = 1 / 8192  # LSB -> gs
-# Inferred from https://invensense.tdk.com/products/motion-tracking/6-axis/mpu-6050/ 
+# Inferred from https://invensense.tdk.com/products/motion-tracking/6-axis/mpu-6050/
 # Link: https://github.com/kriswiner/MPU6050/blob/master/MPU6050BasicExample.ino#L364
 # ALSO on Dephy FlexSea Website
 GYRO_GAIN = 1 / 32.75  # LSB -> deg/s
@@ -151,3 +153,11 @@ ACCEPT_STANCE_THRESHOLD = 0.2
 
 BERTEC_ACC_LEFT = 0.25
 BERTEC_ACC_RIGHT = 0.25
+
+
+""" STANDARDIZING TIME"""
+import time
+TIME_METHOD = time.perf_counter
+
+""" GSE TOGGLE """
+GSE_MODE = "IMU" # OPTIONS: IMU OR BERTEC OR COMBO

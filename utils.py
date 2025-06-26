@@ -12,7 +12,7 @@ class MovingAverageFilter:
 
     def average(self):
         return sum(self.buffer) / self.size
-    
+
     def update(self, val):
         self.buffer[self.pntr] = val
         self.pntr = (self.pntr + 1) % self.size
@@ -37,16 +37,16 @@ class TrueAfter:
 
 
 class MovingAverageFilterPlus:
-    
+
     """
     Track averages over iterations
 
     Includes cold start functionality that starts with buffer size 1 which increases until size
     """
     def __init__(self, cold_start:bool = False, initial_value:float = 0, size:int = 5):
-        # Buffer size atleast 2 for trimmed average 
+        # Buffer size atleast 2 for trimmed average
         self.size = max(size, 2)
-        
+
         # Cold start condition
         # warm bool indicates if buffer has been filled
         if cold_start:
@@ -71,7 +71,7 @@ class MovingAverageFilterPlus:
             return sum(self.buffer) / self.size
         else:
             return sum(self.buffer) / max(self.pntr, 1)
-        
+
     def trimmed_average(self):
         # Returns average without largest value in buffer
         if self.warm.isafter():
@@ -81,7 +81,7 @@ class MovingAverageFilterPlus:
             return sum(self.buffer)
         else:
             return (sum(self.buffer) - max(self.buffer)) / max(self.pntr - 1, 1)
-    
+
     def update(self, val):
         self.size = min(self.size + 1, self.size)
         self.buffer[self.pntr] = val
@@ -101,7 +101,7 @@ class PID:
 
         self.last_error = 0
         self.integral = 0
-    
+
     def update(self, setpoint, measured, dt):
         error = setpoint - measured
         derivative = (error-self.last_error) / dt

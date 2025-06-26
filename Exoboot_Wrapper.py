@@ -1,10 +1,12 @@
 # Description:
 # This script is the main controller for the VAS Vickrey Protocol.
 # It is responsible for initializing the exoskeletons, calibrating them, and running the main control loop.
-# 
-# Original template created by: Emily Bywater 
+#
+# Original template created by: Emily Bywater
 # Modified for VAS Vickrey protocol by: Nundini Rawal, John Hutchinson
 # Date: 06/13/2024
+
+# TODO: downgrade library, rtplotting, gse_imu, fix bertec estimator, find delay, check thread frequencies
 
 import os, sys, csv, time, socket, threading
 
@@ -16,7 +18,7 @@ from ExoClass_thread import ExobootThread
 from GaitStateEstimator_thread import GaitStateEstimator
 from exoboot_remote_control import ExobootRemoteServerThread
 from LoggingClass import LoggingNexus, FilingCabinet
-from curses_HUD.hud_thread import HUDThread
+# from curses_HUD.hud_thread import HUDThread
 
 from SoftRTloop import FlexibleSleeper
 from constants import *
@@ -61,23 +63,23 @@ class MainControllerWrapper:
     @staticmethod
     def get_active_ports():
         """
-        To use the exos, it is necessary to define the ports they are going to be connected to. 
+        To use the exos, it is necessary to define the ports they are going to be connected to.
         These are defined in the ports.yaml file in the flexsea repo
         """
         # port_cfg_path = '/home/pi/VAS_exoboot_controller/ports.yaml'
-        device_1 = Device(port="/dev/ttyACM0", firmwareVersion="7.2.0", baudRate=230400, logLevel=3)
-        device_2 = Device(port="/dev/ttyACM1", firmwareVersion="7.2.0", baudRate=230400, logLevel=3)
-        
-        # Establish a connection between the computer and the device    
-        device_1.open()
-        device_2.open()
+        device_1 = Device(port="/dev/ttyACM0", baud_rate=BAUD_RATE)
+        device_2 = Device(port="/dev/ttyACM1", baud_rate=BAUD_RATE)
+
+        # Establish a connection between the computer and the device AND start streaming
+        device_1.open(freq=STREAMING_FREQ, log_level=3, log_enabled=True)
+        device_2.open(freq=STREAMING_FREQ, log_level=3, log_enabled=True)
 
         # Get side from side_dict
-        side_1 = DEV_ID_TO_SIDE_DICT[device_1.id]
-        side_2 = DEV_ID_TO_SIDE_DICT[device_2.id]
+        side_1 = DEV_ID_TO_SIDE_DICT[device_1.dev_id]
+        side_2 = DEV_ID_TO_SIDE_DICT[device_2.dev_id]
 
-        print("Device 1: {}, {}".format(device_1.id, side_1))
-        print("Device 2: {}, {}".format(device_2.id, side_2))
+        print("Device 1: {}, {}".format(device_1.dev_id, side_1))
+        print("Device 2: {}, {}".format(device_2.dev_id, side_2))
 
         # Always assign first pair of outputs to left side
         if side_1 == 'left':
@@ -86,7 +88,7 @@ class MainControllerWrapper:
             return side_2, device_2, side_1, device_1
         else:
             raise Exception("Invalid sides for devices: Check DEV_ID_TO_SIDE_DICT!")
-    
+
     def run(self):
         """
         Initialize trial information
@@ -97,8 +99,6 @@ class MainControllerWrapper:
             side_left, device_left, side_right, device_right = self.get_active_ports()
 
             # Start device streaming and set gains:
-            device_left.start_streaming(self.streamingfrequency)
-            device_right.start_streaming(self.streamingfrequency)
             device_left.set_gains(DEFAULT_KP, DEFAULT_KI, DEFAULT_KD, 0, 0, DEFAULT_FF)
             device_right.set_gains(DEFAULT_KP, DEFAULT_KI, DEFAULT_KD, 0, 0, DEFAULT_FF)
 
@@ -110,7 +110,7 @@ class MainControllerWrapper:
             self.quit_event.set()
             self.pause_event.clear() # Start with threads paused
             self.log_event.clear()
-            self.startstamp = time.perf_counter() # Timesync logging between all threads
+            self.startstamp = TIME_METHOD() # Timesync logging between all threads
 
             # Thread 1/2: Left and right exoboots
             self.exothread_left = ExobootThread(side_left, device_left, self.startstamp, "exothread_left", True, self.quit_event, self.pause_event, self.log_event, self.overridedefaultcurrentbounds, ZERO_CURRENT, MAX_ALLOWABLE_CURRENT, FLEXSEA_AND_EXOTHREAD_FREQ)
@@ -119,8 +119,9 @@ class MainControllerWrapper:
             self.exothread_right.start()
 
             # Thread 3: Gait State Estimator
-            self.gse_thread = GaitStateEstimator(self.startstamp, device_left, device_right, self.exothread_left, self.exothread_right, filter_size=5, daemon=True, continuousmode=self.continuousmode, quit_event=self.quit_event, pause_event=self.pause_event, log_event=self.log_event)
-            self.gse_thread.start()
+            if GSE_MODE != "IMU":
+                self.gse_thread = GaitStateEstimator(self.startstamp, device_left, device_right, self.exothread_left, self.exothread_right, filter_size=5, daemon=True, continuousmode=self.continuousmode, quit_event=self.quit_event, pause_event=self.pause_event, log_event=self.log_event)
+                self.gse_thread.start()
 
             # Thread 4: Exoboot Remote Control
             self.remote_thread = ExobootRemoteServerThread(self, self.startstamp, self.filingcabinet, name='exoboot_remote_thread', usebackup=False, daemon=True, quit_event=self.quit_event, pause_event=self.pause_event, log_event=self.log_event)
@@ -188,16 +189,13 @@ class MainControllerWrapper:
             fname = os.path.split(exc_tb.tb_frame.f_code.co_filename)[1]
             print(exc_type, fname, exc_tb.tb_lineno)
 
-        finally:            
+        finally:
             # Routine to close threads safely
             self.pause_event.set()
             time.sleep(0.25)
             self.quit_event.clear()
 
             # Stop motors and close device streams
-            self.exothread_left.flexdevice.stop_motor() 
-            self.exothread_right.flexdevice.stop_motor()
-
             self.exothread_left.flexdevice.close()
             self.exothread_right.flexdevice.close()
             print("Goodbye")
