@@ -27,8 +27,8 @@ TRIAL_CONDS_DICT = {"VICKREY": {"COND": ["WNE", "EPO", "NPO"], "DESC": []},
 """LoggingNexus Fields for each thread"""
 GENERAL_FIELDS = ['pitime', 'thread_freq']
 # TODO: added HS and stride_period fields to GSE_IMU since ran into exception in logging nexus: dict contains fields not in fieldnames: 'HS', 'stride_period'
-GSE_IMU_FIELDS = ['HS_imu', 'current_time', 'stride_period_imu', 'in_swing_imu', 'imu_activations', 'peak_torque', 'in_swing', 'N', 'torque_command', 'current_command', 'HS', 'stride_period']
-GAIT_ESTIMATE_FIELDS = ['HS', 'current_time', 'stride_period', 'peak_torque', 'in_swing', 'N', 'torque_command', 'current_command']
+GSE_IMU_FIELDS = ['HS_imu', 'current_time', 'stride_period_imu', 'in_swing_imu', 'imu_activations', 'peak_torque', 'in_swing', 'N', 'torque_command', 'current_command']
+GAIT_ESTIMATE_FIELDS = ['HS', 'current_time', 'lag', 'stride_period', 'peak_torque', 'in_swing', 'N', 'torque_command', 'current_command']
 SENSOR_FIELDS = ['state_time', 'temperature', 'winding_temp', 'accel_x', 'accel_y', 'accel_z', 'gyro_x', 'gyro_y' ,'gyro_z',
             'ankle_angle', 'ankle_velocity', 'motor_angle', 'motor_velocity', 'motor_current', 'motor_voltage', 'battery_voltage', 'battery_current', 'act_ank_torque', 'forceplate']
 BERTEC_FIELDS = ['forceplate_left', 'forceplate_right']
@@ -52,16 +52,16 @@ TR_DATE_FORMATTER = "%Y_%m_%d_%H_%M"
 # Timing Parameters for the 4-Point Spline
 
 # Flat Walking (Varun's Pref Optimized Params for 1.20m/s)
-P_RISE = 27.9		# stance from t_peak
-P_PEAK = 53.3       # stance from heel strike
-P_FALL = 7	        # stance from t_peak
-P_TOE_OFF = 65		# stance from heel strike
+# P_RISE = 27.9		# stance from t_peak
+# P_PEAK = 53.3       # stance from heel strike
+# P_FALL = 10	        # stance from t_peak
+# P_TOE_OFF = 65		# stance from heel strike
 
 # Incline Walking
-# P_RISE = 15		    # stance from p_peak
-# P_PEAK = 54		    # stance from heel strike
-# P_FALL = 12		    # stance from p_peak
-# P_TOE_OFF = 67		# stance from heel strike
+P_RISE = 15		    # stance from p_peak
+P_PEAK = 54		    # stance from heel strike
+P_FALL = 12		    # stance from p_peak
+P_TOE_OFF = 67		# stance from heel strike
 
 END_OF_STANCE = P_TOE_OFF
 END_OF_STRIDE = 100
@@ -153,11 +153,16 @@ GYROZ_W0: float = 1.0105 # Hz
 """Bertec Thresholds"""
 HS_THRESHOLD = 80
 TO_THRESHOLD = 30
-ACCEPT_STRIDE_THRESHOLD = 0.2
-ACCEPT_STANCE_THRESHOLD = 0.2
+ACCEPT_STRIDE_THRESHOLD = 1.0
 
 BERTEC_ACC_LEFT = 0.25
 BERTEC_ACC_RIGHT = 0.25
+
+INCLINE_HS_ANK_ANG_UPPER_BOUND = 55
+INCLINE_HS_ANK_ANG_LOWER_BOUND = 30
+
+FLAT_HS_ANK_ANG_UPPER_BOUND = 55
+FLAT_HS_ANK_ANG_LOWER_BOUND = 25
 
 
 """ STANDARDIZING TIME"""
@@ -165,4 +170,4 @@ import time
 TIME_METHOD = time.perf_counter
 
 """ GSE TOGGLE """
-GSE_MODE = "IMU" # OPTIONS: IMU OR BERTEC OR COMBO
+GSE_MODE = "COMBO" # OPTIONS: IMU OR BERTEC OR COMBO

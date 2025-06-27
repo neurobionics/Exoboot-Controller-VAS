@@ -56,12 +56,12 @@ class GaitStateEstimator(BaseThread):
     def set_peak_torque_left(self, T):
         self.peak_torque_left = T
         if self.continuousmode:
-            self.device_thread_left.peak_torque = self.peak_torque_left
+            self.device_thread_left.set_peak_torque(self.peak_torque_left)
 
     def set_peak_torque_right(self, T):
         self.peak_torque_right = T
         if self.continuousmode:
-            self.device_thread_right.peak_torque = self.peak_torque_right
+            self.device_thread_right.set_peak_torque(self.peak_torque_right)
 
     def get_sensor_data(self):
         """TODO implement"""
@@ -96,9 +96,10 @@ class GaitStateEstimator(BaseThread):
         """
         # Set starting time stamp
         self.data_dict['pitime'] = TIME_METHOD() - self.startstamp
-        self.data_dict['date_time'] = datetime.datetime.strftime(TR_DATE_FORMATTER)
+        # self.data_dict['date_time'] = datetime.strftime(TR_DATE_FORMATTER) #TODO FIX
 
-        new_stride_flag_left, new_stride_flag_right, force_left, force_right = self.bertec_estimator.get_estimate(pause_event)
+        new_stride_flag_left, force_left = self.bertec_estimator_left.update()
+        new_stride_flag_right, force_right = self.bertec_estimator_right.update()
 
         # Add forces to data dict
         self.data_dict['forceplate_left'] = force_left
@@ -114,11 +115,17 @@ class GaitStateEstimator(BaseThread):
         # Update exoboot threads if new state estimate
         if new_stride_flag_left:
             HS_l, stride_period_l, in_swing_l = self.bertec_estimator_left.return_estimate()
-            self.device_thread_left.set_state_estimate(HS_l, stride_period_l, self.peak_torque_left, in_swing_l)
+
+            lag_left = HS_l - self.device_thread_left.HS_imu
+
+            self.device_thread_left.set_state_estimate(HS_l, stride_period_l, self.peak_torque_left, in_swing_l, lag_left)
 
         if new_stride_flag_right:
             HS_r, stride_period_r, in_swing_r = self.bertec_estimator_right.return_estimate()
-            self.device_thread_right.set_state_estimate(HS_r, stride_period_r, self.peak_torque_right, in_swing_r)
+
+            lag_right = HS_r - self.device_thread_right.HS_imu
+
+            self.device_thread_right.set_state_estimate(HS_r, stride_period_r, self.peak_torque_right, in_swing_r, lag_right)
 
     def post_iterate(self):
         """

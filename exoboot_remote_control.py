@@ -11,6 +11,7 @@ class ExobootRemoteClient:
     """
     Client running on network
     """
+
     def __init__(self, server_IP):
         self.channel = grpc.insecure_channel(server_IP)
         self.stub = pb2_grpc.exoboot_over_networkStub(self.channel)
@@ -148,6 +149,7 @@ class ExobootCommServicer(pb2_grpc.exoboot_over_networkServicer):
 
     This class is rpi side
     """
+
     def __init__(self, mainwrapper, startstamp, filingcabinet, usebackup, quit_event):
         super().__init__()
         self.mainwrapper = mainwrapper
@@ -280,10 +282,10 @@ class ExobootCommServicer(pb2_grpc.exoboot_over_networkServicer):
         peak_torque_right = torque_msg.peak_torque_right
 
         # Set torques in GSE
-        if GSE_MODE == "BERTEC" or "COMBO":
+        if GSE_MODE != "IMU":
             self.mainwrapper.gse_thread.set_peak_torque_left(peak_torque_left)
             self.mainwrapper.gse_thread.set_peak_torque_right(peak_torque_right)
-        elif GSE_MODE == "IMU":
+        else:
             # TODO: add continuous mode here
             self.mainwrapper.exothread_left.set_peak_torque(peak_torque_left)
             self.mainwrapper.exothread_right.set_peak_torque(peak_torque_right)

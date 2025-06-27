@@ -1,12 +1,7 @@
 import time
 from math import sqrt
 from utils import MovingAverageFilter
-from constants import TIME_METHOD
-
-INCLINE_HS_ANK_ANG_UPPER_BOUND = 55
-INCLINE_HS_ANK_ANG_LOWER_BOUND = 30
-FLAT_HS_ANK_ANG_UPPER_BOUND = 40
-FLAT_HS_ANK_ANG_LOWER_BOUND = 20
+from constants import TIME_METHOD, ACCEPT_STRIDE_THRESHOLD, INCLINE_HS_ANK_ANG_UPPER_BOUND, INCLINE_HS_ANK_ANG_LOWER_BOUND, FLAT_HS_ANK_ANG_UPPER_BOUND, FLAT_HS_ANK_ANG_LOWER_BOUND
 
 
 class IMU_Estimator:
@@ -91,13 +86,16 @@ class IMU_Estimator:
         state_dict = {
             "HS_time": self.HS_time,
             "stride_period": self.stride_period_tracker.average(),
-            "in_swing": self.in_stance,
+            "in_swing": not self.in_stance,
             "activation": self.activation_state,
         }
 
         return state_dict
 
     def update_testing(self, accel: float, ankle: float):
+        """
+        Updates in_stance flag without activations
+        """
         accel_diff = abs(self.prev_accel - accel)
         if (accel_diff >= 0.5):
             if abs(time.perf_counter() - self.prev_spike_time) >= 0.3 :
@@ -107,9 +105,11 @@ class IMU_Estimator:
         if(self.noticable_spike_flag and (0 <= ankle <= 35)):
             self.in_stance = 10
             self.noticable_spike_flag = False
+
         elif(self.noticable_spike_flag and (ankle > 55)): # TODO: Te ankle angle threshold not necessarily have to be continuous
             self.in_stance = 0
             self.noticable_spike_flag = False
+
     def update(self, accel: float, ank_ang: float):
         """
         Update the estimator with a new acceleration value, compute statistics,
@@ -148,6 +148,9 @@ class IMU_Estimator:
             self.activations_pitime_start.append(self.activations_pitime_local)
             self.activations_zscore_start.append(self.activations_zscore_local)
 
+            self.HS_time = self.activations_pitime_local
+            # self.detect_which_gait_event(ank_ang)
+
         elif self.activation_state and self.run_len > self.run_len_threshold:
             self.activation_state = False
             self.activations_pitime_peak.append(self.activations_pitime_local)
@@ -160,8 +163,6 @@ class IMU_Estimator:
         else:
             pass
 
-        self.detect_which_gait_event(ank_ang)
-
     def detect_which_gait_event(self, ank_ang: float):
         """
         Detects gait event depending on activation state.
@@ -171,8 +172,8 @@ class IMU_Estimator:
 
         if self.activation_state:
             # check if heel strike event
-            if (self.in_stance == False) and (ank_ang > FLAT_HS_ANK_ANG_LOWER_BOUND) and (ank_ang < FLAT_HS_ANK_ANG_UPPER_BOUND):
-                self.in_stance = True  # now in stance, i.e. heel strike just occured
+            if (self.in_stance == 0) and (FLAT_HS_ANK_ANG_LOWER_BOUND <=ank_ang <= FLAT_HS_ANK_ANG_UPPER_BOUND):
+                self.in_stance = 1  # now in stance, i.e. heel strike just occured
 
                 # get latest HS time
                 self.HS_time = self.activations_pitime_local
@@ -184,28 +185,13 @@ class IMU_Estimator:
                 stride_period_avg = self.stride_period_tracker.average()
 
                 # only feed new stride period into moving average if it's reasonable
-                if abs((stride_period_new - stride_period_avg) / stride_period_avg) < BERTEC_THRESH.ACCEPT_STRIDE_THRESHOLD: # TODO do when pause_event and updatefilters:
+                if abs((stride_period_new - stride_period_avg) / stride_period_avg) < ACCEPT_STRIDE_THRESHOLD: # TODO do when pause_event and updatefilters:
                     self.stride_period_tracker.update(stride_period_new)
 
                 # update prev HS time to the latest time
                 self.HS_time_prev = self.HS_time
 
             # check if toe-off event
-            elif self.in_stance and (ank_ang > FLAT_HS_ANK_ANG_UPPER_BOUND):
-                self.in_stance = False  # now in swing, i.e. toe-off just occured
+            elif (self.in_stance == 1) and (ank_ang > FLAT_HS_ANK_ANG_UPPER_BOUND):
+                self.in_stance = 0  # now in swing, i.e. toe-off just occured
 
-# Testing
-# if __name__ == "__main__":
-#     asdf = IMU_Estimator()
-#     print("INIT")
-#     print(asdf)
-
-#     for i in range(20):
-#         asdf.update(i, i + 20)
-#         asdf.return_estimate()
-#         print(asdf.return_estimate())
-
-#     asdf.update(100, 60)
-#     print(asdf)
-
-    # test gse_imu with loaded .mat file

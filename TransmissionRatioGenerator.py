@@ -51,7 +51,6 @@ class TransmissionRatioGenerator:
                     datetimes.append(dt)
 
             most_recent = datestrings[datetimes.index(max(datetimes))]
-            print("im here d.1")
             self.coefs_filename = "{}_{}_{}.csv".format(self.coefs_prefix, self.side, most_recent)
 
         print("TR {} USING: {}".format(self.side, self.coefs_filename))

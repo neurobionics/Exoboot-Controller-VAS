@@ -27,9 +27,9 @@ class ExobootThread(BaseThread):
         """
         TODO make overview
         """
-        print("im here b")
+
         super().__init__(name, daemon, quit_event, pause_event, log_event)
-        print("im here c")
+
         # Necessary Inputs for Exo Class
         self.side = side
         self.flexdevice = flexdevice # In ref to flexsea Device class
@@ -47,16 +47,16 @@ class ExobootThread(BaseThread):
 
         # Set Transmission Ratio and Motor-Angle Curve Coefficients	from pre-performed calibration
         self.tr_gen = TransmissionRatioGenerator(self.side, coefs_prefix=TR_COEFS_PREFIX, filepath=TR_FOLDER_PATH, max_allowable_angle=180, min_allowable_angle=0, min_allowable_TR=10, granularity=10000)
-        print("im here d")
+
         # Instantiate AssistanceGenerator (DOES NOT HAVE PROFILE ON INITIALIZATION)
         self.assistance_generator = AssistanceGenerator()
-        print("im here e")
+
         # Instantiate GSE_IMU
         self.gse_imu = IMU_Estimator(filter_size=10)
-        print("im here f")
+
         # Instantiate Thermal Model and specify thermal limits
         self.thermalModel = ThermalModel(temp_limit_windings=100,soft_border_C_windings=10,temp_limit_case=75,soft_border_C_case=5)
-        print("im here g")
+
         self.case_temperature = 0
         self.winding_temperature = 0
         self.max_case_temperature = MAX_CASE_TEMP
@@ -73,7 +73,15 @@ class ExobootThread(BaseThread):
         self.stride_period = 1.0
         self.in_swing = False
 
+        #TODO add GSE IMU state estimates
+        self.HS_imu = TIME_METHOD()
+
+        # lag default 0
+        self.lag = 0
+
         # Logging Nexus
+        self.continuousmode =False
+
         if GSE_MODE == "IMU":
             self.fields = IMU_EXOTHREAD_FIELDS
         elif GSE_MODE == "BERTEC":
@@ -276,45 +284,59 @@ class ExobootThread(BaseThread):
         # self.case_temperature = measured_temp
         # exo_safety_shutoff_flag = self.get_modelled_temps(motor_current)
 
-
     def set_peak_torque(self, T):
+        """
+        Set peak torque now
+        """
         self.peak_torque = T
-        if self.continuousmode:
-            self.peak_torque = self.T
 
-    def set_state_estimate(self, HS, stride_period, peak_torque, in_swing):
+    def set_state_estimate(self, HS, stride_period, peak_torque, in_swing, lag=0):
         """
         Sets gait estimate to track stride
 
-        Called by GSE periodically when it has new estate estimate
+        Called by GSE periodically when it has new state estimate
         """
         self.HS = HS
         self.stride_period = stride_period
         self.peak_torque = peak_torque
         self.in_swing = in_swing
+        self.lag = lag
 
     def update_imu_gait_state_estimate(self):
         """
         Obtains gait state estimates from
         """
-
-        self.gse_imu.update_testing(self.data_dict["accel_z"], self.data_dict["ankle_angle"])
+        self.gse_imu.update(self.data_dict["accel_z"], self.data_dict["ankle_angle"])
 
     def log_state_estimate(self):
         """
         Add state estimate to data_dict
         """
-
         # logged imu states
-        if GSE_MODE == "IMU" or "COMBO":
+        if GSE_MODE == "IMU":
+            imu_state_dict = self.gse_imu.return_estimate()
+            self.data_dict['HS_imu'] = imu_state_dict["HS_time"]
+            self.data_dict['stride_period_imu'] = imu_state_dict["stride_period"]
+            self.data_dict['in_swing_imu'] = imu_state_dict["in_swing"]
+            self.data_dict['imu_activations'] = imu_state_dict["activation"]
+            self.data_dict['peak_torque'] = self.peak_torque
+            self.data_dict['in_swing'] = self.in_swing
+
+        # logged bertec states
+        elif GSE_MODE == "BERTEC":
+            self.data_dict['HS'] = self.HS
+            self.data_dict['current_time'] = self.current_time
+            self.data_dict['stride_period'] = self.stride_period
+            self.data_dict['peak_torque'] = self.peak_torque
+            self.data_dict['in_swing'] = self.in_swing
+
+        elif GSE_MODE == "COMBO":
             imu_state_dict = self.gse_imu.return_estimate()
             self.data_dict['HS_imu'] = imu_state_dict["HS_time"]
             self.data_dict['stride_period_imu'] = imu_state_dict["stride_period"]
             self.data_dict['in_swing_imu'] = imu_state_dict["in_swing"]
             self.data_dict['imu_activations'] = imu_state_dict["activation"]
 
-        # logged bertec states
-        if GSE_MODE == "BERTEC" or "COMBO":
             self.data_dict['HS'] = self.HS
             self.data_dict['current_time'] = self.current_time
             self.data_dict['stride_period'] = self.stride_period
@@ -362,6 +384,9 @@ class ExobootThread(BaseThread):
         self.update_imu_gait_state_estimate()
         self.log_state_estimate()
 
+        if GSE_MODE == "COMBO":
+            self.HS_imu = self.data_dict['HS_imu']
+
     def iterate(self):
         """
         Sends motor commands based on current_time estimate
@@ -371,6 +396,10 @@ class ExobootThread(BaseThread):
         # Acquire torque command based on gait estimate
         # print("TORQUE GEN: ", self.current_time, self.stride_period, self.peak_torque, self.in_swing)
         # TODO: add toggle between just imu, bertec or combo
+
+        # determines which values to UserWarning
+        # use set_state_estimate to set state estimate
+
         if GSE_MODE == "IMU":
             self.current_time = TIME_METHOD() - self.data_dict["HS_imu"]
             torque_command = self.assistance_generator.generic_torque_generator(self.current_time,
@@ -384,11 +413,10 @@ class ExobootThread(BaseThread):
                                                                                 self.peak_torque,
                                                                                 self.in_swing)
         elif GSE_MODE == "COMBO":
-            lag = self.HS - self.data_dict["HS_imu"]
-            self.data_dict["lag"] = lag
+            self.data_dict["lag"] = self.lag
 
             self.current_time = TIME_METHOD() - self.HS
-            lag_compensated_time = self.current_time + lag
+            lag_compensated_time = self.current_time + self.lag
             torque_command = self.assistance_generator.generic_torque_generator(lag_compensated_time,
                                                                                 self.stride_period,
                                                                                 self.peak_torque,
@@ -414,13 +442,14 @@ class ExobootThread(BaseThread):
             self.flexdevice.send_motor_command(FX_CURRENT, 0)
             self.pause_event.clear()
         else:
-            # self.flexdevice.send_motor_command(FX_CURRENT, self.motor_sign * vetted_current)
-            pass
+            self.flexdevice.send_motor_command(FX_CURRENT, self.motor_sign * vetted_current)
+            # pass
 
     def post_iterate(self):
         """
         Loop period tracking and soft real time pause
         """
+
         # Update Period Tracker and config
         end_time = TIME_METHOD()
         self.period_tracker.update(end_time - self.prev_end_time)
