@@ -78,6 +78,9 @@ class ExobootThread(BaseThread):
 
         # lag default 0
         self.lag = 0
+        self.lag_time_tracker = MovingAverageFilter(    # initialized with 50ms delay
+            initial_value=0.50, size=10
+        )
 
         # Logging Nexus
         self.continuousmode =False
@@ -300,7 +303,12 @@ class ExobootThread(BaseThread):
         self.stride_period = stride_period
         self.peak_torque = peak_torque
         self.in_swing = in_swing
-        self.lag = lag
+
+        # only assign lag & feed into average if it's reasonable:
+        lag_avg = self.lag_time_tracker.average()   # get current avg
+        if abs((lag - lag_avg) / lag_avg) < ACCEPT_LAG_THRESHOLD:
+            self.lag_time_tracker.update(lag)
+            self.lag = lag
 
     def update_imu_gait_state_estimate(self):
         """
@@ -416,7 +424,13 @@ class ExobootThread(BaseThread):
             self.data_dict["lag"] = self.lag
 
             self.current_time = TIME_METHOD() - self.HS
-            lag_compensated_time = self.current_time + self.lag
+
+            # TODO: add a moving average for lag to fall back on if current lag is too long
+            if self.lag > 0.100:
+                lag_compensated_time = self.current_time + self.lag_time_tracker.average()
+            else:
+                lag_compensated_time = self.current_time + self.lag
+
             torque_command = self.assistance_generator.generic_torque_generator(lag_compensated_time,
                                                                                 self.stride_period,
                                                                                 self.peak_torque,

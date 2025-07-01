@@ -60,7 +60,7 @@ class MainControllerWrapper:
         # self.myIP = s.getsockname()[0] + ":50055"
 
         # TODO: fix automatically getting ip address
-        self.myIP = "35.3.124.243" + ":50055"
+        self.myIP = "35.3.196.52" + ":50055"
         print("myIP: {}".format(self.myIP))
 
     @staticmethod
@@ -184,8 +184,8 @@ if __name__ == "__main__":
     # _, subjectID, trial_type, trial_cond, description, usebackup= sys.argv
 
     subjectID = "TESTER"
-    trial_type = "pref"
-    trial_cond = "slider"
+    trial_type = "vickrey"
+    trial_cond = "epo"
     description = "desc"
     usebackup = "no"
 

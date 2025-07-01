@@ -86,7 +86,7 @@ class IMU_Estimator:
         state_dict = {
             "HS_time": self.HS_time,
             "stride_period": self.stride_period_tracker.average(),
-            "in_swing": not self.in_stance,
+            "in_swing": 50 if self.in_stance==0 else 0,
             "activation": self.activation_state,
         }
 
@@ -106,7 +106,7 @@ class IMU_Estimator:
             self.in_stance = 10
             self.noticable_spike_flag = False
 
-        elif(self.noticable_spike_flag and (ankle > 55)): # TODO: Te ankle angle threshold not necessarily have to be continuous
+        elif(self.noticable_spike_flag and (ankle > 55)): # TODO: The ankle angle threshold not necessarily have to be continuous
             self.in_stance = 0
             self.noticable_spike_flag = False
 
@@ -149,7 +149,7 @@ class IMU_Estimator:
             self.activations_zscore_start.append(self.activations_zscore_local)
 
             self.HS_time = self.activations_pitime_local
-            # self.detect_which_gait_event(ank_ang)
+            self.detect_which_gait_event(ank_ang)
 
         elif self.activation_state and self.run_len > self.run_len_threshold:
             self.activation_state = False
@@ -170,10 +170,14 @@ class IMU_Estimator:
         Updates the last heel strike time, stride period and in_stance flag
         """
 
+        # TODO: get average in-swing or in-stance time
+        # TODO: write script that calibrates/builds up ankle angle thresholds for each subject
+        # TODO: add var that gets HS_time in pitime units
+
         if self.activation_state:
             # check if heel strike event
-            if (self.in_stance == 0) and (FLAT_HS_ANK_ANG_LOWER_BOUND <=ank_ang <= FLAT_HS_ANK_ANG_UPPER_BOUND):
-                self.in_stance = 1  # now in stance, i.e. heel strike just occured
+            if (self.in_stance == 0) and (0 <= ank_ang <= 45):
+                self.in_stance = 50  # now in stance, i.e. heel strike just occured
 
                 # get latest HS time
                 self.HS_time = self.activations_pitime_local
@@ -192,6 +196,6 @@ class IMU_Estimator:
                 self.HS_time_prev = self.HS_time
 
             # check if toe-off event
-            elif (self.in_stance == 1) and (ank_ang > FLAT_HS_ANK_ANG_UPPER_BOUND):
+            elif (self.in_stance == 50) and (ank_ang > 50):
                 self.in_stance = 0  # now in swing, i.e. toe-off just occured
 
