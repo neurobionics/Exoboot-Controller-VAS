@@ -1,7 +1,15 @@
 import time
 from math import sqrt
 from utils import MovingAverageFilter
-from constants import TIME_METHOD, ACCEPT_STRIDE_THRESHOLD, INCLINE_HS_ANK_ANG_UPPER_BOUND, INCLINE_HS_ANK_ANG_LOWER_BOUND, FLAT_HS_ANK_ANG_UPPER_BOUND, FLAT_HS_ANK_ANG_LOWER_BOUND
+from constants import (
+    TIME_METHOD,
+    ACCEPT_STRIDE_THRESHOLD,
+    INCLINE_HS_ANK_ANG_UPPER_BOUND,
+    INCLINE_HS_ANK_ANG_LOWER_BOUND,
+    FLAT_HS_ANK_ANG_UPPER_BOUND,
+    FLAT_HS_ANK_ANG_LOWER_BOUND,
+)
+from math import exp, pi, sqrt
 
 
 class IMU_Estimator:
@@ -62,6 +70,15 @@ class IMU_Estimator:
             initial_value=stride_period_init, size=filter_size
         )
 
+        # initial values
+        self.hs_mean = 0.0
+        self.hs_var = 1.0
+        self.hs_count = 0
+
+        self.to_mean = 0.0
+        self.to_var = 1.0
+        self.to_count = 0
+
     def __repr__(self):
         """
         Return a string representation of the estimator's current state.
@@ -86,7 +103,7 @@ class IMU_Estimator:
         state_dict = {
             "HS_time": self.HS_time,
             "stride_period": self.stride_period_tracker.average(),
-            "in_swing": 50 if self.in_stance==0 else 0,
+            "in_swing": 50 if self.in_stance == 0 else 0,
             "activation": self.activation_state,
         }
 
@@ -97,16 +114,18 @@ class IMU_Estimator:
         Updates in_stance flag without activations
         """
         accel_diff = abs(self.prev_accel - accel)
-        if (accel_diff >= 0.5):
-            if abs(time.perf_counter() - self.prev_spike_time) >= 0.3 :
+        if accel_diff >= 0.5:
+            if abs(time.perf_counter() - self.prev_spike_time) >= 0.3:
                 self.noticable_spike_flag = True
                 self.prev_spike_time = time.perf_counter()
 
-        if(self.noticable_spike_flag and (0 <= ankle <= 35)):
+        if self.noticable_spike_flag and (0 <= ankle <= 35):
             self.in_stance = 10
             self.noticable_spike_flag = False
 
-        elif(self.noticable_spike_flag and (ankle > 55)): # TODO: The ankle angle threshold not necessarily have to be continuous
+        elif self.noticable_spike_flag and (
+            ankle > 55
+        ):  # TODO: The ankle angle threshold not necessarily have to be continuous
             self.in_stance = 0
             self.noticable_spike_flag = False
 
@@ -151,6 +170,14 @@ class IMU_Estimator:
             self.HS_time = self.activations_pitime_local
             self.detect_which_gait_event(ank_ang)
 
+            # TODO: create 2 distributions for HS & TO
+            # TODO: update the normal distribution measures (mean & var) with current ankle angles
+
+            # query probability of event
+            probability = self.gaussian_likelihood(ank_ang, 10.0, 4.0)
+
+            # TODO: find if probability higher for HS or TO
+
         elif self.activation_state and self.run_len > self.run_len_threshold:
             self.activation_state = False
             self.activations_pitime_peak.append(self.activations_pitime_local)
@@ -162,6 +189,21 @@ class IMU_Estimator:
 
         else:
             pass
+
+    def gaussian_likelihood(x, mu, var):
+        """
+        Compute the likelihood that x (current data) fits a known normal distribution.
+
+        Args:
+            x (float): Value to evaluate.
+            mu (float): Mean of the Gaussian.
+            var (float): Variance of the Gaussian.
+
+        Returns:
+            float: The likelihood of x.
+        """
+
+        return exp(-((x - mu) ** 2) / (2 * var)) / sqrt(2 * pi * var)
 
     def detect_which_gait_event(self, ank_ang: float):
         """
@@ -189,7 +231,10 @@ class IMU_Estimator:
                 stride_period_avg = self.stride_period_tracker.average()
 
                 # only feed new stride period into moving average if it's reasonable
-                if abs((stride_period_new - stride_period_avg) / stride_period_avg) < ACCEPT_STRIDE_THRESHOLD: # TODO do when pause_event and updatefilters:
+                if (
+                    abs((stride_period_new - stride_period_avg) / stride_period_avg)
+                    < ACCEPT_STRIDE_THRESHOLD
+                ):  # TODO do when pause_event and updatefilters:
                     self.stride_period_tracker.update(stride_period_new)
 
                 # update prev HS time to the latest time
@@ -198,4 +243,3 @@ class IMU_Estimator:
             # check if toe-off event
             elif (self.in_stance == 50) and (ank_ang > 50):
                 self.in_stance = 0  # now in swing, i.e. toe-off just occured
-
