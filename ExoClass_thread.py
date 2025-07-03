@@ -52,7 +52,7 @@ class ExobootThread(BaseThread):
         self.assistance_generator = AssistanceGenerator()
 
         # Instantiate GSE_IMU
-        self.gse_imu = IMU_Estimator(filter_size=10)
+        self.gse_imu = IMU_Estimator(run_len_threshold=100, filter_size=10)
 
         # Instantiate Thermal Model and specify thermal limits
         self.thermalModel = ThermalModel(temp_limit_windings=100,soft_border_C_windings=10,temp_limit_case=75,soft_border_C_case=5)
@@ -73,14 +73,14 @@ class ExobootThread(BaseThread):
         self.stride_period = 1.0
         self.in_swing = False
 
-        #TODO add GSE IMU state estimates
+        # TODO add GSE IMU state estimates
         self.HS_imu = TIME_METHOD()
 
         # lag default 0
         self.lag = 0
-        self.lag_time_tracker = MovingAverageFilter(    # initialized with 50ms delay
-            initial_value=0.50, size=10
-        )
+        # self.lag_time_tracker = MovingAverageFilter(    # initialized with 50ms delay
+        #     initial_value=0.50, size=10
+        # )
 
         # Logging Nexus
         self.continuousmode =False
@@ -305,10 +305,10 @@ class ExobootThread(BaseThread):
         self.in_swing = in_swing
 
         # only assign lag & feed into average if it's reasonable:
-        lag_avg = self.lag_time_tracker.average()   # get current avg
-        if abs((lag - lag_avg) / lag_avg) < ACCEPT_LAG_THRESHOLD:
-            self.lag_time_tracker.update(lag)
-            self.lag = lag
+        # lag_avg = self.lag_time_tracker.average()   # get current avg
+        # if abs((lag - lag_avg) / lag_avg) < ACCEPT_LAG_THRESHOLD:
+        #     self.lag_time_tracker.update(lag)
+        self.lag = lag
 
     def update_imu_gait_state_estimate(self):
         """
@@ -392,6 +392,7 @@ class ExobootThread(BaseThread):
         self.update_imu_gait_state_estimate()
         self.log_state_estimate()
 
+        # update HS_imu attribute
         if GSE_MODE == "COMBO":
             self.HS_imu = self.data_dict['HS_imu']
 
@@ -402,12 +403,6 @@ class ExobootThread(BaseThread):
         """
 
         # Acquire torque command based on gait estimate
-        # print("TORQUE GEN: ", self.current_time, self.stride_period, self.peak_torque, self.in_swing)
-        # TODO: add toggle between just imu, bertec or combo
-
-        # determines which values to UserWarning
-        # use set_state_estimate to set state estimate
-
         if GSE_MODE == "IMU":
             self.current_time = TIME_METHOD() - self.data_dict["HS_imu"]
             torque_command = self.assistance_generator.generic_torque_generator(self.current_time,
@@ -421,15 +416,16 @@ class ExobootThread(BaseThread):
                                                                                 self.peak_torque,
                                                                                 self.in_swing)
         elif GSE_MODE == "COMBO":
+            # log the lag:
             self.data_dict["lag"] = self.lag
 
             self.current_time = TIME_METHOD() - self.HS
 
-            # TODO: add a moving average for lag to fall back on if current lag is too long
-            if self.lag > 0.100:
-                lag_compensated_time = self.current_time + self.lag_time_tracker.average()
-            else:
-                lag_compensated_time = self.current_time + self.lag
+            # moving average for lag to fall back on if current lag is too long
+            # if self.lag > 0.100:
+            #     lag_compensated_time = self.current_time + self.lag_time_tracker.average()
+            # else:
+            lag_compensated_time = self.current_time + self.lag
 
             torque_command = self.assistance_generator.generic_torque_generator(lag_compensated_time,
                                                                                 self.stride_period,
@@ -438,7 +434,7 @@ class ExobootThread(BaseThread):
         else:
             pass
 
-        # torque_command = self.assistance_generator.generic_torque_generator(self.current_time, self.stride_period, self.peak_torque, self.in_swing)
+        # log the generated torque command
         self.data_dict['torque_command'] = torque_command
 
         # Convert torque to current
@@ -447,8 +443,6 @@ class ExobootThread(BaseThread):
 
         # Clamp current between bias and max allowable current
         vetted_current = max(min(current_command, self.max_current), self.min_current)
-
-        # print("ITERATE: ", self.peak_torque, torque_command, current_command, vetted_current)
 
         # Shut off exo if thermal limits breached
         if self.exo_safety_shutoff_flag:

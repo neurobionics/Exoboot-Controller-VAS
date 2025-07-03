@@ -184,8 +184,8 @@ if __name__ == "__main__":
     # _, subjectID, trial_type, trial_cond, description, usebackup= sys.argv
 
     subjectID = "TESTER"
-    trial_type = "vickrey"
-    trial_cond = "epo"
+    trial_type = "pref"
+    trial_cond = "slider"
     description = "desc"
     usebackup = "no"
 

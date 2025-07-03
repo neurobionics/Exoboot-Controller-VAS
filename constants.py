@@ -60,7 +60,7 @@ TR_DATE_FORMATTER = "%Y_%m_%d_%H_%M"
 # Incline Walking
 P_RISE = 15		    # stance from p_peak
 P_PEAK = 54		    # stance from heel strike
-P_FALL = 12		    # stance from p_peak
+P_FALL = 10		    # stance from p_peak
 P_TOE_OFF = 67		# stance from heel strike
 
 END_OF_STANCE = P_TOE_OFF
@@ -172,4 +172,4 @@ import time
 TIME_METHOD = time.perf_counter
 
 """ GSE TOGGLE """
-GSE_MODE = "IMU" # OPTIONS: IMU OR BERTEC OR COMBO
+GSE_MODE = "BERTEC" # OPTIONS: IMU OR BERTEC OR COMBO

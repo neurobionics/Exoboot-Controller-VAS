@@ -53,12 +53,11 @@ class IMU_Estimator:
         self.zscore = 0
 
         self.activations_pitime_local = 0
-        self.activations_zscore_local = 0
-        self.activations_pitime_start = []
-        self.activations_zscore_start = []
-        self.activations_pitime_peak = []
-        self.activations_zscore_peak = []
-        self.activations_status = []
+        # self.activations_zscore_local = 0
+        # self.activations_pitime_start = []
+        # self.activations_zscore_start = []
+        # self.activations_pitime_peak = []
+        # self.activations_zscore_peak = []
 
         self.prev_spike_time = 0
         self.noticable_spike_flag = False
@@ -162,30 +161,22 @@ class IMU_Estimator:
         if not self.activation_state and self.run_len <= self.run_len_threshold:
             self.activation_state = True
             self.activations_pitime_local = TIME_METHOD()
-            self.activations_zscore_local = self.zscore
+            # self.activations_zscore_local = self.zscore
 
-            self.activations_pitime_start.append(self.activations_pitime_local)
-            self.activations_zscore_start.append(self.activations_zscore_local)
+            # self.activations_pitime_start.append(self.activations_pitime_local)
+            # self.activations_zscore_start.append(self.activations_zscore_local)
 
             self.HS_time = self.activations_pitime_local
-            self.detect_which_gait_event(ank_ang)
-
-            # TODO: create 2 distributions for HS & TO
-            # TODO: update the normal distribution measures (mean & var) with current ankle angles
-
-            # query probability of event
-            # probability = self.gaussian_likelihood(ank_ang, 10.0, 4.0)
-
-            # TODO: find if probability higher for HS or TO
+            # self.detect_which_gait_event(ank_ang)
 
         elif self.activation_state and self.run_len > self.run_len_threshold:
             self.activation_state = False
-            self.activations_pitime_peak.append(self.activations_pitime_local)
-            self.activations_zscore_peak.append(self.activations_zscore_local)
+            # self.activations_pitime_peak.append(self.activations_pitime_local)
+            # self.activations_zscore_peak.append(self.activations_zscore_local)
 
-        elif self.activation_state and self.zscore > self.activations_zscore_local:
-            self.activations_pitime_local = TIME_METHOD()
-            self.activations_zscore_local = self.zscore
+        # elif self.activation_state and self.zscore > self.activations_zscore_local:
+        #     self.activations_pitime_local = TIME_METHOD()
+        #     self.activations_zscore_local = self.zscore
 
         else:
             pass
@@ -218,7 +209,7 @@ class IMU_Estimator:
 
         if self.activation_state:
             # check if heel strike event
-            if (self.in_stance == 0) and (0 <= ank_ang <= 45):
+            if (self.in_stance == 0) and (0 <= ank_ang <= 35):
                 self.in_stance = 50  # now in stance, i.e. heel strike just occured
 
                 # get latest HS time

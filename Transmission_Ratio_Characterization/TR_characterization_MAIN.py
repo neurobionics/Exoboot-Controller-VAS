@@ -7,7 +7,7 @@ from flexsea.device import Device
 
 # from SoftRTloop import FlexibleSleeper
 
-sys.path.insert(0, '/home/pi/VAS_exoboot_controller/')
+sys.path.insert(0, '/home/pi/Exoboot-Controller-VAS/')
 
 from constants import *
 
@@ -16,6 +16,7 @@ TR_COEFS_PREFIX = "{}_coefs".format(TR_FILE_PREFIX)
 TR_FULLDATA_PREFIX = "{}_fulldata".format(TR_FILE_PREFIX)
 TR_DATE_FORMATTER = "%Y_%m_%d_%H_%M"
 BIAS_CURRENT = 500
+from flexsea.fx_enums import FX_CURRENT
 
 class FlexibleSleeper():
     """
@@ -37,31 +38,32 @@ class FlexibleSleeper():
         delay = max(self.period - (current_time - self.last_stop_time), 0)
         time.sleep(delay)
         self.stop_time = time.perf_counter()
-        period = self.stop_time - self.last_stop_time 
+        period = self.stop_time - self.last_stop_time
         self.last_stop_time = self.stop_time
         return period
 
 
 def get_active_ports():
     """
-    To use the exos, it is necessary to define the ports they are going to be connected to. 
+    To use the exos, it is necessary to define the ports they are going to be connected to.
     These are defined in the ports.yaml file in the flexsea repo
     """
+
     try:
-        device_1 = Device(port="/dev/ttyACM0", firmwareVersion="7.2.0", baudRate=230400, logLevel=3)
-        device_1.open()
-        side_1 = DEV_ID_TO_SIDE_DICT[device_1.id]
-        print("Device 1: {}, {}".format(device_1.id, side_1))
+        device_1 = Device(port="/dev/ttyACM0", baud_rate=BAUD_RATE)
+        device_1.open(freq=STREAMING_FREQ, log_level=3, log_enabled=True)
+        side_1 = DEV_ID_TO_SIDE_DICT[device_1.dev_id]
+        print("Device 1: {}, {}".format(device_1.dev_id, side_1))
     except:
         side_1 = None
         device_1 = None
         print("DEVICE 1 NOT FOUND")
 
     try:
-        device_2 = Device(port="/dev/ttyACM1", firmwareVersion="7.2.0", baudRate=230400, logLevel=3)
-        device_2.open()
-        side_2 = DEV_ID_TO_SIDE_DICT[device_2.id]
-        print("Device 2: {}, {}".format(device_2.id, side_2))
+        device_2 = Device(port="/dev/ttyACM1", baud_rate=BAUD_RATE)
+        device_2.open(freq=STREAMING_FREQ, log_level=3, log_enabled=True)
+        side_2 = DEV_ID_TO_SIDE_DICT[device_2.dev_id]
+        print("Device 2: {}, {}".format(device_2.dev_id, side_2))
     except:
         side_2 = None
         device_2 = None
@@ -87,14 +89,14 @@ class TR_Characterizer:
         self.side = side
         self.flexdevice = flexdevice
         self.current_cmd = current_cmd
-        
+
         # collect speeds
         self.freq = freq
         self.printfreq = freq/10
 
         # Get motor/ankle encoder signs
-        self.motor_sign = DEV_ID_TO_MOTOR_SIGN_DICT[self.flexdevice.id]
-        self.ank_enc_sign = DEV_ID_TO_ANK_ENC_SIGN_DICT[self.flexdevice.id]
+        self.motor_sign = DEV_ID_TO_MOTOR_SIGN_DICT[self.flexdevice.dev_id]
+        self.ank_enc_sign = DEV_ID_TO_ANK_ENC_SIGN_DICT[self.flexdevice.dev_id]
 
         # Set filenames
         self.date = date if date else datetime.datetime.today().strftime(TR_DATE_FORMATTER)
@@ -113,30 +115,32 @@ class TR_Characterizer:
         while this is running.
         """
         print("Starting ankle transmission ratio procedure...\n")
-        
+
         # Conduct transmission ratio curve characterization procedure and store curve
         self.motorAngleVec = np.array([])
         self.ankleAngleVec = np.array([])
-        
+
         iterations = 0
         with open(self.fulldata_filename, "w", newline="\n") as f:
             writer = csv.writer(f)
-            self.flexdevice.command_motor_current(self.motor_sign * self.current_cmd)
+            self.flexdevice.send_motor_command(FX_CURRENT, self.motor_sign * self.current_cmd)
 
             loopsleeper = FlexibleSleeper(period=1/self.freq)
             lastprint = time.perf_counter()
             while not self.kill:
                 try:
-                    all_data = self.flexdevice.read(allData=True)
-                    act_pack = all_data[-1] # Newest data
+
+                    data = self.flexdevice.read()
+                    ank_ang = data.ank_ang
+                    mot_ang = data.mot_ang
 
                     iterations += 1
 
                     # Ankle direction convention:   plantarflexion: increasing angle, dorsiflexion: decreasing angle
-                    current_ank_angle = (self.ank_enc_sign * act_pack['ank_ang'] * ENC_CLICKS_TO_DEG) - self.offset # deg
-                    current_mot_angle = self.motor_sign * act_pack['mot_ang'] * ENC_CLICKS_TO_DEG # deg
+                    current_ank_angle = (self.ank_enc_sign * ank_ang * ENC_CLICKS_TO_DEG) - self.offset # deg
+                    current_mot_angle = self.motor_sign * mot_ang * ENC_CLICKS_TO_DEG # deg
 
-                    act_current = act_pack['mot_cur']
+                    act_current = data.mot_cur
 
                     self.motorAngleVec = np.append(self.motorAngleVec, current_mot_angle)
                     self.ankleAngleVec = np.append(self.ankleAngleVec, current_ank_angle)
@@ -158,7 +162,7 @@ class TR_Characterizer:
 
         # fit a 3rd order polynomial to the ankle and motor angles
         self.motor_angle_curve_coeffs = np.polyfit(self.ankleAngleVec, self.motorAngleVec, 3)
-        
+
         # polynomial deriv coefficients (derivative of the motor angle vs ankle angle curve yields the TR)
         self.TR_curve_coeffs = np.polyder(self.motor_angle_curve_coeffs)
 
@@ -167,11 +171,11 @@ class TR_Characterizer:
         print("TR curve")
         print(str(self.TR_curve_coeffs))
         print(self.offset)
-        
+
         print("Exiting curve characterization procedure")
-        self.flexdevice.command_motor_current(0)
+        self.flexdevice.send_motor_command(FX_CURRENT, 0)
         sleep(0.5)
-        
+
         with open(self.coefs_filename, "w") as file:
             writer = csv.writer(file, delimiter=",")
             writer.writerow(self.motor_angle_curve_coeffs)
@@ -179,13 +183,13 @@ class TR_Characterizer:
             writer.writerow([self.offset])
 
         print("Collect Finished\n")
-        
+
     def start(self):
-        self.flexdevice.command_motor_current(self.motor_sign * self.current_cmd)
-        
+        self.flexdevice.send_motor_command(FX_CURRENT, self.motor_sign * self.current_cmd)
+
         input("Set ankle angle to maximum dorsiflexion hardstop. Press any key to lock in angle/offset at this ankle position")
         act_pack = self.flexdevice.read()
-        self.offset = self.ank_enc_sign * act_pack['ank_ang'] * ENC_CLICKS_TO_DEG
+        self.offset = self.ank_enc_sign * act_pack.ank_ang * ENC_CLICKS_TO_DEG
         print("OFFSET: ", self.offset)
 
         input("Press any key to continue")
@@ -203,7 +207,7 @@ if __name__ == "__main__":
 
     devices = [device_left, device_right]
     sides = [side_left, side_right]
-    
+
     # Get YEAR_MONTH_DAY_HOUR_MINUTE
     date = datetime.datetime.today().strftime(TR_DATE_FORMATTER)
 
@@ -212,11 +216,11 @@ if __name__ == "__main__":
     frequency = 1000
     for side, device in zip(sides, devices):
         if device:
-            device.start_streaming(frequency)
+            # Start device streaming and set gains:
             device.set_gains(DEFAULT_KP, DEFAULT_KI, DEFAULT_KD, 0, 0, DEFAULT_FF)
 
             characterizer = TR_Characterizer(side, device, BIAS_CURRENT, date=date)
-            
+
             print("Starting {} Characterization".format(side.upper()))
             characterizer.start()
             input() #"Press any key to stop TR characterization of exoboot"
@@ -225,7 +229,7 @@ if __name__ == "__main__":
     # Stop motors
     for device in devices:
         if device:
-            device.stop_motor()
+            device.close()
 
     print("TR Characterization finished. Goodbye")
 

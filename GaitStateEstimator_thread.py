@@ -116,6 +116,7 @@ class GaitStateEstimator(BaseThread):
         if new_stride_flag_left:
             HS_l, stride_period_l, in_swing_l = self.bertec_estimator_left.return_estimate()
 
+            # lag units reported in seconds
             lag_left = HS_l - self.device_thread_left.HS_imu
 
             self.device_thread_left.set_state_estimate(HS_l, stride_period_l, self.peak_torque_left, in_swing_l, lag_left)
