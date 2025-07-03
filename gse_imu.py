@@ -174,7 +174,7 @@ class IMU_Estimator:
             # TODO: update the normal distribution measures (mean & var) with current ankle angles
 
             # query probability of event
-            probability = self.gaussian_likelihood(ank_ang, 10.0, 4.0)
+            # probability = self.gaussian_likelihood(ank_ang, 10.0, 4.0)
 
             # TODO: find if probability higher for HS or TO
 
