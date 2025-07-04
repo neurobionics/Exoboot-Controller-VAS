@@ -137,6 +137,7 @@ class TR_Characterizer:
                     iterations += 1
 
                     # Ankle direction convention:   plantarflexion: increasing angle, dorsiflexion: decreasing angle
+                    # info: dephy units for ank_ang are wrong. ank_ang units are in clicks/ticks
                     current_ank_angle = (self.ank_enc_sign * ank_ang * ENC_CLICKS_TO_DEG) - self.offset # deg
                     current_mot_angle = self.motor_sign * mot_ang * ENC_CLICKS_TO_DEG # deg
 
@@ -219,7 +220,7 @@ if __name__ == "__main__":
             # Start device streaming and set gains:
             device.set_gains(DEFAULT_KP, DEFAULT_KI, DEFAULT_KD, 0, 0, DEFAULT_FF)
 
-            characterizer = TR_Characterizer(side, device, BIAS_CURRENT, date=date)
+            characterizer = TR_Characterizer(side=side, flexdevice=device, current_cmd=750, date=date)
 
             print("Starting {} Characterization".format(side.upper()))
             characterizer.start()

@@ -94,12 +94,14 @@ MAX_ALLOWABLE_CURRENT = 26500 # mA
 # Exo Device IDS
 RIGHT_EXO_DEV_IDS = [77, 17584]  # for EB-51
 LEFT_EXO_DEV_IDS = [888, 48390]  # for EB-51
-# Ankle encoder signs (plantar -> increasing angle)
+
+# Ankle encoder signs (plantar -> increasing (positive) angles)
 ANK_ENC_SIGN_RIGHT_EXO = -1
 ANK_ENC_SIGN_LEFT_EXO = 1
+
 # Motor signs
 MOTOR_SIGN_RIGHT = -1
-MOTOR_SIGN_LEFT = -1
+MOTOR_SIGN_LEFT = 1 # new constant after belt replacement
 
 # USE THESE DICTS
 DEV_ID_TO_SIDE_DICT = {id: 'right' for id in RIGHT_EXO_DEV_IDS} | {id: 'left' for id in LEFT_EXO_DEV_IDS}
