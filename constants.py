@@ -101,7 +101,7 @@ ANK_ENC_SIGN_LEFT_EXO = 1
 
 # Motor signs
 MOTOR_SIGN_RIGHT = -1
-MOTOR_SIGN_LEFT = 1 # new constant after belt replacement
+MOTOR_SIGN_LEFT = -1
 
 # USE THESE DICTS
 DEV_ID_TO_SIDE_DICT = {id: 'right' for id in RIGHT_EXO_DEV_IDS} | {id: 'left' for id in LEFT_EXO_DEV_IDS}
