@@ -13,12 +13,12 @@ import datetime
 from constants import *
 
 from thermal import ThermalModel
-from BaseExoThread import BaseThread
+from base_exo_thread import BaseThread
 from SoftRTloop import FlexibleSleeper
-from utils import MovingAverageFilter, TrueAfter
-from AssistanceGenerator_new import AssistanceGenerator
+from utils.filters import MovingAverageFilter, TrueAfter
+from assistance_calculator import AssistanceGenerator
 from gse_imu import IMU_Estimator
-from TransmissionRatioGenerator import TransmissionRatioGenerator
+from transmission_ratio_files.TransmissionRatioGenerator import TransmissionRatioGenerator
 
 from flexsea.fx_enums import FX_CURRENT
 

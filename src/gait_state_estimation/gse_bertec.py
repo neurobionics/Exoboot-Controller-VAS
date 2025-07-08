@@ -1,12 +1,21 @@
 import time
-from utils import MovingAverageFilter
+from utils.filters import MovingAverageFilter
 from constants import TIME_METHOD, ACCEPT_STRIDE_THRESHOLD
 
-class Bertec_Estimator:
+
+class BertecEstimator:
     """
     Stride phase estimation using forceplate thresholding
     """
-    def __init__(self, zmq_subscriber, stride_period_init=1.2, filter_size=10, hs_threshold = 80, to_threshold = 30):
+
+    def __init__(
+        self,
+        zmq_subscriber,
+        stride_period_init=1.2,
+        filter_size=10,
+        hs_threshold=80,
+        to_threshold=30,
+    ):
         # ZMQ subscriber
         self.subscriber = zmq_subscriber
 
@@ -18,9 +27,11 @@ class Bertec_Estimator:
         self.HS = TIME_METHOD()
         self.TO = TIME_METHOD()
         self.force_prev = 0
-        self.in_contact = False    # True == in stance
+        self.in_contact = False  # True == in stance
 
-        self.stride_period_tracker = MovingAverageFilter(initial_value=stride_period_init, size=filter_size)
+        self.stride_period_tracker = MovingAverageFilter(
+            initial_value=stride_period_init, size=filter_size
+        )
 
     def return_estimate(self):
         """
@@ -55,7 +66,7 @@ class Bertec_Estimator:
         topic, force, timestep_valid = self.subscriber.get_message()
 
         # Catch empty messages
-        force = self.force_prev if force == '' else float(force)
+        force = self.force_prev if force == "" else float(force)
 
         # New stride flag
         new_stride_flag = False
@@ -83,7 +94,10 @@ class Bertec_Estimator:
                 stride_period_avg = self.stride_period_tracker.average()
 
                 # Make sure new stride is "reasonable"
-                if abs((stride_period_new - stride_period_avg) / stride_period_avg) < ACCEPT_STRIDE_THRESHOLD: # TODO do when pause_event and updatefilters:
+                if (
+                    abs((stride_period_new - stride_period_avg) / stride_period_avg)
+                    < ACCEPT_STRIDE_THRESHOLD
+                ):  # TODO do when pause_event and updatefilters:
                     self.stride_period_tracker.update(stride_period_new)
 
                 self.HS = HS_new

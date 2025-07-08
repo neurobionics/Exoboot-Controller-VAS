@@ -1,4 +1,4 @@
-# Description: 
+# Description:
 # A class for implementing a software real-time loop.
 #
 # Original Author: Varun Satyadev Shetty
@@ -44,8 +44,6 @@ class DelayTimer():
 
     def get_time(self):
         return time.perf_counter() - self.start_time
-
-
 
 class FlexibleTimer():
     '''A timer that attempts to reach consistent desired freq by variable pausing.'''
@@ -104,6 +102,6 @@ class FlexibleSleeper():
         delay = max(self.period - (current_time - self.last_stop_time), 0)
         time.sleep(delay)
         self.stop_time = time.perf_counter()
-        period = self.stop_time - self.last_stop_time 
+        period = self.stop_time - self.last_stop_time
         self.last_stop_time = self.stop_time
         return period

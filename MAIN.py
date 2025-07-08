@@ -13,11 +13,11 @@ import os, sys, csv, time, socket, threading
 from flexsea.device import Device
 from rtplot import client
 
-from validator import Validator
-from ExoClass_thread import ExobootThread
-from GaitStateEstimator_thread import GaitStateEstimator
-from exoboot_remote_control import ExobootRemoteServerThread
-from LoggingClass import LoggingNexus, FilingCabinet
+from logger.validator import Validator
+from exoboot_thread import ExobootThread
+from gait_state_estimation_thread import GaitStateEstimator
+from grpc_thread import ExobootRemoteServerThread
+from logger.logging_nexus import LoggingNexus, FilingCabinet
 
 from SoftRTloop import FlexibleSleeper
 from constants import *

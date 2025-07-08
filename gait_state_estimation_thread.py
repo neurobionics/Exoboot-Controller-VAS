@@ -9,9 +9,9 @@ import datetime
 from typing import Type
 
 #from rtplot import client
-from Reference_Scripts_Bertec_Sync.ZMQ_PubSub import Subscriber
-from BaseExoThread import BaseThread
-from utils import MovingAverageFilter
+from ZMQ_PubSub import Subscriber
+from base_exo_thread import BaseThread
+from utils.filters import MovingAverageFilter
 from gse_bertec import Bertec_Estimator
 from SoftRTloop import FlexibleSleeper
 

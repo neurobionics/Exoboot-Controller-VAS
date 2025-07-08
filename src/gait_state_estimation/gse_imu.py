@@ -1,6 +1,6 @@
 import time
 from math import sqrt
-from utils import MovingAverageFilter
+from utils.filters import MovingAverageFilter
 from constants import (
     TIME_METHOD,
     ACCEPT_STRIDE_THRESHOLD,
@@ -12,7 +12,7 @@ from constants import (
 from math import exp, pi, sqrt
 
 
-class IMU_Estimator:
+class IMUEstimator:
     """
     IMU_Estimator estimates activation events from onboard exoboot IMU acceleration data (z-axis)
     using real-time mean/std tracking and z-score thresholding.

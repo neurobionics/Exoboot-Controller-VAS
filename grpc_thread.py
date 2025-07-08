@@ -4,7 +4,7 @@ from concurrent import futures
 
 import exoboot_remote_pb2 as pb2
 import exoboot_remote_pb2_grpc as pb2_grpc
-from BaseExoThread import BaseThread
+from base_exo_thread import BaseThread
 from constants import GSE_MODE
 
 class ExobootRemoteClient:

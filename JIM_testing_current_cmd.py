@@ -7,8 +7,8 @@ import argparse
 from flexsea.device import Device
 from rtplot import client
 from constants import *
-from LoggingClass import LoggingNexus, FilingCabinet
-from ExoClass_thread import ExobootThread
+from logger.logging_nexus import LoggingNexus, FilingCabinet
+from exoboot_thread import ExobootThread
 
 from flexsea.fx_enums import FX_CURRENT
 
