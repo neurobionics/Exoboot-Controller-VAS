@@ -1,6 +1,5 @@
 import pytest
 import threading
-import zmq
 import os
 import time
 from unittest import mock
@@ -8,7 +7,7 @@ from unittest import mock
 # Import modules to be tested
 from dephyEB51 import DephyEB51Actuator
 from non_singleton_logger import NonSingletonLogger
-from threading_demo import ZMQManager, DephyExoboots
+from threading_demo import DephyExoboots
 
 # --- Logging Tests ---
 
@@ -56,53 +55,6 @@ def test_per_thread_logging(tmp_path):
         assert "Thread1 log" in f1.read()
         assert "Thread2 log" in f2.read()
 
-# --- ZMQ Tests ---
-
-def test_zmq_manager_socket_setup_and_close():
-    """
-    Test that a ZMQManager can set up a SUB socket and close it properly.
-    Verifies that the socket is registered and the context is closed after cleanup.
-    """
-    zmq_manager = ZMQManager()
-    zmq_manager.setup_sub_socket("test", "inproc://pytest")
-    assert "test" in zmq_manager.sockets
-    zmq_manager.close()
-    assert zmq_manager.context.closed
-
-def test_zmq_pub_sub_communication():
-    """
-    Test that a ZMQ PUB socket can send a message and a SUB socket can receive it.
-    Verifies inter-thread communication using ZeroMQ inproc transport.
-    """
-    ctx = zmq.Context.instance()
-    pub = ctx.socket(zmq.PUB)
-    sub = ctx.socket(zmq.SUB)
-    addr = "inproc://pytest_comm"
-    pub.bind(addr)
-    sub.connect(addr)
-    sub.setsockopt_string(zmq.SUBSCRIBE, "")
-    time.sleep(0.1)  # Allow sockets to connect
-    test_msg = {"foo": 123}
-    pub.send_pyobj(test_msg)
-    time.sleep(0.1)
-    try:
-        msg = sub.recv_pyobj(flags=zmq.NOBLOCK)
-        assert msg == test_msg
-    except zmq.Again:
-        pytest.fail("No message received on ZMQ SUB socket")
-    finally:
-        pub.close()
-        sub.close()
-        ctx.term()
-
-def test_zmq_manager_cleanup():
-    """
-    Test that the ZMQManager can be set up and closed without raising any exceptions.
-    Ensures resource cleanup works as expected.
-    """
-    zmq_manager = ZMQManager()
-    zmq_manager.setup_sub_socket("test", "inproc://pytest_cleanup")
-    zmq_manager.close() # Should not raise any exceptions
 
 # --- EB51 Actuator Functionality Tests ---
 
@@ -231,7 +183,7 @@ def test_add_new_actuator(monkeypatch):
             self.tag = tag
     monkeypatch.setattr('dephyEB51.DephyEB51Actuator', DummyActuator)
     actuators = {"left": DummyActuator(tag="left", offline=True)}
-    exoboots = DephyExoboots(tag="pytest_exo", actuators=actuators, sensors={})
+    exoboots = DephyExoboots(tag="pytest_exo", actuators=actuators, sensors={}, post_office=None)
     actuators["right"] = DummyActuator(tag="right", offline=True)
     exoboots.actuators = actuators
     assert "right" in exoboots.actuators

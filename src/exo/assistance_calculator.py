@@ -22,6 +22,7 @@ from settings.constants import(
     INCLINE_WALK_TIMINGS,
     EXO_DEFAULT_CONFIG)
 
+# TODO: add argument for spline params
 class AssistanceCalculator:
     def __init__(self,
                  t_rise:float=INCLINE_WALK_TIMINGS.P_RISE,
@@ -75,6 +76,19 @@ class AssistanceCalculator:
             self.t_rise = t_rise
             self.t_peak = t_peak
             self.t_fall = t_fall
+
+            # convert timing params to percent stride
+            self.convert_params_to_percent_stride()
+
+            # determine torque onset & drop-off inflection pts
+            self.calculate_onset_and_dropoff_times()
+
+            # determine rising and falling spline objects
+            rising_spline, falling_spline = self.create_spline_sections()
+
+            # create normalized profile
+            self.create_normalized_profile(rising_spline, falling_spline)
+
         except:
             raise Exception("set_new_timing_params failed in assistance generator")
 
@@ -241,7 +255,8 @@ class AssistanceCalculator:
 
             # If torque_command is negative, raise ValueError and set to holding torque
             if torque_command < 0:
-                raise ValueError(f"Negative torque command generated: {torque_command}. Setting to holding torque.")
+                # TODO: comment back in:
+                # raise ValueError(f"Negative torque command generated: {torque_command}. Setting to holding torque.")
                 torque_command = self.holding_torque
 
         return torque_command

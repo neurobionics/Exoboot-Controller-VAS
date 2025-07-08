@@ -1,6 +1,7 @@
 import time
-
 from src.utils.filter_utils import MovingAverageFilter
+
+from src.settings.constants import TIME_METHOD, BERTEC_THRESH
 
 class Bertec_Estimator:
     """
@@ -30,7 +31,8 @@ class Bertec_Estimator:
             c) in swing
 
         """
-        state_dict = {"HS": self.HS,
+
+        state_dict = {"HS_time_bertec": self.HS,
                       "stride_period": self.stride_period_tracker.average(),
                       "in_swing": not self.in_contact
                       }
@@ -44,6 +46,11 @@ class Bertec_Estimator:
             a) if new stride has been observed
             b) force from Bertec
         """
+        # TODO add pause event
+        # if not pause_event:
+        #     updatefilters = True
+        # else:
+        #     updatefilters = pause_event.is_set()
 
         # ZMQ streaming get message
         topic, force, timestep_valid = self.subscriber.get_message()
@@ -52,14 +59,14 @@ class Bertec_Estimator:
         force = self.force_prev if force == '' else float(force)
 
         # New stride flag
-        new_stride = False
+        new_stride_flag = False
 
         # Determine state
         if self.in_contact:
             if force < self.to_threshold:
                 # New Toe off
                 self.in_contact = False
-                self.TO = time.time()
+                self.TO = TIME_METHOD()
 
             else:
                 # In stance
@@ -69,12 +76,16 @@ class Bertec_Estimator:
             if force >= self.hs_threshold:
                 # New Heel strike
                 self.in_contact = True
-                new_stride = True
+                new_stride_flag = True
 
                 # Record new stride period and update estimate
-                HS_new = time.time()
+                HS_new = TIME_METHOD()
                 stride_period_new = HS_new - self.HS
-                self.stride_period_tracker.update(stride_period_new)
+                stride_period_avg = self.stride_period_tracker.average()
+
+                # Make sure new stride is "reasonable"
+                if abs((stride_period_new - stride_period_avg) / stride_period_avg) < BERTEC_THRESH.ACCEPT_STRIDE_THRESHOLD: # TODO do when pause_event and updatefilters:
+                    self.stride_period_tracker.update(stride_period_new)
 
                 self.HS = HS_new
 
@@ -85,4 +96,4 @@ class Bertec_Estimator:
         # Update prev
         self.force_prev = force
 
-        return new_stride, force
+        return new_stride_flag, force
