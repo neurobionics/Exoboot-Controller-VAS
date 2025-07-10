@@ -52,7 +52,7 @@ class ExobootThread(BaseThread):
         self.assistance_generator = AssistanceGenerator()
 
         # Instantiate GSE_IMU
-        self.gse_imu = IMU_Estimator(run_len_threshold=100, filter_size=10)
+        self.gse_imu = IMU_Estimator(run_len_threshold=50, filter_size=10)
 
         # Instantiate Thermal Model and specify thermal limits
         self.thermalModel = ThermalModel(temp_limit_windings=100,soft_border_C_windings=10,temp_limit_case=75,soft_border_C_case=5)
@@ -419,15 +419,11 @@ class ExobootThread(BaseThread):
             # log the lag:
             self.data_dict["lag"] = self.lag
 
-            self.current_time = TIME_METHOD() - self.HS
+            self.current_time = TIME_METHOD() - self.data_dict["HS_imu"]
 
-            # moving average for lag to fall back on if current lag is too long
-            # if self.lag > 0.100:
-            #     lag_compensated_time = self.current_time + self.lag_time_tracker.average()
-            # else:
-            lag_compensated_time = self.current_time + self.lag
+            # TODO add safety feature
 
-            torque_command = self.assistance_generator.generic_torque_generator(lag_compensated_time,
+            torque_command = self.assistance_generator.generic_torque_generator(self.current_time,
                                                                                 self.stride_period,
                                                                                 self.peak_torque,
                                                                                 self.in_swing)

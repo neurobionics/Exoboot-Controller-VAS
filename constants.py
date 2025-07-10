@@ -58,10 +58,11 @@ TR_DATE_FORMATTER = "%Y_%m_%d_%H_%M"
 # P_TOE_OFF = 65		# stance from heel strike
 
 # Incline Walking
-P_RISE = 15		    # stance from p_peak
-P_PEAK = 54		    # stance from heel strike
-P_FALL = 10		    # stance from p_peak
+P_RISE = 13#15		    # stance from p_peak (13)
+P_PEAK = 55#54		    # stance from heel strike (55)
+P_FALL = 10		    # stance from p_peak (10)
 P_TOE_OFF = 67		# stance from heel strike
+
 
 END_OF_STANCE = P_TOE_OFF
 END_OF_STRIDE = 100
