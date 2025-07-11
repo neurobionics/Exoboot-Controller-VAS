@@ -2,28 +2,28 @@
 # This script is the main controller for the VAS Vickrey Protocol.
 # It is responsible for initializing the exoskeletons, calibrating them, and running the main control loop.
 #
-# Original template created by: Emily Bywater
-# Modified for VAS Vickrey protocol by: Nundini Rawal, John Hutchinson
+# By: Nundini Rawal, John Hutchinson
 # Date: 06/13/2024
 
-# TODO: downgrade library, rtplotting, gse_imu, fix bertec estimator, find delay, check thread frequencies
-
-import os, sys, csv, time, socket, threading
+import os, sys, time, threading
 
 from flexsea.device import Device
 from rtplot import client
 
-from logger.validator import Validator
 from exoboot_thread import ExobootThread
 from gait_state_estimation_thread import GaitStateEstimator
 from grpc_thread import ExobootRemoteServerThread
-from logger.logging_nexus import LoggingNexus, FilingCabinet
 
-from SoftRTloop import FlexibleSleeper
-from constants import *
+from src.logger.validator import Validator
+from src.logger.logging_nexus import LoggingNexus
+from src.logger.filing_cabinet import FilingCabinet
+from src.utils.SoftRTloop import FlexibleSleeper
+from src.utils.get_my_ip import get_ip_address
+from src.settings.constants import *
 
 thisdir = os.path.dirname(os.path.abspath(__file__))
 sys.path.append(thisdir)
+
 
 class MainControllerWrapper:
     """
@@ -32,9 +32,18 @@ class MainControllerWrapper:
     Allows for high level interaction with flexsea controller
     """
 
-    def __init__(self, subjectID=None, trial_type=None, trial_cond=None, description=None, usebackup=False, continuousmode = False, overridedefaultcurrentbounds=False, streamingfrequency=FLEXSEA_AND_EXOTHREAD_FREQ, clockspeed=0.2):
-        self.streamingfrequency = streamingfrequency
-        self.clockspeed = clockspeed
+    def __init__(
+        self,
+        subjectID=None,
+        trial_type=None,
+        trial_cond=None,
+        description=None,
+        usebackup=False,
+        continuousmode=False,
+        overridedefaultcurrentbounds=False,
+        main_loop_freq=0.2,
+    ):
+        self.main_loop_freq = main_loop_freq
 
         # Subject info
         self.subjectID = subjectID
@@ -42,7 +51,9 @@ class MainControllerWrapper:
         self.trial_cond = trial_cond
         self.description = description
         self.usebackup = usebackup
-        self.file_prefix = "{}_{}_{}_{}".format(self.subjectID, self.trial_type, self.trial_cond, self.description)
+        self.file_prefix = "{}_{}_{}_{}".format(
+            self.subjectID, self.trial_type, self.trial_cond, self.description
+        )
 
         # Exo alternative modes
         self.continuousmode = continuousmode
@@ -52,16 +63,20 @@ class MainControllerWrapper:
         self.filingcabinet = FilingCabinet(SUBJECT_DATA_PATH, self.subjectID)
         if self.usebackup:
             loadstatus = self.filingcabinet.loadbackup(self.file_prefix, rule="newest")
-            print("Backup Load Status: {}".format("SUCCESS" if loadstatus else "FAILURE"))
+            print(
+                "Backup Load Status: {}".format("SUCCESS" if loadstatus else "FAILURE")
+            )
 
-        # Get IP for GRPC server
+        # OLD way that doesn't work: Get IP for GRPC server
         # s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         # s.connect(('10.255.255.255', 1))
         # self.myIP = s.getsockname()[0] + ":50055"
 
         # TODO: fix automatically getting ip address
-        self.myIP = "35.3.196.52" + ":50055"
+        self.myIP = get_ip_address() + ":50055"
         print("myIP: {}".format(self.myIP))
+        # self.myIP = "35.3.196.52" + ":50055"
+        # print("myIP: {}".format(self.myIP))
 
     @staticmethod
     def get_active_ports():
@@ -69,13 +84,25 @@ class MainControllerWrapper:
         To use the exos, it is necessary to define the ports they are going to be connected to.
         These are defined in the ports.yaml file in the flexsea repo
         """
-        # port_cfg_path = '/home/pi/VAS_exoboot_controller/ports.yaml'
-        device_1 = Device(port="/dev/ttyACM0", baud_rate=BAUD_RATE)
-        device_2 = Device(port="/dev/ttyACM1", baud_rate=BAUD_RATE)
+
+        device_1 = Device(
+            port=KNOWN_USB_SERIAL_PORTS[0], baud_rate=EXO_SETUP_CONST.BAUD_RATE
+        )
+        device_2 = Device(
+            port=KNOWN_USB_SERIAL_PORTS[1], baud_rate=EXO_SETUP_CONST.BAUD_RATE
+        )
 
         # Establish a connection between the computer and the device AND start streaming
-        device_1.open(freq=STREAMING_FREQ, log_level=3, log_enabled=True)
-        device_2.open(freq=STREAMING_FREQ, log_level=3, log_enabled=True)
+        device_1.open(
+            freq=EXO_SETUP_CONST.FLEXSEA_FREQ,
+            log_level=EXO_SETUP_CONST.LOG_LEVEL,
+            log_enabled=True,
+        )
+        device_2.open(
+            freq=EXO_SETUP_CONST.FLEXSEA_FREQ,
+            log_level=EXO_SETUP_CONST.LOG_LEVEL,
+            log_enabled=True,
+        )
 
         # Get side from side_dict
         side_1 = DEV_ID_TO_SIDE_DICT[device_1.dev_id]
@@ -85,9 +112,9 @@ class MainControllerWrapper:
         print("Device 2: {}, {}".format(device_2.dev_id, side_2))
 
         # Always assign first pair of outputs to left side
-        if side_1 == 'left':
+        if side_1 == "left":
             return side_1, device_1, side_2, device_2
-        elif side_1 == 'right':
+        elif side_1 == "right":
             return side_2, device_2, side_1, device_1
         else:
             raise Exception("Invalid sides for devices: Check DEV_ID_TO_SIDE_DICT!")
@@ -97,13 +124,28 @@ class MainControllerWrapper:
         Initialize trial information
         Start All Threads
         """
+
         try:
             # Initializing the Exo
             side_left, device_left, side_right, device_right = self.get_active_ports()
 
             # Start device streaming and set gains:
-            device_left.set_gains(DEFAULT_KP, DEFAULT_KI, DEFAULT_KD, 0, 0, DEFAULT_FF)
-            device_right.set_gains(DEFAULT_KP, DEFAULT_KI, DEFAULT_KD, 0, 0, DEFAULT_FF)
+            device_left.set_gains(
+                DEFAULT_PID_GAINS.DEFAULT_KP,
+                DEFAULT_PID_GAINS.DEFAULT_KI,
+                DEFAULT_PID_GAINS.DEFAULT_KD,
+                0,
+                0,
+                DEFAULT_PID_GAINS.DEFAULT_FF,
+            )
+            device_right.set_gains(
+                DEFAULT_PID_GAINS.DEFAULT_KP,
+                DEFAULT_PID_GAINS.DEFAULT_KI,
+                DEFAULT_PID_GAINS.DEFAULT_KD,
+                0,
+                0,
+                DEFAULT_PID_GAINS.DEFAULT_FF,
+            )
 
             """Initialize Threads"""
             # Thread events
@@ -111,42 +153,114 @@ class MainControllerWrapper:
             self.pause_event = threading.Event()
             self.log_event = threading.Event()
             self.quit_event.set()
-            self.pause_event.clear() # Start with threads paused
+            self.pause_event.clear()  # Start with threads paused
             self.log_event.clear()
-            self.startstamp = TIME_METHOD() # Timesync logging between all threads
+            self.startstamp = TIME_METHOD()  # Timesync logging between all threads
 
             # Thread 1/2: Left and right exoboots
-            self.exothread_left = ExobootThread(side_left, device_left, self.startstamp, "exothread_left", True, self.quit_event, self.pause_event, self.log_event, self.overridedefaultcurrentbounds, ZERO_CURRENT, MAX_ALLOWABLE_CURRENT, FLEXSEA_AND_EXOTHREAD_FREQ)
-            self.exothread_right = ExobootThread(side_right, device_right, self.startstamp, "exothread_right", True,  self.quit_event, self.pause_event, self.log_event, self.overridedefaultcurrentbounds, ZERO_CURRENT, MAX_ALLOWABLE_CURRENT, FLEXSEA_AND_EXOTHREAD_FREQ)
+            self.exothread_left = ExobootThread(
+                side=side_left,
+                flexdevice=device_left,
+                startstamp=self.startstamp,
+                name="exothread_left",
+                daemon=True,
+                quit_event=self.quit_event,
+                pause_event=self.pause_event,
+                log_event=self.log_event,
+                overridedefaultcurrentbounds=self.overridedefaultcurrentbounds,
+                min_current=EXO_CURRENT_SAFETY_LIMITS.ZERO_CURRENT,
+                max_current=EXO_CURRENT_SAFETY_LIMITS.MAX_ALLOWABLE_CURRENT,
+                on_pause_triggers=0,    # TODO: wasn't being set to -1 earlier so just set it to 0
+                threadfrequency=EXO_THREAD_FREQUENCIES.EXOTHREAD_FREQ,
+            )
+
+            self.exothread_right = ExobootThread(
+                side=side_right,
+                flexdevice=device_right,
+                startstamp=self.startstamp,
+                name="exothread_right",
+                daemon=True,
+                quit_event=self.quit_event,
+                pause_event=self.pause_event,
+                log_event=self.log_event,
+                overridedefaultcurrentbounds=self.overridedefaultcurrentbounds,
+                min_current=EXO_CURRENT_SAFETY_LIMITS.ZERO_CURRENT,
+                max_current=EXO_CURRENT_SAFETY_LIMITS.MAX_ALLOWABLE_CURRENT,
+                on_pause_triggers=0,
+                threadfrequency=EXO_THREAD_FREQUENCIES.EXOTHREAD_FREQ,
+            )
+
             self.exothread_left.start()
             self.exothread_right.start()
 
             # Thread 3: Gait State Estimator
             if GSE_MODE != "IMU":
-                self.gse_thread = GaitStateEstimator(self.startstamp, device_left, device_right, self.exothread_left, self.exothread_right, filter_size=5, daemon=True, continuousmode=self.continuousmode, quit_event=self.quit_event, pause_event=self.pause_event, log_event=self.log_event)
+                self.gse_thread = GaitStateEstimator(
+                    startstamp=self.startstamp,
+                    device_left=device_left,
+                    device_right=device_right,
+                    thread_left=self.exothread_left,
+                    thread_right=self.exothread_right,
+                    name="GSE",
+                    filter_size=5,
+                    daemon=True,
+                    continuousmode=self.continuousmode,
+                    quit_event=self.quit_event,
+                    pause_event=self.pause_event,
+                    log_event=self.log_event,
+                )
                 self.gse_thread.start()
 
             # Thread 4: Exoboot Remote Control
-            self.remote_thread = ExobootRemoteServerThread(self, self.startstamp, self.filingcabinet, name='exoboot_remote_thread', usebackup=False, daemon=True, quit_event=self.quit_event, pause_event=self.pause_event, log_event=self.log_event)
+            self.remote_thread = ExobootRemoteServerThread(
+                self,
+                startstamp=self.startstamp,
+                filingcabinet=self.filingcabinet,
+                name="exoboot_remote_thread",
+                usebackup=False,
+                daemon=True,
+                quit_event=self.quit_event,
+                pause_event=self.pause_event,
+                log_event=self.log_event,
+            )
             self.remote_thread.set_target_IP(self.myIP)
             self.remote_thread.start()
 
             # LoggingNexus
             if GSE_MODE != "IMU":
-                self.loggingnexus = LoggingNexus(self.subjectID, self.file_prefix, self.filingcabinet, self.exothread_left, self.exothread_right, self.gse_thread)
+                self.loggingnexus = LoggingNexus(
+                    self.subjectID,
+                    self.file_prefix,
+                    self.filingcabinet,
+                    self.exothread_left,
+                    self.exothread_right,
+                    self.gse_thread,
+                )
             else:
-                self.loggingnexus = LoggingNexus(self.subjectID, self.file_prefix, self.filingcabinet, self.exothread_left, self.exothread_right)
+                self.loggingnexus = LoggingNexus(
+                    self.subjectID,
+                    self.file_prefix,
+                    self.filingcabinet,
+                    self.exothread_left,
+                    self.exothread_right,
+                )
 
-            # ~~~Main Loop~~~
-            self.softrtloop = FlexibleSleeper(period=1/self.clockspeed)
-            # self.pause_event.set()
-            # self.log_event.set()
+            # ~~~ Main Loop ~~~
+            self.softrtloop = FlexibleSleeper(period=1 / self.main_loop_freq)
+
             while self.quit_event.is_set():
                 try:
                     try:
-                        print("Peak Torque Left/Right: ({}, {})".format(self.loggingnexus.get(self.exothread_left.name, "peak_torque"), self.loggingnexus.get(self.exothread_right.name, "peak_torque")))
-                        print("Case Temp Left/Right: ({}, {})".format(self.loggingnexus.get(self.exothread_left.name, "temperature"), self.loggingnexus.get(self.exothread_right.name, "temperature")))
-                        print("BattV Left/Right: ({}, {})\n".format(self.loggingnexus.get(self.exothread_left.name, "battery_voltage"), self.loggingnexus.get(self.exothread_right.name, "battery_voltage")))
+                        print("Peak Torque Left/Right: ({}, {})".format(self.loggingnexus.get(self.exothread_left.name, "peak_torque"),
+                                                                        self.loggingnexus.get(self.exothread_right.name, "peak_torque"))
+                            )
+                        print("Case Temp Left/Right: ({}, {})".format(self.loggingnexus.get(self.exothread_left.name, "temperature"),
+                                                                      self.loggingnexus.get(self.exothread_right.name, "temperature"))
+                            )
+                        print("BattV Left/Right: ({}, {})\n".format(
+                                self.loggingnexus.get(self.exothread_left.name, "battery_voltage"),
+                                self.loggingnexus.get(self.exothread_right.name, "battery_voltage"))
+                            )
                     except:
                         pass
 
@@ -193,16 +307,22 @@ if __name__ == "__main__":
     Validator(subjectID, trial_type, trial_cond, description, usebackup)
 
     # Set controller kwargs
-    controller_kwargs = {"subjectID": subjectID,
-                         "trial_type": trial_type.upper(),
-                         "trial_cond": trial_cond.upper(),
-                         "description": description,
-                         "usebackup": usebackup in ["true", "True", "1", "yes", "Yes"]}
+    controller_kwargs = {
+        "subjectID": subjectID,
+        "trial_type": trial_type.upper(),
+        "trial_cond": trial_cond.upper(),
+        "description": description,
+        "usebackup": usebackup in ["true", "True", "1", "yes", "Yes"],
+    }
 
     # Allow GSE to alter peak torque during strides
-    controller_kwargs["continuousmode"] = controller_kwargs["trial_type"] == "PREF" and controller_kwargs["trial_cond"] in ["SLIDER", "DIAL"]
+    controller_kwargs["continuousmode"] = controller_kwargs[
+        "trial_type"
+    ] == "PREF" and controller_kwargs["trial_cond"] in ["SLIDER", "DIAL"]
 
     # Use alternate upper and lower current bounds
-    controller_kwargs["overridedefaultcurrentbounds"] = controller_kwargs["trial_type"] == "VICKREY" and controller_kwargs["trial_cond"] in ["WNE", "NPO"]
+    controller_kwargs["overridedefaultcurrentbounds"] = controller_kwargs[
+        "trial_type"
+    ] == "VICKREY" and controller_kwargs["trial_cond"] in ["WNE", "NPO"]
 
     MainControllerWrapper(**controller_kwargs).run()

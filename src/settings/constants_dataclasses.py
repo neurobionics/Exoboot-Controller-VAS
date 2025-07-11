@@ -4,6 +4,7 @@ Collection of data classes to support constants used throughout the exoboot cont
 
 from dataclasses import dataclass
 
+
 @dataclass
 class SPLINE_PARAMS:
     """
@@ -21,10 +22,11 @@ class SPLINE_PARAMS:
         15
     """
 
-    P_RISE:int
-    P_PEAK:int
-    P_FALL:int
-    P_TOE_OFF:int
+    P_RISE: int
+    P_PEAK: int
+    P_FALL: int
+    P_TOE_OFF: int
+
 
 @dataclass
 class SIDE_SPECIFIC_EXO_IDENTIFIERS:
@@ -47,9 +49,10 @@ class SIDE_SPECIFIC_EXO_IDENTIFIERS:
         -1
     """
 
-    EXO_DEV_IDS:list[int]
-    ANK_ENC_SIGN:int
-    MOTOR_SIGN:int
+    EXO_DEV_IDS: list[int]
+    ANK_ENC_SIGN: int
+    MOTOR_SIGN: int
+
 
 @dataclass
 class EXO_MOTOR_CONSTANTS:
@@ -77,12 +80,14 @@ class EXO_MOTOR_CONSTANTS:
         >>> print(eb51constants.MOT_ENC_CLICKS_TO_REV)
         16384
     """
-    MOT_ENC_CLICKS_TO_REV:int
-    MOT_ENC_CLICKS_TO_DEG:float
-    Kt:float
-    EFFICIENCY:float
-    RES_PHASE:float
-    L_PHASE:float
+
+    MOT_ENC_CLICKS_TO_REV: int
+    MOT_ENC_CLICKS_TO_DEG: float
+    Kt: float
+    EFFICIENCY: float
+    RES_PHASE: float
+    L_PHASE: float
+
 
 @dataclass
 class EXO_SETUP_CONSTANTS:
@@ -104,9 +109,27 @@ class EXO_SETUP_CONSTANTS:
         >>> print(eb51const.LOG_LEVEL)
         6
     """
-    BAUD_RATE:int
-    FLEXSEA_FREQ:int
-    LOG_LEVEL:int
+
+    BAUD_RATE: int
+    FLEXSEA_FREQ: int
+    LOG_LEVEL: int
+
+
+@dataclass
+class EXO_THREAD_FREQUENCIES:
+    """
+    Class to define various thread frequencies used in the exoboot system:
+
+    (1) Exothread frequency (Hz) ~ this is the frequency at which the exothread will run (must be slower than or equal to FLEXSEA_FREQ to operate on unique exo-sensor values)
+    (2) Bertec streaming frequency (Hz) ~ this is the frequency at which the bertec force plate data will be updated ()
+    (3) Exothread logging frequency (Hz) ~ this is the frequency at which the exothread will log data
+
+    """
+
+    EXOTHREAD_FREQ: int
+    BERTEC_FREQ: int
+    LOGGING_FREQ: int
+
 
 @dataclass
 class IMU_CONSTANTS:
@@ -151,16 +174,18 @@ class IMU_CONSTANTS:
         >>> print(eb51constants.ACCEL_GAIN)
         0.00012207031
     """
-    ACCEL_GAIN:float = 1 / 8192
-    GYRO_GAIN:float = 1 / 32.75
 
-    ACCELX_SIGN:int = 1
-    ACCELY_SIGN:int = -1
-    ACCELZ_SIGN:int = 1
+    ACCEL_GAIN: float = 1 / 8192
+    GYRO_GAIN: float = 1 / 32.75
 
-    GYROX_SIGN:int = -1
-    GYROY_SIGN:int = 1
-    GYROZ_SIGN:int = 1
+    ACCELX_SIGN: int = 1
+    ACCELY_SIGN: int = -1
+    ACCELZ_SIGN: int = 1
+
+    GYROX_SIGN: int = -1
+    GYROY_SIGN: int = 1
+    GYROZ_SIGN: int = 1
+
 
 @dataclass
 class BERTEC_THRESHOLDS:
@@ -182,13 +207,14 @@ class BERTEC_THRESHOLDS:
         0.2
     """
 
-    HS_THRESHOLD:int
-    TO_THRESHOLD:int
+    HS_THRESHOLD: int
+    TO_THRESHOLD: int
 
-    ACCEPT_STRIDE_THRESHOLD:float
+    ACCEPT_STRIDE_THRESHOLD: float
 
-    BERTEC_ACC_LEFT:float
-    BERTEC_ACC_RIGHT:float
+    BERTEC_ACC_LEFT: float
+    BERTEC_ACC_RIGHT: float
+
 
 @dataclass
 class EXO_PID_GAINS:
@@ -196,10 +222,12 @@ class EXO_PID_GAINS:
     Dataclass to hold PID controller gains and feedforward value.
     Optimal params from Dephy Website for current control.
     """
+
     KP: int
     KI: int
     KD: int
     FF: int
+
 
 @dataclass
 class EXO_CURRENT_SAFETY_CONSTANTS:
@@ -207,8 +235,10 @@ class EXO_CURRENT_SAFETY_CONSTANTS:
     Class to define the current (mA) safety constants.
     These are to be held constant.
     """
+
     ZERO_CURRENT: int  # mA
-    MAX_ALLOWABLE_CURRENT:int  # mA
+    MAX_ALLOWABLE_CURRENT: int  # mA
+
 
 @dataclass
 class EXO_THERMAL_SAFETY_CONSTANTS:
@@ -216,8 +246,10 @@ class EXO_THERMAL_SAFETY_CONSTANTS:
     Class to define the thermal safety constants.
     These are to be held constant.
     """
-    MAX_CASE_TEMP:int      # °C
-    MAX_WINDING_TEMP:int  # °C
+
+    MAX_CASE_TEMP: int  # °C
+    MAX_WINDING_TEMP: int  # °C
+
 
 @dataclass
 class EXO_DEFAULT_CONSTANTS:
@@ -225,8 +257,10 @@ class EXO_DEFAULT_CONSTANTS:
     Class to define the defaults constants.
     These are to be held constant.
     """
-    HOLDING_TORQUE: float # in Nm
-    BIAS_CURRENT: int # mA (not the same as transparent mode)
+
+    HOLDING_TORQUE: float  # in Nm
+    BIAS_CURRENT: int  # mA (not the same as transparent mode)
+
 
 @dataclass
 class STATIC_IP_ADDRESSES:
@@ -237,9 +271,9 @@ class STATIC_IP_ADDRESSES:
             python3 -m rtplot.server -p 35.3.249.99
     VICON_IP: Vicon ip to connect to Bertec Forceplates for streaming
     """
+
     RTPLOT_IP: str
     VICON_IP: str
-
 
 
 # TODO add dataclass for threadnames

@@ -11,7 +11,7 @@ from scipy.interpolate import splrep, splev
 from pathlib import Path
 sys.path.append(str(Path(__file__).parent.parent))
 
-from constants import *
+from constants_without_dataclasses import *
 
 
 def get_fulldata_file(side):

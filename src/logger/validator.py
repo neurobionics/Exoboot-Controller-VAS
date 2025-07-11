@@ -1,4 +1,4 @@
-from constants import TRIAL_CONDS_DICT
+from constants_without_dataclasses import TRIAL_CONDS_DICT
 
 
 class Validator:

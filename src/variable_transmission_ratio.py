@@ -1,12 +1,25 @@
-import os, csv, datetime
+import os
+import csv
+import datetime
 import numpy as np
 import matplotlib.pyplot as plt
 
-from constants import TR_COEFS_PREFIX, TR_FOLDER_PATH, TR_DATE_FORMATTER
+from src.settings.constants import TR_COEFS_PREFIX, TR_FOLDER_PATH, TR_DATE_FORMATTER
 
 
-class TransmissionRatioGenerator:
-    def __init__(self, side, tr_coefs_file_specific=None, coefs_prefix=TR_COEFS_PREFIX, filepath=TR_FOLDER_PATH, max_allowable_angle=180, min_allowable_angle=0, min_allowable_TR=10, granularity=10000):
+class VariableTransmissionRatio:
+    def __init__(
+        self,
+        side: str,
+        tr_coefs_file_specific: str = None,
+        coefs_prefix: str = TR_COEFS_PREFIX,
+        filepath: str = TR_FOLDER_PATH,
+        max_allowable_angle: int = 180,
+        min_allowable_angle: int = 0,
+        min_allowable_TR: int = 10,
+        granularity: int = 10000,
+    ) -> None:
+
         # Source file settings
         self.side = side
         self.tr_coefs_file_specific = tr_coefs_file_specific
@@ -45,15 +58,17 @@ class TransmissionRatioGenerator:
             for file in os.listdir(self.filepath):
                 if fullfileprefix in file:
                     tr_files.append(os.path.join(self.filepath, file))
-                    datestring = file.replace(fullfileprefix, "").strip("_").split(".")[0]
+                    datestring = (
+                        file.replace(fullfileprefix, "").strip("_").split(".")[0]
+                    )
                     dt = datetime.datetime.strptime(datestring, TR_DATE_FORMATTER)
                     datestrings.append(datestring)
                     datetimes.append(dt)
 
             most_recent = datestrings[datetimes.index(max(datetimes))]
-            self.coefs_filename = "{}_{}_{}.csv".format(self.coefs_prefix, self.side, most_recent)
-
-        print("TR {} USING: {}".format(self.side, self.coefs_filename))
+            self.coefs_filename = "{}_{}_{}.csv".format(
+                self.coefs_prefix, self.side, most_recent
+            )
 
     def load_coefs(self):
         """
@@ -62,10 +77,13 @@ class TransmissionRatioGenerator:
         """
         # Open and read the CSV file
         coefs_filepath = os.path.join(self.filepath, self.coefs_filename)
-        with open(coefs_filepath, mode='r') as file:
+
+        with open(coefs_filepath, mode="r") as file:
             csv_reader = csv.reader(file)
-            coefs_ankle_vs_motor = next(csv_reader)  # Read the first row, which is the motor_angle_curve_coeffs
-            coefs_TR = next(csv_reader)      # Read the second row, which is the TR_coeffs
+            coefs_ankle_vs_motor = next(
+                csv_reader
+            )  # Read the first row, which is the motor_angle_curve_coeffs
+            coefs_TR = next(csv_reader)  # Read the second row, which is the TR_coeffs
             max_dorsiflexed_ang = next(csv_reader)
 
             # convert to array of real numbers to allow for polyval evaluation
@@ -82,19 +100,29 @@ class TransmissionRatioGenerator:
         """
         Linearly transforms index in [0, granularity] to angle in [min_ang, max_ang]
         """
-        return i / self.granularity * (self.max_allowable_angle - self.min_allowable_angle) + self.min_allowable_angle
+        return (
+            i / self.granularity * (self.max_allowable_angle - self.min_allowable_angle)
+            + self.min_allowable_angle
+        )
 
     def angle_to_index(self, ang):
         """
         Linearly transforms angle in [min_ang, max_ang] to index in [0, granularity]
         """
-        return (ang - self.min_allowable_angle) / (self.max_allowable_angle - self.min_allowable_angle) * self.granularity
+        return (
+            (ang - self.min_allowable_angle)
+            / (self.max_allowable_angle - self.min_allowable_angle)
+            * self.granularity
+        )
 
     def set_TR_dict(self):
         """
         Creates dictionary mapping angles to instantaneous TR
         """
-        return {i: np.polyval(self.TR_coefs, self.index_to_angle(i)) for i in range(self.granularity)}
+        return {
+            i: np.polyval(self.TR_coefs, self.index_to_angle(i))
+            for i in range(self.granularity)
+        }
 
     def get_TR(self, ang):
         """
@@ -102,17 +130,21 @@ class TransmissionRatioGenerator:
 
         Cannot return TR lower than min_allowable_TR for safety reasons
         """
-        N = self.TR_dict[max(min(int(self.angle_to_index(ang)), self.granularity - 1), 0)]
+        N = self.TR_dict[
+            max(min(int(self.angle_to_index(ang)), self.granularity - 1), 0)
+        ]
         return max(N, self.min_allowable_TR)
 
 
 if __name__ == "__main__":
-    testgen = TransmissionRatioGenerator("right")
+    testgen = VariableTransmissionRatio("right")
 
     print("TR COEFS: {}".format(testgen.TR_coefs))
     print("OFFSET: {}".format(testgen.offset))
 
-    angles = np.linspace(testgen.min_allowable_angle, testgen.max_allowable_angle, 10000)
+    angles = np.linspace(
+        testgen.min_allowable_angle, testgen.max_allowable_angle, 10000
+    )
     TRs = [testgen.get_TR(ang) for ang in angles]
 
     plt.scatter(angles, TRs)

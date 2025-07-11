@@ -1,6 +1,6 @@
 import time
-from utils.filters import MovingAverageFilter
-from constants import TIME_METHOD, ACCEPT_STRIDE_THRESHOLD
+from src.utils.filter_utils import MovingAverageFilter
+from src.settings.constants import TIME_METHOD, BERTEC_THRESHOLDS
 
 
 class BertecEstimator:
@@ -95,9 +95,8 @@ class BertecEstimator:
 
                 # Make sure new stride is "reasonable"
                 if (
-                    abs((stride_period_new - stride_period_avg) / stride_period_avg)
-                    < ACCEPT_STRIDE_THRESHOLD
-                ):  # TODO do when pause_event and updatefilters:
+                    abs((stride_period_new - stride_period_avg) / stride_period_avg)< BERTEC_THRESHOLDS.ACCEPT_STRIDE_THRESHOLD):
+                    # TODO do when pause_event and updatefilters:
                     self.stride_period_tracker.update(stride_period_new)
 
                 self.HS = HS_new

@@ -2,10 +2,10 @@ import os, csv, time, grpc, threading
 from typing import Type
 from concurrent import futures
 
-import exoboot_remote_pb2 as pb2
-import exoboot_remote_pb2_grpc as pb2_grpc
+import src.gui_communication.exoboot_remote_pb2 as pb2
+import src.gui_communication.exoboot_remote_pb2_grpc as pb2_grpc
 from base_exo_thread import BaseThread
-from constants import GSE_MODE
+from src.settings.constants import GSE_MODE
 
 class ExobootRemoteClient:
     """

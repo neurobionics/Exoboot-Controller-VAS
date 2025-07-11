@@ -8,20 +8,36 @@ import time, copy, threading
 import datetime
 from typing import Type
 
-#from rtplot import client
-from ZMQ_PubSub import Subscriber
+# from rtplot import client
+from gait_state_estimation.ZMQ_PubSub import Subscriber
 from base_exo_thread import BaseThread
-from utils.filters import MovingAverageFilter
-from gse_bertec import Bertec_Estimator
-from SoftRTloop import FlexibleSleeper
+from src.utils.filter_utils import MovingAverageFilter
+from src.gait_state_estimation.gse_bertec import BertecEstimator
+from src.utils.SoftRTloop import FlexibleSleeper
 
-from constants import *
+from src.settings.constants import *
+
 
 class GaitStateEstimator(BaseThread):
     """
     Description
     """
-    def __init__(self, startstamp, device_left, device_right, thread_left, thread_right, name='GSE', filter_size=10, daemon=True, continuousmode=False, quit_event=Type[threading.Event], pause_event=Type[threading.Event], log_event=Type[threading.Event]):
+
+    def __init__(
+        self,
+        startstamp,
+        device_left,
+        device_right,
+        thread_left,
+        thread_right,
+        name="GSE",
+        filter_size=10,
+        daemon=True,
+        continuousmode=False,
+        quit_event=Type[threading.Event],
+        pause_event=Type[threading.Event],
+        log_event=Type[threading.Event],
+    ):
         super().__init__(name, daemon, quit_event, pause_event, log_event)
         self.device_left = device_left
         self.device_right = device_right
@@ -76,18 +92,26 @@ class GaitStateEstimator(BaseThread):
         Runs once before starting main loop
         """
         # Bertec subscribers and estimators
-        self.sub_bertec_right = Subscriber(publisher_ip=VICON_IP,topic_filter='fz_right',timeout_ms=5)
-        self.sub_bertec_left = Subscriber(publisher_ip=VICON_IP,topic_filter='fz_left',timeout_ms=5)
+        self.sub_bertec_right = Subscriber(
+            publisher_ip=STATIC_IP_ADDRESSES.VICON_IP, topic_filter="fz_right", timeout_ms=5
+        )
+        self.sub_bertec_left = Subscriber(
+            publisher_ip=STATIC_IP_ADDRESSES.VICON_IP, topic_filter="fz_left", timeout_ms=5
+        )
 
-        self.bertec_estimator_left = Bertec_Estimator(self.sub_bertec_left, filter_size=self.filter_size)
-        self.bertec_estimator_right = Bertec_Estimator(self.sub_bertec_right, filter_size=self.filter_size)
+        self.bertec_estimator_left = BertecEstimator(
+            self.sub_bertec_left, filter_size=self.filter_size
+        )
+        self.bertec_estimator_right = BertecEstimator(
+            self.sub_bertec_right, filter_size=self.filter_size
+        )
 
         # Period Tracker
         self.period_tracker = MovingAverageFilter(size=500)
         self.prev_end_time = TIME_METHOD()
 
         # Soft real time loop
-        self.softRTloop = FlexibleSleeper(period=1/BERTEC_STREAMING_FREQ)
+        self.softRTloop = FlexibleSleeper(period=1 / EXO_THREAD_FREQUENCIES.BERTEC_FREQ)
 
     def pre_iterate(self, pause_event):
         """
@@ -95,15 +119,15 @@ class GaitStateEstimator(BaseThread):
         Runs even if threads are paused
         """
         # Set starting time stamp
-        self.data_dict['pitime'] = TIME_METHOD() - self.startstamp
+        self.data_dict["pitime"] = TIME_METHOD() - self.startstamp
         # self.data_dict['date_time'] = datetime.strftime(TR_DATE_FORMATTER) #TODO FIX
 
         new_stride_flag_left, force_left = self.bertec_estimator_left.update()
         new_stride_flag_right, force_right = self.bertec_estimator_right.update()
 
         # Add forces to data dict
-        self.data_dict['forceplate_left'] = force_left
-        self.data_dict['forceplate_right'] = force_right
+        self.data_dict["forceplate_left"] = force_left
+        self.data_dict["forceplate_right"] = force_right
 
         return new_stride_flag_left, new_stride_flag_right
 
@@ -114,19 +138,27 @@ class GaitStateEstimator(BaseThread):
         """
         # Update exoboot threads if new state estimate
         if new_stride_flag_left:
-            HS_l, stride_period_l, in_swing_l = self.bertec_estimator_left.return_estimate()
+            HS_l, stride_period_l, in_swing_l = (
+                self.bertec_estimator_left.return_estimate()
+            )
 
             # lag units reported in seconds
             lag_left = HS_l - self.device_thread_left.HS_imu
 
-            self.device_thread_left.set_state_estimate(HS_l, stride_period_l, self.peak_torque_left, in_swing_l, lag_left)
+            self.device_thread_left.set_state_estimate(
+                HS_l, stride_period_l, self.peak_torque_left, in_swing_l, lag_left
+            )
 
         if new_stride_flag_right:
-            HS_r, stride_period_r, in_swing_r = self.bertec_estimator_right.return_estimate()
+            HS_r, stride_period_r, in_swing_r = (
+                self.bertec_estimator_right.return_estimate()
+            )
 
             lag_right = HS_r - self.device_thread_right.HS_imu
 
-            self.device_thread_right.set_state_estimate(HS_r, stride_period_r, self.peak_torque_right, in_swing_r, lag_right)
+            self.device_thread_right.set_state_estimate(
+                HS_r, stride_period_r, self.peak_torque_right, in_swing_r, lag_right
+            )
 
     def post_iterate(self):
         """
@@ -136,10 +168,10 @@ class GaitStateEstimator(BaseThread):
         end_time = TIME_METHOD()
         self.period_tracker.update(end_time - self.prev_end_time)
         self.prev_end_time = end_time
-        my_freq = 1/self.period_tracker.average()
+        my_freq = 1 / self.period_tracker.average()
 
         # Log gse freq
-        self.data_dict['thread_freq'] = my_freq
+        self.data_dict["thread_freq"] = my_freq
         if self.loggingnexus and self.log_event.is_set():
             self.loggingnexus.append(self.name, copy.deepcopy(self.data_dict))
 

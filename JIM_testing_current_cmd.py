@@ -1,13 +1,13 @@
 import numpy as np
-import os, sys, csv, time, datetime, threading
-import sys
+import time, datetime, threading
 import numpy as np
 import argparse
 
 from flexsea.device import Device
 from rtplot import client
-from constants import *
-from logger.logging_nexus import LoggingNexus, FilingCabinet
+from src.settings.constants import *
+from src.logger.logging_nexus import LoggingNexus
+from src.logger.filing_cabinet import FilingCabinet
 from exoboot_thread import ExobootThread
 
 from flexsea.fx_enums import FX_CURRENT
@@ -23,8 +23,8 @@ def get_active_ports():
     device_2 = Device(port="/dev/ttyACM1", baud_rate=BAUD_RATE)
 
     # Establish a connection between the computer and the device AND start streaming
-    device_1.open(freq=STREAMING_FREQ, log_level=3, log_enabled=True)
-    device_2.open(freq=STREAMING_FREQ, log_level=3, log_enabled=True)
+    device_1.open(freq=FLEXSEA_FREQ, log_level=3, log_enabled=True)
+    device_2.open(freq=FLEXSEA_FREQ, log_level=3, log_enabled=True)
 
     # Get side from side_dict
     side_1 = DEV_ID_TO_SIDE_DICT[device_1.dev_id]
@@ -34,19 +34,20 @@ def get_active_ports():
     print("Device 2: {}, {}".format(device_2.dev_id, side_2))
 
     # Always assign first pair of outputs to left side
-    if side_1 == 'left':
+    if side_1 == "left":
         return side_1, device_1, side_2, device_2
-    elif side_1 == 'right':
+    elif side_1 == "right":
         return side_2, device_2, side_1, device_1
     else:
         raise Exception("Invalid sides for devices: Check DEV_ID_TO_SIDE_DICT!")
 
+
 if __name__ == "__main__":
     # user inputs
     parser = argparse.ArgumentParser(description="JIM characterization script")
-    parser.add_argument('-current_setpt_mA', type=int, required=True)
-    parser.add_argument('-time', type=int, required=True)
-    parser.add_argument('-rom', type=str, required=True)
+    parser.add_argument("-current_setpt_mA", type=int, required=True)
+    parser.add_argument("-time", type=int, required=True)
+    parser.add_argument("-rom", type=str, required=True)
     args = parser.parse_args()
 
     side_left, device_left, side_right, device_right = get_active_ports()
@@ -54,39 +55,50 @@ if __name__ == "__main__":
     sides = [side_left, side_right]
 
     # Get current date
-    curr_date = datetime.datetime.today().strftime(TR_DATE_FORMATTER) # Get YEAR_MONTH_DAY_HOUR_MINUTE
-    date = curr_date if curr_date else datetime.datetime.today().strftime(TR_DATE_FORMATTER)
+    curr_date = datetime.datetime.today().strftime(
+        TR_DATE_FORMATTER
+    )  # Get YEAR_MONTH_DAY_HOUR_MINUTE
+    date = (
+        curr_date
+        if curr_date
+        else datetime.datetime.today().strftime(TR_DATE_FORMATTER)
+    )
 
     fname = "{}mA".format(args.current_setpt_mA)
     filingcabinet = FilingCabinet("JIM_testing", fname)
 
     # Initialize rtplot timeseries
-    client.configure_ip("35.3.69.66") # ip address of computer that is plotting data (server)
+    client.configure_ip(
+        "35.3.69.66"
+    )  # ip address of computer that is plotting data (server)
 
-    plot_1_config = {'names': ['Current (mA)'],
-                    'title': "Current (mA) vs. Sample",
-                    'ylabel': "Current (mA)",
-                    'xlabel': 'timestep',
-                    'yrange': [args.current_setpt_mA-100, args.current_setpt_mA+100],
-                    "colors":['r'],
-                    "line_width": [8,8],
-                    }
-    plot_2_config = {'names': ['Temp (°C)'],
-                    'title': "Temp (°C) vs. Sample",
-                    'ylabel': "Temperature (°C)",
-                    'xlabel': 'timestep',
-                    'yrange': [30, 50],
-                    "colors":['b'],
-                    "line_width": [8,8],
-                    }
-    plot_3_config = {'names':['Ankle Angle (°)'],
-                    'title': "Ankle Angle (°) vs. Sample",
-                    'ylabel': "Ankle Angle (°)",
-                    'xlabel': 'timestep',
-                    'yrange': [0, 150],
-                    "colors":['g'],
-                    "line_width": [8,8],
-                    }
+    plot_1_config = {
+        "names": ["Current (mA)"],
+        "title": "Current (mA) vs. Sample",
+        "ylabel": "Current (mA)",
+        "xlabel": "timestep",
+        "yrange": [args.current_setpt_mA - 100, args.current_setpt_mA + 100],
+        "colors": ["r"],
+        "line_width": [8, 8],
+    }
+    plot_2_config = {
+        "names": ["Temp (°C)"],
+        "title": "Temp (°C) vs. Sample",
+        "ylabel": "Temperature (°C)",
+        "xlabel": "timestep",
+        "yrange": [30, 50],
+        "colors": ["b"],
+        "line_width": [8, 8],
+    }
+    plot_3_config = {
+        "names": ["Ankle Angle (°)"],
+        "title": "Ankle Angle (°) vs. Sample",
+        "ylabel": "Ankle Angle (°)",
+        "xlabel": "timestep",
+        "yrange": [0, 150],
+        "colors": ["g"],
+        "line_width": [8, 8],
+    }
 
     plot_config = [plot_1_config, plot_2_config, plot_3_config]
 
@@ -112,7 +124,20 @@ if __name__ == "__main__":
 
         # Create Exoboot Thread:
         exothreadname = "exothread_{}".format(side)
-        exothread = ExobootThread(side, device, 0, exothreadname, True, quit_event, pause_event, log_event, True, ZERO_CURRENT, MAX_ALLOWABLE_CURRENT, on_pause_triggers=0)
+        exothread = ExobootThread(
+            side,
+            device,
+            0,
+            exothreadname,
+            True,
+            quit_event,
+            pause_event,
+            log_event,
+            True,
+            ZERO_CURRENT,
+            MAX_ALLOWABLE_CURRENT,
+            on_pause_triggers=0,
+        )
         exothread.start()
 
         file_prefix = "{}_{}".format(fname, args.rom)
@@ -126,13 +151,21 @@ if __name__ == "__main__":
             ramp_start = time.time()
             ramp_period = 1.0
             while time.time() - ramp_start < ramp_period:
-                ramp_current = args.current_setpt_mA * (time.time()-ramp_start)/ramp_period
-                device.send_motor_command(FX_CURRENT, exothread.motor_sign * int(ramp_current))
+                ramp_current = (
+                    args.current_setpt_mA * (time.time() - ramp_start) / ramp_period
+                )
+                device.send_motor_command(
+                    FX_CURRENT, exothread.motor_sign * int(ramp_current)
+                )
                 time.sleep(0.05)
             print("END_RAMP")
-            device.send_motor_command(FX_CURRENT, exothread.motor_sign * args.current_setpt_mA)
+            device.send_motor_command(
+                FX_CURRENT, exothread.motor_sign * args.current_setpt_mA
+            )
 
-            while (time.perf_counter() - start_time < args.time) and quit_event.is_set():
+            while (
+                time.perf_counter() - start_time < args.time
+            ) and quit_event.is_set():
                 curr_current = logger.get(exothread.name, "motor_current")
                 curr_temp_exo = logger.get(exothread.name, "temperature")
                 curr_ank_ang = logger.get(exothread.name, "ankle_angle")
@@ -140,14 +173,16 @@ if __name__ == "__main__":
                 # print("current is ",curr_current)
 
                 plot_data_array = [abs(curr_current), abs(curr_temp_exo), curr_ank_ang]
-                client.send_array(plot_data_array) # Send data to server to plot
+                client.send_array(plot_data_array)  # Send data to server to plot
 
                 # thermal safety shutoff
                 if curr_temp_exo >= MAX_CASE_TEMP:
-                    print("Case Temperature has exceed 75°C soft limit. Exiting Gracefully")
+                    print(
+                        "Case Temperature has exceed 75°C soft limit. Exiting Gracefully"
+                    )
                     quit_event.clear()
 
-                time.sleep(1/500) #TODO main loop freq variable required
+                time.sleep(1 / 500)  # TODO main loop freq variable required
         except KeyboardInterrupt:
             print("KB DONE")
         finally:
@@ -157,5 +192,5 @@ if __name__ == "__main__":
             logger.log()
 
             # after which, stop commanding the motor
-            device.send_motor_command(FX_CURRENT,0)
+            device.send_motor_command(FX_CURRENT, 0)
             # device.close()

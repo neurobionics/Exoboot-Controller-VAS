@@ -1,14 +1,7 @@
 import time
 from math import sqrt
-from utils.filters import MovingAverageFilter
-from constants import (
-    TIME_METHOD,
-    ACCEPT_STRIDE_THRESHOLD,
-    INCLINE_HS_ANK_ANG_UPPER_BOUND,
-    INCLINE_HS_ANK_ANG_LOWER_BOUND,
-    FLAT_HS_ANK_ANG_UPPER_BOUND,
-    FLAT_HS_ANK_ANG_LOWER_BOUND,
-)
+from src.utils.filter_utils import MovingAverageFilter
+from constants_without_dataclasses import TIME_METHOD, ACCEPT_STRIDE_THRESHOLD
 from math import exp, pi, sqrt
 
 

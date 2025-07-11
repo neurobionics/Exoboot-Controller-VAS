@@ -2,6 +2,7 @@
 # A class for implementing a software real-time loop.
 #
 # Original Author: Varun Satyadev Shetty
+# New Flexible Sleeper class created by: John Hutchinson
 # Date: 06/17/2024
 
 

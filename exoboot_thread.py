@@ -10,29 +10,42 @@ import os, csv, time, threading
 from typing import Type
 import datetime
 
-from constants import *
+from src.settings.constants import *
 
-from thermal import ThermalModel
+from src.utils.thermal import ThermalModel
 from base_exo_thread import BaseThread
-from SoftRTloop import FlexibleSleeper
-from utils.filters import MovingAverageFilter, TrueAfter
-from assistance_calculator import AssistanceGenerator
-from gse_imu import IMU_Estimator
-from transmission_ratio_files.TransmissionRatioGenerator import TransmissionRatioGenerator
+from src.utils.SoftRTloop import FlexibleSleeper
+from src.utils.filter_utils import MovingAverageFilter, TrueAfter
+from src.assistance_calculator import AssistanceCalculator
+from src.gait_state_estimation.gse_imu import IMUEstimator
+from src.variable_transmission_ratio import VariableTransmissionRatio
 
 from flexsea.fx_enums import FX_CURRENT
 
+
 class ExobootThread(BaseThread):
-    def __init__(self, side, flexdevice, startstamp, name='exobootthread', daemon=True, quit_event=Type[threading.Event], pause_event=Type[threading.Event], log_event=Type[threading.Event], overridedefaultcurrentbounds=False, min_current=0, max_current=27500, on_pause_triggers=-1, threadfrequency=FLEXSEA_AND_EXOTHREAD_FREQ):
-        """
-        TODO make overview
-        """
+    def __init__(
+        self,
+        side,
+        flexdevice,
+        startstamp,
+        name="exobootthread",
+        daemon=True,
+        quit_event=Type[threading.Event],
+        pause_event=Type[threading.Event],
+        log_event=Type[threading.Event],
+        overridedefaultcurrentbounds=False,
+        min_current=EXO_CURRENT_SAFETY_CONSTANTS.MIN_CURRENT,
+        max_current=EXO_CURRENT_SAFETY_CONSTANTS.MAX_CURRENT,
+        on_pause_triggers=-1,
+        threadfrequency=EXO_THREAD_FREQUENCIES.EXOTHREAD_FREQ,
+    ):
 
         super().__init__(name, daemon, quit_event, pause_event, log_event)
 
         # Necessary Inputs for Exo Class
         self.side = side
-        self.flexdevice = flexdevice # In ref to flexsea Device class
+        self.flexdevice = flexdevice  # In ref to flexsea Device class
         self.threadfrequency = threadfrequency
 
         # Motor and ankle signs
@@ -46,26 +59,43 @@ class ExobootThread(BaseThread):
         self.ankle_angle_zero = 0
 
         # Set Transmission Ratio and Motor-Angle Curve Coefficients	from pre-performed calibration
-        self.tr_gen = TransmissionRatioGenerator(self.side, coefs_prefix=TR_COEFS_PREFIX, filepath=TR_FOLDER_PATH, max_allowable_angle=180, min_allowable_angle=0, min_allowable_TR=10, granularity=10000)
+        self.tr_gen = VariableTransmissionRatio(
+            self.side,
+            coefs_prefix=TR_COEFS_PREFIX,
+            filepath=TR_FOLDER_PATH,
+            max_allowable_angle=180,
+            min_allowable_angle=0,
+            min_allowable_TR=10,
+            granularity=10000,
+        )
 
         # Instantiate AssistanceGenerator (DOES NOT HAVE PROFILE ON INITIALIZATION)
-        self.assistance_generator = AssistanceGenerator()
+        self.assistance_generator = AssistanceCalculator(INCLINE_WALK_TIMINGS.P_RISE,
+                                                         INCLINE_WALK_TIMINGS.P_PEAK,
+                                                         INCLINE_WALK_TIMINGS.P_FALL,
+                                                         EXO_DEFAULT_CONFIG.HOLDING_TORQUE,
+                                                         )
 
         # Instantiate GSE_IMU
-        self.gse_imu = IMU_Estimator(run_len_threshold=100, filter_size=10)
+        self.gse_imu = IMUEstimator(run_len_threshold=100, filter_size=10)
 
         # Instantiate Thermal Model and specify thermal limits
-        self.thermalModel = ThermalModel(temp_limit_windings=100,soft_border_C_windings=10,temp_limit_case=75,soft_border_C_case=5)
+        self.thermalModel = ThermalModel(
+            temp_limit_windings=90,
+            soft_border_C_windings=10,
+            temp_limit_case=70,
+            soft_border_C_case=5,
+        )
 
         self.case_temperature = 0
         self.winding_temperature = 0
-        self.max_case_temperature = MAX_CASE_TEMP
-        self.max_winding_temperature = MAX_WINDING_TEMP
+        self.max_case_temperature = EXO_THERMAL_SAFETY_LIMITS.MAX_CASE_TEMP
+        self.max_winding_temperature = EXO_THERMAL_SAFETY_LIMITS.MAX_WINDING_TEMP
         self.exo_safety_shutoff_flag = False
         self.prev_temp = 0
 
         # Peak torque set over exoboot remote
-        self.peak_torque:float = 0
+        self.peak_torque: float = 0
 
         # State estimate set by GSE
         self.HS = TIME_METHOD()
@@ -73,17 +103,13 @@ class ExobootThread(BaseThread):
         self.stride_period = 1.0
         self.in_swing = False
 
-        # TODO add GSE IMU state estimates
         self.HS_imu = TIME_METHOD()
 
         # lag default 0
         self.lag = 0
-        # self.lag_time_tracker = MovingAverageFilter(    # initialized with 50ms delay
-        #     initial_value=0.50, size=10
-        # )
 
         # Logging Nexus
-        self.continuousmode =False
+        self.continuousmode = False
 
         if GSE_MODE == "IMU":
             self.fields = IMU_EXOTHREAD_FIELDS
@@ -102,8 +128,8 @@ class ExobootThread(BaseThread):
             self.min_current = min_current
             self.max_current = max_current
         else:
-            self.min_current = BIAS_CURRENT
-            self.max_current = MAX_ALLOWABLE_CURRENT
+            self.min_current = EXO_DEFAULT_CONFIG.BIAS_CURRENT
+            self.max_current = EXO_CURRENT_SAFETY_LIMITS.MAX_ALLOWABLE_CURRENT
 
         # Trigger on_pause once or every loop
         self.on_pause_triggers = on_pause_triggers
@@ -121,7 +147,7 @@ class ExobootThread(BaseThread):
         return self.data_dict[what]
 
     def spool_belt(self):
-        self.flexdevice.send_motor_command(FX_CURRENT, self.motor_sign * BIAS_CURRENT)
+        self.flexdevice.send_motor_command(FX_CURRENT, self.motor_sign * EXO_DEFAULT_CONFIG.BIAS_CURRENT)
         # time.sleep(0.5)
 
     def zeroProcedure(self):
@@ -130,7 +156,10 @@ class ExobootThread(BaseThread):
 
         Subject must stand sufficiently still (>95%) in order to register the angle as the zero
         """
-        filename = os.path.join('Autogen_zeroing_coeff_files','offsets_Exo{}.csv'.format(self.side.capitalize()))
+        filename = os.path.join(
+            "Autogen_zeroing_coeff_files",
+            "offsets_Exo{}.csv".format(self.side.capitalize()),
+        )
 
         # conduct zeroing/homing procedure and log offsets
         print("Starting ankle zeroing/homing procedure for: \n", self.side)
@@ -154,13 +183,18 @@ class ExobootThread(BaseThread):
         while holdingCurrent:
             # Get angles from direct read
             data = self.flexdevice.read()
-            current_ank_angle = self.ank_enc_sign * data['ank_ang'] * ENC_CLICKS_TO_DEG
-            current_mot_angle = self.motor_sign * data['mot_ang'] * ENC_CLICKS_TO_DEG
-            current_ank_vel = data['ank_vel'] / 10
-            current_mot_vel = data['mot_vel']
+            current_ank_angle = self.ank_enc_sign * data["ank_ang"] * EB51_CONSTANTS.MOT_ENC_CLICKS_TO_DEG
+            current_mot_angle = self.motor_sign * data["mot_ang"] * EB51_CONSTANTS.MOT_ENC_CLICKS_TO_DEG
+            current_ank_vel = data["ank_vel"] / 10
+            current_mot_vel = data["mot_vel"]
 
             # Update ismoving filter with moving/not moving
-            ismoving.update(1) if abs(current_mot_vel) > motor_vel_threshold or abs(current_ank_vel) > ankle_vel_threshold else ismoving.update(0)
+            (
+                ismoving.update(1)
+                if abs(current_mot_vel) > motor_vel_threshold
+                or abs(current_ank_vel) > ankle_vel_threshold
+                else ismoving.update(0)
+            )
 
             # Update history
             motor_angles_history.update(current_mot_angle)
@@ -187,7 +221,7 @@ class ExobootThread(BaseThread):
             file.close()
 
         # Send 0 current
-        self.flexdevice.send_motor_command(FX_CURRENT,0)
+        self.flexdevice.send_motor_command(FX_CURRENT, 0)
 
     def read_sensors(self):
         """
@@ -201,54 +235,66 @@ class ExobootThread(BaseThread):
         #     return
 
         # Exoboot Time
-        self.data_dict['state_time'] = data.state_time / 1000 #converting to seconds
+        self.data_dict["state_time"] = data.state_time / 1000  # converting to seconds
 
         # Temp with antispike
         new_temp = data.temperature
         if abs(new_temp) < TEMPANTISPIKE:
-            self.data_dict['temperature'] = new_temp
+            self.data_dict["temperature"] = new_temp
             self.prev_temp = new_temp
 
         # Accelerometer
         # Note based on the MPU reading script it says the accel = raw_accel/accel_sace * 9.80605 -- so if the value of accel returned is multiplyed  by the gravity term then the accel_scale for 4g is 8192
-        self.data_dict['accel_x'] = data.accelx * ACCEL_GAIN  #This is in the walking direction {i.e the rotational axis of the frontal plane}
-        self.data_dict['accel_y'] = -1 * data.accely * ACCEL_GAIN # This is in the vertical direction {i.e the rotational axis of the transverse plane}
-        self.data_dict['accel_z'] = data.accelz * ACCEL_GAIN # This is the rotational axis of the sagital plane
+        self.data_dict["accel_x"] = (
+            data.accelx * EXO_IMU_CONSTANTS.ACCEL_GAIN
+        )  # This is in the walking direction {i.e the rotational axis of the frontal plane}
+        self.data_dict["accel_y"] = (
+            -1 * data.accely * EXO_IMU_CONSTANTS.ACCEL_GAIN
+        )  # This is in the vertical direction {i.e the rotational axis of the transverse plane}
+        self.data_dict["accel_z"] = (
+            data.accelz * EXO_IMU_CONSTANTS.ACCEL_GAIN
+        )  # This is the rotational axis of the sagital plane
 
         # Gyro
         # Note based on the MPU reading script it says the gyro = radians(raw_gyro/gyroscale) for the gyrorange of 1000DPS the gyroscale is 32.8
-        self.data_dict['gyro_x'] = -1 * data.gyrox * GYRO_GAIN
-        self.data_dict['gyro_y'] = data.gyroy * GYRO_GAIN
+        self.data_dict["gyro_x"] = -1 * data.gyrox * EXO_IMU_CONSTANTS.GYRO_GAIN
+        self.data_dict["gyro_y"] = data.gyroy * EXO_IMU_CONSTANTS.GYRO_GAIN
         # Remove -1 for EB-51
-        self.data_dict['gyro_z'] = data.gyroz * GYRO_GAIN
+        self.data_dict["gyro_z"] = data.gyroz * EXO_IMU_CONSTANTS.GYRO_GAIN
 
         # Ankle Encoder with offset
-        ankle_angle = (self.ank_enc_sign * data.ank_ang * ENC_CLICKS_TO_DEG) - self.tr_gen.get_offset()
-        self.data_dict['ankle_angle'] = ankle_angle
-        self.data_dict['ankle_velocity'] = data.ank_vel / 10
+        ankle_angle = (
+            self.ank_enc_sign * data.ank_ang * EB51_CONSTANTS.MOT_ENC_CLICKS_TO_DEG
+        ) - self.tr_gen.get_offset()
+        self.data_dict["ankle_angle"] = ankle_angle
+        self.data_dict["ankle_velocity"] = data.ank_vel / 10
 
         # Motor Encoder
-        self.data_dict['motor_angle'] = self.motor_sign * data.mot_ang * ENC_CLICKS_TO_DEG
-        self.data_dict['motor_velocity'] = data.mot_vel
+        self.data_dict["motor_angle"] = (
+            self.motor_sign * data.mot_ang * EB51_CONSTANTS.MOT_ENC_CLICKS_TO_DEG
+        )
+        self.data_dict["motor_velocity"] = data.mot_vel
 
         # TODO clamp motor current to not get bad readings
-        self.data_dict['motor_current'] = data.mot_cur
-        self.data_dict['motor_voltage'] = data.mot_volt
-        self.data_dict['battery_voltage'] = data.batt_volt
-        self.data_dict['battery_current'] = data.batt_curr
+        self.data_dict["motor_current"] = data.mot_cur
+        self.data_dict["motor_voltage"] = data.mot_volt
+        self.data_dict["battery_voltage"] = data.batt_volt
+        self.data_dict["battery_current"] = data.batt_curr
 
         ## ====Calculate Delivered Ankle Torque from Measured Current====
-        actual_mot_torque_left = self.data_dict['motor_current'] * Kt / 1000 * self.motor_sign # Nm
+        actual_mot_torque_left = (
+            self.data_dict["motor_current"] * EB51_CONSTANTS.Kt / 1000 * self.motor_sign
+        )  # Nm
         N = self.tr_gen.get_TR(ankle_angle)
-        self.data_dict['N'] = N
-        self.data_dict['act_ank_torque'] = N * EFFICIENCY * actual_mot_torque_left
+        self.data_dict["N"] = N
+        self.data_dict["act_ank_torque"] = N * EB51_CONSTANTS.EFFICIENCY * actual_mot_torque_left
 
     def torque_2_current(self, torque, N) -> int:
         """
         Calculate equivalent current command given torque and TR
         Returns current (int) in mA
         """
-        des_current = torque / (N * EFFICIENCY * Kt)   # output in mA
+        des_current = torque / (N * EB51_CONSTANTS.EFFICIENCY * EB51_CONSTANTS.Kt)  # output in mA
 
         return int(des_current)
 
@@ -263,16 +309,16 @@ class ExobootThread(BaseThread):
         """
 
         # measured temp by Dephy from the actpack is the case temperature
-        measured_temp = self.getval('temperature')
-        motor_current = self.getval('motor_current')
-        freq = self.getval('thread_freq')
+        measured_temp = self.getval("temperature")
+        motor_current = self.getval("motor_current")
+        freq = self.getval("thread_freq")
 
         # determine modeled case & winding temp
         self.thermalModel.T_c = measured_temp
         self.thermalModel.update(dt=(1 / freq), motor_current=motor_current)
         winding_temperature = self.thermalModel.T_w
 
-        self.data_dict['winding_temp'] = winding_temperature
+        self.data_dict["winding_temp"] = winding_temperature
 
         # Shut off exo if thermal limits breached
         if measured_temp >= self.max_case_temperature:
@@ -303,11 +349,6 @@ class ExobootThread(BaseThread):
         self.stride_period = stride_period
         self.peak_torque = peak_torque
         self.in_swing = in_swing
-
-        # only assign lag & feed into average if it's reasonable:
-        # lag_avg = self.lag_time_tracker.average()   # get current avg
-        # if abs((lag - lag_avg) / lag_avg) < ACCEPT_LAG_THRESHOLD:
-        #     self.lag_time_tracker.update(lag)
         self.lag = lag
 
     def update_imu_gait_state_estimate(self):
@@ -323,33 +364,33 @@ class ExobootThread(BaseThread):
         # logged imu states
         if GSE_MODE == "IMU":
             imu_state_dict = self.gse_imu.return_estimate()
-            self.data_dict['HS_imu'] = imu_state_dict["HS_time"]
-            self.data_dict['stride_period_imu'] = imu_state_dict["stride_period"]
-            self.data_dict['in_swing_imu'] = imu_state_dict["in_swing"]
-            self.data_dict['imu_activations'] = imu_state_dict["activation"]
-            self.data_dict['peak_torque'] = self.peak_torque
-            self.data_dict['in_swing'] = self.in_swing
+            self.data_dict["HS_imu"] = imu_state_dict["HS_time"]
+            self.data_dict["stride_period_imu"] = imu_state_dict["stride_period"]
+            self.data_dict["in_swing_imu"] = imu_state_dict["in_swing"]
+            self.data_dict["imu_activations"] = imu_state_dict["activation"]
+            self.data_dict["peak_torque"] = self.peak_torque
+            self.data_dict["in_swing"] = self.in_swing
 
         # logged bertec states
         elif GSE_MODE == "BERTEC":
-            self.data_dict['HS'] = self.HS
-            self.data_dict['current_time'] = self.current_time
-            self.data_dict['stride_period'] = self.stride_period
-            self.data_dict['peak_torque'] = self.peak_torque
-            self.data_dict['in_swing'] = self.in_swing
+            self.data_dict["HS"] = self.HS
+            self.data_dict["current_time"] = self.current_time
+            self.data_dict["stride_period"] = self.stride_period
+            self.data_dict["peak_torque"] = self.peak_torque
+            self.data_dict["in_swing"] = self.in_swing
 
         elif GSE_MODE == "COMBO":
             imu_state_dict = self.gse_imu.return_estimate()
-            self.data_dict['HS_imu'] = imu_state_dict["HS_time"]
-            self.data_dict['stride_period_imu'] = imu_state_dict["stride_period"]
-            self.data_dict['in_swing_imu'] = imu_state_dict["in_swing"]
-            self.data_dict['imu_activations'] = imu_state_dict["activation"]
+            self.data_dict["HS_imu"] = imu_state_dict["HS_time"]
+            self.data_dict["stride_period_imu"] = imu_state_dict["stride_period"]
+            self.data_dict["in_swing_imu"] = imu_state_dict["in_swing"]
+            self.data_dict["imu_activations"] = imu_state_dict["activation"]
 
-            self.data_dict['HS'] = self.HS
-            self.data_dict['current_time'] = self.current_time
-            self.data_dict['stride_period'] = self.stride_period
-            self.data_dict['peak_torque'] = self.peak_torque
-            self.data_dict['in_swing'] = self.in_swing
+            self.data_dict["HS"] = self.HS
+            self.data_dict["current_time"] = self.current_time
+            self.data_dict["stride_period"] = self.stride_period
+            self.data_dict["peak_torque"] = self.peak_torque
+            self.data_dict["in_swing"] = self.in_swing
 
     # Threading run() functions
     def on_pre_run(self):
@@ -358,18 +399,13 @@ class ExobootThread(BaseThread):
         """
         # Exoboot spooling/zeroing routine
         self.spool_belt()
-        # self.zeroProcedure()
-
-        # Load profile timings and create generic profile
-        self.assistance_generator.load_timings(SPINE_TIMING_PARAMS_DICT)
-        self.assistance_generator.set_my_generic_profile(granularity=10000)
 
         # Track thread performance
         self.period_tracker = MovingAverageFilter(size=500)
         self.prev_end_time = TIME_METHOD()
 
         # Soft real time loop
-        self.softRTloop = FlexibleSleeper(period=1/self.threadfrequency)
+        self.softRTloop = FlexibleSleeper(period=1 / self.threadfrequency)
 
     def on_pause(self):
         """
@@ -377,14 +413,13 @@ class ExobootThread(BaseThread):
         """
         # Send bias current
         self.flexdevice.send_motor_command(FX_CURRENT, self.motor_sign * self.min_current)
-        # print("ON_PAUSE")
 
     def pre_iterate(self):
         """
         Set Startstamp and read sensor data
         """
         # Set starting time stamp
-        self.data_dict['pitime'] = TIME_METHOD() - self.startstamp
+        self.data_dict["pitime"] = TIME_METHOD() - self.startstamp
         # TODO: self.data_dict['date_time'] = datetime.datetime.strftime(TR_DATE_FORMATTER)
 
         # Read sensors
@@ -394,7 +429,7 @@ class ExobootThread(BaseThread):
 
         # update HS_imu attribute
         if GSE_MODE == "COMBO":
-            self.HS_imu = self.data_dict['HS_imu']
+            self.HS_imu = self.data_dict["HS_imu"]
 
     def iterate(self):
         """
@@ -405,16 +440,17 @@ class ExobootThread(BaseThread):
         # Acquire torque command based on gait estimate
         if GSE_MODE == "IMU":
             self.current_time = TIME_METHOD() - self.data_dict["HS_imu"]
-            torque_command = self.assistance_generator.generic_torque_generator(self.current_time,
-                                                                                self.data_dict["stride_period_imu"],
-                                                                                self.peak_torque,
-                                                                                self.data_dict["in_swing_imu"])
+            torque_command = self.assistance_generator.torque_generator(
+                self.current_time,
+                self.data_dict["stride_period_imu"],
+                self.peak_torque,
+                self.data_dict["in_swing_imu"],
+            )
         elif GSE_MODE == "BERTEC":
             self.current_time = TIME_METHOD() - self.HS
-            torque_command = self.assistance_generator.generic_torque_generator(self.current_time,
-                                                                                self.stride_period,
-                                                                                self.peak_torque,
-                                                                                self.in_swing)
+            torque_command = self.assistance_generator.torque_generator(
+                self.current_time, self.stride_period, self.peak_torque, self.in_swing
+            )
         elif GSE_MODE == "COMBO":
             # log the lag:
             self.data_dict["lag"] = self.lag
@@ -427,19 +463,21 @@ class ExobootThread(BaseThread):
             # else:
             lag_compensated_time = self.current_time + self.lag
 
-            torque_command = self.assistance_generator.generic_torque_generator(lag_compensated_time,
-                                                                                self.stride_period,
-                                                                                self.peak_torque,
-                                                                                self.in_swing)
+            torque_command = self.assistance_generator.torque_generator(
+                lag_compensated_time,
+                self.stride_period,
+                self.peak_torque,
+                self.in_swing,
+            )
         else:
             pass
 
         # log the generated torque command
-        self.data_dict['torque_command'] = torque_command
+        self.data_dict["torque_command"] = torque_command
 
         # Convert torque to current
-        current_command = self.torque_2_current(torque_command, self.getval('N'))
-        self.data_dict['current_command'] = current_command
+        current_command = self.torque_2_current(torque_command, self.getval("N"))
+        self.data_dict["current_command"] = current_command
 
         # Clamp current between bias and max allowable current
         vetted_current = max(min(current_command, self.max_current), self.min_current)
@@ -450,7 +488,9 @@ class ExobootThread(BaseThread):
             self.flexdevice.send_motor_command(FX_CURRENT, 0)
             self.pause_event.clear()
         else:
-            self.flexdevice.send_motor_command(FX_CURRENT, self.motor_sign * vetted_current)
+            self.flexdevice.send_motor_command(
+                FX_CURRENT, self.motor_sign * vetted_current
+            )
             # pass
 
     def post_iterate(self):
@@ -462,14 +502,18 @@ class ExobootThread(BaseThread):
         end_time = TIME_METHOD()
         self.period_tracker.update(end_time - self.prev_end_time)
         self.prev_end_time = end_time
-        my_freq = 1/self.period_tracker.average()
-        self.data_dict['thread_freq'] = my_freq
+        my_freq = 1 / self.period_tracker.average()
+        self.data_dict["thread_freq"] = my_freq
 
         # Perform thermal safety check on actpack
         # TODO: self.thermal_safety_checker()
 
         # Send GSE data for logging
-        if self.loggingnexus and self.log_event.is_set() and end_time - self.lastlogstamp > 1/EXOTHREAD_LOGGING_FREQ:
+        if (
+            self.loggingnexus
+            and self.log_event.is_set()
+            and end_time - self.lastlogstamp > 1 / THREAD_FREQS.LOGGING_FREQ
+        ):
             self.loggingnexus.append(self.name, self.data_dict)
             self.lastlogstamp = end_time
 

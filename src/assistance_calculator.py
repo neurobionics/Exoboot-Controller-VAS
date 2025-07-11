@@ -1,5 +1,6 @@
 # Description:
-# AssistanceGenerator Creates generic 4 point spline profile based on 4 parameters
+# AssistanceGenerator creates a generic 4 point spline profile based on 4 parameters:
+# rise time, peak torque time, fall time, and toe-off time.
 #
 # Profile is linearly scaled to fit profile to given max torque
 #
@@ -9,146 +10,312 @@
 # Date: 06/14/2024
 
 import numpy as np
+
 from scipy.interpolate import CubicSpline
-from constants import END_OF_STRIDE
-from constants import P_RISE, P_PEAK, P_FALL, P_TOE_OFF, HOLDING_TORQUE, BIAS_CURRENT
+from opensourceleg.utilities import SoftRealtimeLoop
+from opensourceleg.logging import Logger, LogLevel
+
+from src.settings.constants import(
+    INCLINE_WALK_TIMINGS,
+    EXO_DEFAULT_CONFIG)
 
 
 class AssistanceCalculator:
-    def __init__(
-        self,
-        p_rise: float = P_RISE,
-        p_peak: float = P_PEAK,
-        p_fall: float = P_FALL,
-        p_toe_off: float = P_TOE_OFF,
-        holding_torque: float = HOLDING_TORQUE,
-        bias_current: int = BIAS_CURRENT,
-    ):
-        # fixed high-level-control parameters for uphill walking
-        self.p_rise = p_rise  # % stance from p_peak
-        self.p_peak = p_peak  # % stance from heel strike
-        self.p_fall = p_fall  # % stance from p_peak
-        self.p_toe_off = p_toe_off  # % stance from heel strike
+    def __init__(self,
+                 t_rise:float=INCLINE_WALK_TIMINGS.P_RISE,
+                 t_peak:float=INCLINE_WALK_TIMINGS.P_PEAK,
+                 t_fall:float=INCLINE_WALK_TIMINGS.P_FALL,
+                 holding_torque:float=EXO_DEFAULT_CONFIG.HOLDING_TORQUE,
+                 resolution:int=10000)->None:
+
+        if resolution <= 0:
+            raise ValueError("Resolution must be greater than zero.")
+
+        if t_rise < 0 or t_peak < 0 or t_fall < 0:
+            raise ValueError("Timing parameters (t_rise, t_peak, t_fall) must be non-negative.")
+
+        self.t_rise = t_rise       # % stance from t_peak
+        self.t_peak = t_peak	   # % stance from heel strike
+        self.t_fall = t_fall       # % stance from t_peak
+        self.end_of_stride_in_percent = 100
+
+        # convert timing params to percent stride
+        self.convert_params_to_percent_stride()
+
+        # determine torque onset & drop-off inflection pts
+        self.calculate_onset_and_dropoff_times()
 
         self.holding_torque = holding_torque
-        self.bias_current = bias_current
 
-    def load_timings(self, timings_dict):
+        self.percent_stride = 0
+
+        # normalized ranges
+        self.normalize_min = 0
+        self.normalize_max = 1
+        self.resolution = resolution    # torque resolution of generic profile
+
+        # determine rising and falling spline objects
+        rising_spline, falling_spline = self.create_spline_sections()
+
+        # create normalized profile
+        self.create_normalized_profile(rising_spline, falling_spline)
+
+    def set_new_timing_params(self, t_rise:float, t_peak:float, t_fall:float) -> None:
         """
-        Set timings from dict
+        Set new timing parameters.
 
-        Needs all entries to set succesfully
+        Args:
+            - t_rise (float): percent stance from t_peak
+            - t_peak (float): percent stance from heel strike
+            - t_fall (float): percent stance from t_peak
         """
         try:
-            self.p_rise = timings_dict["P_RISE"]
-            self.p_peak = timings_dict["P_PEAK"]
-            self.p_fall = timings_dict["P_FALL"]
-            self.p_toe_off = timings_dict["P_TOE_OFF"]
-            self.holding_torque = timings_dict["HOLDING_TORQUE"]
-            self.bias_current = timings_dict["BIAS_CURRENT"]
+            self.t_rise = t_rise
+            self.t_peak = t_peak
+            self.t_fall = t_fall
+
+            # convert timing params to percent stride
+            self.convert_params_to_percent_stride()
+
+            # determine torque onset & drop-off inflection pts
+            self.calculate_onset_and_dropoff_times()
+
+            # determine rising and falling spline objects
+            rising_spline, falling_spline = self.create_spline_sections()
+
+            # create normalized profile
+            self.create_normalized_profile(rising_spline, falling_spline)
+
         except:
-            raise Exception(
-                "set_timings failed in assistance generator; provided dict missing entries"
-            )
+            raise Exception("set_new_timing_params failed in assistance generator")
 
-    def set_my_generic_profile(self, granularity=10000):
+    def set_new_holding_torque(self, holding_torque:float) -> None:
         """
-        Creates generic cubic spline based profile using timing parameters
-        percent range: [0, 1]
-        torque range: [0, 1]
+        Set a new holding torque.
 
-        sets generic_profile dictionary as attribute of class
-
-        dictionary is size granularity indexed by ints from 0 to granularity
-
-        NEED TO RUN BEFORE generic_torque_generator OTHERWISE NO PROFILE WILL EXIST
+        Args:
+            holding_torque: in Nm
         """
-        self.granularity = granularity
+        self.holding_torque = holding_torque
 
-        # Torque range
-        self.generic_min = 0
-        self.generic_max = 1
+    def create_spline_sections(self) -> tuple[object]:
+        """
+        Create rising and falling spline sections.
+        """
 
-        # Convert Nodes to % stride
-        p_peak = self.p_peak / END_OF_STRIDE
-        p_rise = self.p_rise / END_OF_STRIDE
-        p_fall = self.p_fall / END_OF_STRIDE
-        # p_toe_off = self.p_toe_off / END_OF_STRIDE
+        try:
+            rising_spline = CubicSpline([self.t_onset, self.t_peak],
+                                        [self.normalize_min, self.normalize_max],
+                                        bc_type='clamped')
 
-        # Calculate time of torque onset and dropoff
-        p_onset = p_peak - p_rise
-        p_dropoff = p_peak + p_fall
+            falling_spline = CubicSpline([self.t_peak, self.t_dropoff],
+                                         [self.normalize_max, self.normalize_min],
+                                         bc_type='clamped')
+        except Exception as err:
+            raise ValueError(f"Failed to create CubicSpline for rising or falling section,"
+                             "Error: {err}")
 
-        # Spline sections
-        rising_spline = CubicSpline(
-            [p_onset, p_peak], [self.generic_min, self.generic_max], bc_type="clamped"
-        )
-        falling_spline = CubicSpline(
-            [p_peak, p_dropoff], [self.generic_max, self.generic_min], bc_type="clamped"
-        )
+        return rising_spline, falling_spline
 
-        generic_profile = {}
-        for i in range(self.granularity):
-            percent = i / self.granularity
+    def convert_params_to_percent_stride(self) -> None:
+        """
+        Convert timing parameters to percent stride
+        """
+        self.t_peak = self.t_peak / self.end_of_stride_in_percent
+        self.t_rise = self.t_rise / self.end_of_stride_in_percent
+        self.t_fall = self.t_fall / self.end_of_stride_in_percent
 
-            # Profile Conditions
-            if (percent > 0) and (percent <= p_onset):
-                # Onset
-                output_torque = self.generic_min
-            elif (percent > p_onset) and (percent <= p_peak):
-                # Rising
-                output_torque = rising_spline(percent)
-            elif (percent > p_peak) and (percent <= p_dropoff):
-                # Falling
-                output_torque = falling_spline(percent)
+    def calculate_onset_and_dropoff_times(self) -> None:
+        """
+        Calculate torque onset time and torque drop-off time (in terms of % stride)
+        """
+        self.t_onset = self.t_peak - self.t_rise
+        self.t_dropoff = self.t_peak + self.t_fall
+
+        # check that dropoff is less than toe-off (in percent stride units)
+        toe_off_percent = INCLINE_WALK_TIMINGS.P_TOE_OFF / self.end_of_stride_in_percent
+        if self.t_dropoff >= toe_off_percent:
+            raise ValueError("Drop-off time must be <= toe-off time; "
+                             "Please change the fall time to be within toe-off bounds.")
+
+    def create_normalized_profile(self, rising_spline:object, falling_spline:object) -> None:
+        """
+        Creates generic cubic spline based profile using loaded timing parameters ~
+        (x-axis) percent range: [0, 1]
+        (y-axis) torque range: [0, 1]
+
+        A normalized_profile is saved as a dictionary attribute of this class.
+        The dictionary is the size of the specified resolution, and can be indexed by
+        integers from 0 to resolution size.
+
+        This method NEEDS TO RUN BEFORE get_generic_torque_command() otherwise
+        no profile will be loaded.
+
+        Args:
+            - rising_spline (obj): rising spline profile
+            - falling_spline (obj): falling spline profile
+        """
+
+        normalized_profile = {}
+
+        # for each idx, find % gait cycle & evaluate splines
+        for idx in range(self.resolution):
+            percent_gait = idx / self.resolution
+
+            # Profile Conditions:
+            if (percent_gait > 0) and (percent_gait <= self.t_onset):
+                # Onset torque
+                output_torque = self.normalize_min
+
+            elif (percent_gait > self.t_onset) and (percent_gait <= self.t_peak):
+                # Rising spline torque
+                output_torque = rising_spline(percent_gait)
+
+            elif (percent_gait > self.t_peak) and (percent_gait <= self.t_dropoff):
+                # Falling spline torque
+                output_torque =  falling_spline(percent_gait)
+
             else:
-                output_torque = self.generic_min
+                output_torque = self.normalize_min
 
-            generic_profile[i] = output_torque
+            # create a dictionary mapping each idx to an normalized torque value (between 0-1)
+            normalized_profile[idx] = output_torque
 
-        self.generic_profile = generic_profile
+        self.normalized_profile = normalized_profile
 
-    def scale_torque(self, torque, min_new, max_new):
+    def scale_to_peak_torque(self, normalized_torque:float, new_min_torque:float, new_peak_torque:float) -> float:
         """
-        Linearly scales torque from [generic_min, generic_max] to [min_new, max_new]
-        """
-        return (max_new - min_new) / (self.generic_max - self.generic_min) * (
-            torque - self.generic_min
-        ) + min_new
+        Linearly scales the normalized torque command to the desired peak torque setpoint.
+        This method takes the normalized torque command (between 0 and 1) and scales it
+        to the range defined by new_min_torque and new_peak_torque.
 
-    def get_generic_torque_command(self, percent_stride):
-        """
-        Evaluate generic_profile at percent_stride
+        Args:
+            - normalized_torque (float): normalized torque command (between 0 and 1) based on current percent_stride
+            - new_min_torque (float): minimum holding torque to maintain belt tension
+            - new_peak_torque (float): desired peak torque setpoint to command
 
-        convert percent_stride nearest integer index
-
-        less error from int casting by increasing granularity
+        Returns:
+            - bounded_torque_command (float): scaled torque command to peak torque setpoint
         """
-        generic_index = min(
-            int(percent_stride * self.granularity), self.granularity - 1
-        )
-        return self.generic_profile[generic_index]
 
-    def generic_torque_generator(
-        self, current_time, stride_period, peak_torque, in_swing
-    ):
-        """
-        Calculates torque command from generic_profile
+        input_torque_range = self.normalize_max - self.normalize_min    # between 0 and 1
+        output_torque_range = new_peak_torque - new_min_torque          # between peak torque & holding torque
 
-        Uses gait estimate (current_time, stride_period) and scales by peak_torque
+        # convert normalized torque setpoint to output torque range
+        unbounded_torque_command = normalized_torque * (output_torque_range / input_torque_range)
+        bounded_torque_command = unbounded_torque_command + new_min_torque  # ensure torque is larger than holding torque
+
+        return bounded_torque_command
+
+    def get_normalized_torque_command(self) -> float:
         """
+        Evaluate normalized_profile at the current percent_stride.
+
+        Converts the percent_stride to the nearest integer index.
+        There is less error from int casting by increasing resolution.
+
+        Returns:
+            - normalized_torque_command (float): evaluated normalized profile at the idx
+        """
+
+        # find the idx corresponding to the % gait cycle
+        idx = int(self.percent_stride * self.resolution)
+
+        # ensure that idx doesn't exceed the specified resolution
+        vetted_index = min(idx, self.resolution - 1)
+
+        return float(self.normalized_profile[vetted_index])
+
+    def torque_generator(self, current_time:float, stride_period:float, peak_torque:float, in_swing:bool) -> float:
+        """
+        Calculates torque command from normalized_profile.
+        Scales this generic profile using the current gait state & peak torque setpoint.
+
+        Args:
+            - current_time (float): current time in stride (in seconds)
+            - stride_period (float): latest stride period estimate (in seconds)
+            - peak_torque (float): peak torque setpoint (specified by user)
+            - in_swing (bool): flag indicating the leg is in swing phase
+        """
+
         if in_swing:
             torque_command = self.holding_torque
         else:
-            # Convert time to percent stride
-            percent_stride = current_time / stride_period
+            # Convert current time to percent stride
+            self.percent_stride = current_time / stride_period
 
             # Get generic command
-            generic_command = self.get_generic_torque_command(percent_stride)
+            normalized_torque_command = self.get_normalized_torque_command()
 
             # Scale command using given peak torque
-            torque_command = self.scale_torque(
-                generic_command, self.holding_torque, peak_torque
-            )
+            torque_command = self.scale_to_peak_torque(normalized_torque_command, self.holding_torque, peak_torque)
+
+            # If torque_command is negative, raise ValueError and set to holding torque
+            if torque_command < 0:
+                # TODO: comment back in:
+                # raise ValueError(f"Negative torque command generated: {torque_command}. Setting to holding torque.")
+                torque_command = self.holding_torque
 
         return torque_command
+
+if __name__ == "__main__":
+
+    # instantiate assistance generator
+    assistance_generator = AssistanceCalculator()
+
+    # instantiate the osl's softrt loop
+    freq = 100  # Hz
+    clock = SoftRealtimeLoop(dt=1/freq)
+
+    peak_torque = input("peak torque to test (Nm): ")
+
+    # initialize variables before logger tracks them
+    stride_time = 1.2
+    time_in_stride = 0.0
+    in_swing_flag = False
+    torque_command = 0.0
+
+    # create a logger
+    logger = Logger(log_path="assistance_calculator_test/",
+                    file_name="test",
+                    buffer_size=1000,
+                    file_level=LogLevel.DEBUG,
+                    stream_level=LogLevel.INFO
+                )
+
+    # track time, percent gait cycle and torque_command to a csv file
+    logger.track_variable(lambda: time_in_stride, "time_in_stride_s")
+    logger.track_variable(lambda: torque_command, "torque_setpt_Nm")
+    logger.track_variable(lambda: assistance_generator.percent_stride, "percent_gait_cycle")
+    logger.track_variable(lambda: in_swing_flag, "in_swing_flag_bool")
+
+    for t in clock:
+        try:
+            # Update in_swing_flag based on percent_stride
+            if assistance_generator.percent_stride > INCLINE_WALK_TIMINGS.P_TOE_OFF:
+                in_swing_flag = True
+            else:
+                in_swing_flag = False
+
+            # Simulate time in stride (in seconds)
+            if time_in_stride >= stride_time:
+                time_in_stride = 0.0
+            else:
+                time_in_stride += 1 / freq
+
+            # acquire torque command based on gait estimate
+            torque_command = assistance_generator.torque_generator(
+                time_in_stride, stride_time, float(peak_torque), in_swing_flag)
+
+            # update logger
+            logger.update()
+
+        except KeyboardInterrupt:
+            logger.flush_buffer()
+            logger.close()
+            break
+
+        except Exception as err:
+            logger.flush_buffer()
+            logger.close()
+            break
