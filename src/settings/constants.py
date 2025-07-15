@@ -2,7 +2,7 @@
 Collection of all the constants used throughout exoboot controller
 """
 
-import time
+import time, pytz
 
 from src.settings.constants_dataclasses import (
     SPLINE_PARAMS,
@@ -105,6 +105,10 @@ TRIAL_CONDS_DICT = {
     "ACCLIMATION": {"COND": ["SLIDER", "DIAL"]},
     "CONTROLPANEL": {},
 }
+
+"""Datetime Constants"""
+DETROIT_TIMEZONE = pytz.timezone('America/Detroit')
+DATETIME_FORMATTER = "%Z_%Y_%m_%d_%H:%M:%S"
 
 
 """ Transmission Ratio Constants """

@@ -5,7 +5,7 @@
 # By: Nundini Rawal, John Hutchinson
 # Date: 06/13/2024
 
-import os, sys, time, threading
+import os, sys, time, threading, datetime
 
 from flexsea.device import Device
 from rtplot import client
@@ -317,7 +317,7 @@ if __name__ == "__main__":
     usebackup = "no"
 
     # Validate args
-    # TODO update validator
+    # TODO: update validator
     # Validator(subjectID, trial_type, trial_cond, description, usebackup)
     condition1["cond"].upper()
     condition2["cond"].upper()

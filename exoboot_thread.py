@@ -420,7 +420,9 @@ class ExobootThread(BaseThread):
         """
         # Set starting time stamp
         self.data_dict["pitime"] = TIME_METHOD() - self.startstamp
-        # TODO: self.data_dict['date_time'] = datetime.datetime.strftime(TR_DATE_FORMATTER)
+
+        # Datetime time stamp
+        self.data_dict['date_time'] = datetime.datetime.now(tz=DETROIT_TIMEZONE).strftime(DATETIME_FORMATTER)
 
         # Read sensors
         self.read_sensors()

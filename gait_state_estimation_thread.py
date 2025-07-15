@@ -120,7 +120,9 @@ class GaitStateEstimator(BaseThread):
         """
         # Set starting time stamp
         self.data_dict["pitime"] = TIME_METHOD() - self.startstamp
-        # self.data_dict['date_time'] = datetime.strftime(TR_DATE_FORMATTER) #TODO FIX
+
+        # Datetime time stamp
+        self.data_dict['date_time'] = datetime.datetime.now(tz=DETROIT_TIMEZONE).strftime(DATETIME_FORMATTER)
 
         new_stride_flag_left, force_left = self.bertec_estimator_left.update()
         new_stride_flag_right, force_right = self.bertec_estimator_right.update()
