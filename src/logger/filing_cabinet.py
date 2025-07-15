@@ -117,7 +117,14 @@ class FilingCabinet:
                 dictkey = file.split('.')[0]
                 dictkey = dictkey.replace(os.path.join(self.getparentfolderpath(), file_prefix), "")
                 dictkey = dictkey.replace("_new", "").strip('_')
+
+                # TODO: remove datetime if it exists in the filename (i.e. "2025_MM_DD_HH_")
+                # import re
+                # pattern = re.compile(r"\d{4}(.*)_")
+                # strip out the datetime part in greedy manner
+
                 dictkeys.append(dictkey)
+
         dictkeys = set(dictkeys)
 
         # Find path to each unique dictkey

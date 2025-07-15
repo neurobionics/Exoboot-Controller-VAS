@@ -106,10 +106,10 @@ TRIAL_CONDS_DICT = {
     "CONTROLPANEL": {},
 }
 
-"""Datetime Constants"""
+""" Datetime Constants """
 DETROIT_TIMEZONE = pytz.timezone('America/Detroit')
 DATETIME_FORMATTER = "%Z_%Y_%m_%d_%H:%M:%S"
-
+DATETIME_FORMATTER_LESS_SEC = "%Y_%m_%d_%H_%M"
 
 """ Transmission Ratio Constants """
 TR_FILE_PREFIX = "default_TR"
