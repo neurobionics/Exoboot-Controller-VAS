@@ -9,7 +9,7 @@ import datetime
 from typing import Type
 
 # from rtplot import client
-from gait_state_estimation.ZMQ_PubSub import Subscriber
+from src.gait_state_estimation.ZMQ_PubSub import Subscriber
 from base_exo_thread import BaseThread
 from src.utils.filter_utils import MovingAverageFilter
 from src.gait_state_estimation.gse_bertec import BertecEstimator

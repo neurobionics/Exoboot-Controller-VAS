@@ -1,6 +1,6 @@
 import pytest
 from scipy.interpolate import CubicSpline
-from src.exo.assistance_calculator import AssistanceCalculator
+from src.assistance_calculator import AssistanceCalculator
 from settings.constants import INCLINE_WALK_TIMINGS
 import numpy as np
 

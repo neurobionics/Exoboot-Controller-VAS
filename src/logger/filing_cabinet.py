@@ -1,10 +1,7 @@
-import os, csv, copy, threading
-from typing import Type
+import os, csv
+
 from pathlib import Path
 from collections import deque
-
-# from rtplot import client
-
 
 class FilingCabinet:
     """
@@ -16,22 +13,11 @@ class FilingCabinet:
 
     Return paths using filepaths_dict lookup
     """
-
-    def __init__(self, pfolder, subject, defaultbehavior="new"):
-        self.subject = subject
-        self.pfolderpath = ""
-
-        if not os.path.isdir(pfolder):
-            os.mkdir(pfolder)
-        self.pfolderpath = os.path.join(self.pfolderpath, pfolder)
-
-        if not os.path.isdir(os.path.join(self.pfolderpath, self.subject)):
-            os.mkdir(os.path.join(self.pfolderpath, self.subject))
-        self.pfolderpath = os.path.join(self.pfolderpath, self.subject)
+    def __init__(self, *hierarchy, defaultbehavior="new"):
+        self._init_folder_hierarchy(self, *hierarchy)
 
         self.filepaths_dict = {}
         self.validfiletypes = ("csv", "txt")
-
         self.validbehaviors = ["new", "add"]
         try:
             assert defaultbehavior in self.validbehaviors
@@ -40,24 +26,26 @@ class FilingCabinet:
             print("Invalid defaultbehavior for FilingCabinet")
             self.defaultbehavior = "new"
 
-    def getpfolderpath(self):
+    def _init_folder_hierarchy(self, *hierarchy):
+        """
+        Initialize folders form hierarchy
+        Creates folders if necessary
+        """
+        self.parentfolderpath = os.path.join(*hierarchy[1:])
+        os.makedirs(self.parentfolderpath, exist_ok=True)
+        return
+
+    def getparentfolderpath(self):
         """
         Return path to folder in subject_data
         """
-        return self.pfolderpath
+        return self.parentfolderpath
 
     def getpath(self, name):
         """
         Returns path from filepaths_dict
         """
         return self.filepaths_dict[name]
-
-    def load(self, filepath, dictkey):
-        """
-        Adds existing filepath into filepaths_dict
-        MUST ALREADY EXIST
-        """
-        self.filepaths_dict[dictkey] = filepath
 
     def newfile(self, name, type, behavior=None, dictkey=None):
         """
@@ -80,17 +68,17 @@ class FilingCabinet:
 
             isunique = False
             while not isunique:
-                if os.path.isfile(os.path.join(self.getpfolderpath(), filename)):
+                if os.path.isfile(os.path.join(self.getparentfolderpath(), filename)):
                     filename = "{}_new.{}".format(filename.split(sep=".")[0], type)
                 else:
                     isunique = True
         elif behavior == "add":
             # Use existing file
             filename = "{}.{}".format(name, type)
-        elif behavior == _:
+        else:
             Exception("FilingCabinet: not a valid behavior")
 
-        fullpath = os.path.join(self.pfolderpath, filename)
+        fullpath = os.path.join(self.parentfolderpath, filename)
 
         # If no specified dictkey, put path in filepaths_dict under fullpath
         if not dictkey:
@@ -100,25 +88,35 @@ class FilingCabinet:
 
         return fullpath
 
+    def _load(self, filepath, dictkey):
+        """
+        Adds existing filepath into filepaths_dict
+        MUST ALREADY EXIST
+        """
+        self.filepaths_dict[dictkey] = filepath
+
     def loadbackup(self, file_prefix, rule=None):
+        """
+        Load hierarchy from existing
+        """
+        parentfolderpath = self.getparentfolderpath()
+
+        # Load any files with file_prefix in it
         backupfiles = []
-        pfolderpath = self.getpfolderpath()
-        for file in os.listdir(pfolderpath):
+        for file in os.listdir(parentfolderpath):
             if file_prefix in file:
-                backupfiles.append(os.path.join(pfolderpath, file))
+                backupfiles.append(os.path.join(parentfolderpath, file))
 
         if not backupfiles:
             return False
 
-        # find unique dictkeys
+        # Find unique dictkeys
         dictkeys = []
         for file in backupfiles:
             if file.endswith(self.validfiletypes):
-                dictkey = file.split(".")[0]
-                dictkey = dictkey.replace(
-                    os.path.join(self.getpfolderpath(), file_prefix), ""
-                )
-                dictkey = dictkey.replace("_new", "").strip("_")
+                dictkey = file.split('.')[0]
+                dictkey = dictkey.replace(os.path.join(self.getparentfolderpath(), file_prefix), "")
+                dictkey = dictkey.replace("_new", "").strip('_')
                 dictkeys.append(dictkey)
         dictkeys = set(dictkeys)
 
@@ -128,7 +126,7 @@ class FilingCabinet:
 
             if subbackupfiles:
                 if rule == "newest":
-                    subbackup = max(subbackupfiles, key=os.path.getctime)
+                    subbackup = min(subbackupfiles, key=os.path.getctime)
                 elif rule == "oldest":
                     subbackup = max(subbackupfiles, key=os.path.getctime)
                 else:
@@ -151,18 +149,16 @@ if __name__ == "__main__":
     """
 
     # Create FilingCabinet for subject "dummy"
-    pfolder = "testfolder"
-    cabinet = FilingCabinet(pfolder, "dummy")
+    cabinet = FilingCabinet("a", "b", "c", "dummy")
+    parentfolder = cabinet.getparentfolderpath()
 
     # Create txt files in subject_data and subject subfolder to show they exist
-    Path(os.path.join(pfolder, "asdf.txt")).touch()
-    Path(os.path.join(cabinet.getpfolderpath(), "qwer.txt")).touch()
+    Path(os.path.join(parentfolder, "asdf.txt")).touch()
+    Path(os.path.join(cabinet.getparentfolderpath(), "qwer.txt")).touch()
 
     # Use FilingCabinet to create new file
     # Since qwer.txt exists, follow "new" behavior (add _new to filename)
-    qwer_path = cabinet.newfile(
-        "qwer", "txt", behavior="new", dictkey="special_identifier"
-    )
+    qwer_path = cabinet.newfile("qwer", "txt", behavior="new", dictkey="special_identifier")
     print("qwer filepath: {}".format(qwer_path))
 
     # Get qwer_file path using getpath
@@ -171,8 +167,8 @@ if __name__ == "__main__":
     print("from getpath: {}".format(iforgotpath))
 
     # Create testcsv in subject subfolder
-    with open(iforgotpath, "a") as f:
-        writer = csv.writer(f, lineterminator="\n", quotechar="|")
+    with open(iforgotpath, 'a') as f:
+        writer = csv.writer(f, lineterminator='\n',quotechar='|')
         writer.writerow(["foo", "bar"])
 
     print("Demo Finished")

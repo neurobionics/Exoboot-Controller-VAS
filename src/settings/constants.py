@@ -98,12 +98,12 @@ GSETHREAD_FIELDS = GENERAL_FIELDS + BERTEC_FIELDS
 
 """TRIAL TYPES AND CONDITIONS"""
 TRIAL_CONDS_DICT = {
-    "VICKREY": {"COND": ["WNE", "EPO", "NPO"], "DESC": []},
-    "VAS": {"COND": [], "DESC": []},
-    "JND": {"COND": ["SPLITLEG", "SAMELEG"], "DESC": ["UNIFORM", "STAIR"]},
-    "PREF": {"COND": ["SLIDER", "BUTTON", "DIAL"], "DESC": []},
-    "ACCLIMATION": {"COND": [], "DESC": []},
-    "CONTROLPANEL": {"COND": [], "DESC": []},
+    "VICKREY": {"CONDITION1": ["WNE", "EPO", "NPO"]},
+    "VAS": {},
+    "JND": {"CONDITION1": ["SPLITLEG", "SAMELEG"], "CONDITION1": ["UNIFORM", "STAIR"]},
+    "PREF": {"CONDITION1": ["SLIDER", "BUTTON", "DIAL"]},
+    "ACCLIMATION": {"COND": ["SLIDER", "DIAL"]},
+    "CONTROLPANEL": {},
 }
 
 

@@ -221,8 +221,8 @@ class ExobootCommServicer(pb2_grpc.exoboot_over_networkServicer):
         return pb2.subject_info(startstamp=self.mainwrapper.startstamp,
                                 subjectID=self.mainwrapper.subjectID,
                                 trial_type=self.mainwrapper.trial_type,
-                                trial_cond=self.mainwrapper.trial_cond,
-                                description=self.mainwrapper.description,
+                                trial_cond=self.mainwrapper.condition1,
+                                description=self.mainwrapper.condition2,
                                 usebackup=self.mainwrapper.usebackup)
 
     def chop(self, beaver, context):

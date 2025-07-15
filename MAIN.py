@@ -36,8 +36,8 @@ class MainControllerWrapper:
         self,
         subjectID=None,
         trial_type=None,
-        trial_cond=None,
-        description=None,
+        condition1=None,
+        condition2=None,
         usebackup=False,
         continuousmode=False,
         overridedefaultcurrentbounds=False,
@@ -48,24 +48,37 @@ class MainControllerWrapper:
         # Subject info
         self.subjectID = subjectID
         self.trial_type = trial_type
-        self.trial_cond = trial_cond
-        self.description = description
+        self.condition1 = condition1["cond"]
+        self.condition2 = condition2["cond"]
         self.usebackup = usebackup
-        self.file_prefix = "{}_{}_{}_{}".format(
-            self.subjectID, self.trial_type, self.trial_cond, self.description
-        )
+
+        file_prefix_list = [arg for arg in [self.subjectID, self.trial_type, self.condition1, self.condition2] if arg]
+        self.file_prefix = "_".join(file_prefix_list)
+        print("DEBUG_fileprefix: ", self.file_prefix)
 
         # Exo alternative modes
         self.continuousmode = continuousmode
         self.overridedefaultcurrentbounds = overridedefaultcurrentbounds
 
+
+        # Set up directories
+        use_for_dir = [subjectID, trial_type]
+        for cond in [condition1, condition2]:
+            if cond["subdirectory"]:
+                use_for_dir.append(cond["cond"])
+
+        print("DEBUG_usefordir: ", *use_for_dir)
+
         # FilingCabinet
-        self.filingcabinet = FilingCabinet(SUBJECT_DATA_PATH, self.subjectID)
+        self.filingcabinet = FilingCabinet(SUBJECT_DATA_PATH, *use_for_dir)
         if self.usebackup:
             loadstatus = self.filingcabinet.loadbackup(self.file_prefix, rule="newest")
             print(
                 "Backup Load Status: {}".format("SUCCESS" if loadstatus else "FAILURE")
             )
+
+        print("DEBUG_parentfolderpath", self.filingcabinet.getparentfolderpath())
+
 
         # OLD way that doesn't work: Get IP for GRPC server
         # s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
@@ -294,35 +307,35 @@ class MainControllerWrapper:
 
 
 if __name__ == "__main__":
-    # assert len(sys.argv) - 1 == 5
-    # _, subjectID, trial_type, trial_cond, description, usebackup= sys.argv
-
+    """
+    Experiment Parameters
+    """
     subjectID = "TESTER"
-    trial_type = "pref"
-    trial_cond = "slider"
-    description = "desc"
+    trial_type = "vas"
+    condition1 = {"cond": "session5", "subdirectory": True}
+    condition2 = {"cond": "group4", "subdirectory": False}
     usebackup = "no"
 
     # Validate args
-    Validator(subjectID, trial_type, trial_cond, description, usebackup)
+    # TODO update validator
+    # Validator(subjectID, trial_type, trial_cond, description, usebackup)
+    condition1["cond"].upper()
+    condition2["cond"].upper()
 
     # Set controller kwargs
     controller_kwargs = {
         "subjectID": subjectID,
         "trial_type": trial_type.upper(),
-        "trial_cond": trial_cond.upper(),
-        "description": description,
+        "condition1": condition1,
+        "condition2": condition2,
         "usebackup": usebackup in ["true", "True", "1", "yes", "Yes"],
     }
 
-    # Allow GSE to alter peak torque during strides
-    controller_kwargs["continuousmode"] = controller_kwargs[
-        "trial_type"
-    ] == "PREF" and controller_kwargs["trial_cond"] in ["SLIDER", "DIAL"]
+    # Allow GSE to alter peak torque during stride
+    controller_kwargs["continuousmode"] = controller_kwargs["trial_type"] == "PREF" and controller_kwargs["condition1"] in ["SLIDER", "DIAL"]
 
     # Use alternate upper and lower current bounds
-    controller_kwargs["overridedefaultcurrentbounds"] = controller_kwargs[
-        "trial_type"
-    ] == "VICKREY" and controller_kwargs["trial_cond"] in ["WNE", "NPO"]
+    controller_kwargs["overridedefaultcurrentbounds"] = controller_kwargs["trial_type"] == "VICKREY" and controller_kwargs["condition1"] in ["WNE", "NPO"]
 
+    # Run the main controller
     MainControllerWrapper(**controller_kwargs).run()

@@ -35,10 +35,10 @@ class ExobootThread(BaseThread):
         pause_event=Type[threading.Event],
         log_event=Type[threading.Event],
         overridedefaultcurrentbounds=False,
-        min_current=EXO_CURRENT_SAFETY_CONSTANTS.MIN_CURRENT,
-        max_current=EXO_CURRENT_SAFETY_CONSTANTS.MAX_CURRENT,
+        min_current=EXO_CURRENT_SAFETY_LIMITS.ZERO_CURRENT,
+        max_current=EXO_CURRENT_SAFETY_LIMITS.MAX_ALLOWABLE_CURRENT,
         on_pause_triggers=-1,
-        threadfrequency=EXO_THREAD_FREQUENCIES.EXOTHREAD_FREQ,
+        threadfrequency=THREAD_FREQS.EXOTHREAD_FREQ,
     ):
 
         super().__init__(name, daemon, quit_event, pause_event, log_event)
