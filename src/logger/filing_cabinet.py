@@ -3,6 +3,7 @@ import os, csv
 from pathlib import Path
 from collections import deque
 
+
 class FilingCabinet:
     """
     Class to create subject_data folder and subject subfolders
@@ -13,6 +14,7 @@ class FilingCabinet:
 
     Return paths using filepaths_dict lookup
     """
+
     def __init__(self, *hierarchy, defaultbehavior="new"):
         self._init_folder_hierarchy(self, *hierarchy)
 
@@ -54,6 +56,7 @@ class FilingCabinet:
 
         Store paths under dictkey
         """
+
         try:
             assert type in self.validfiletypes
         except:
@@ -99,6 +102,7 @@ class FilingCabinet:
         """
         Load hierarchy from existing
         """
+
         parentfolderpath = self.getparentfolderpath()
 
         # Load any files with file_prefix in it
@@ -114,9 +118,11 @@ class FilingCabinet:
         dictkeys = []
         for file in backupfiles:
             if file.endswith(self.validfiletypes):
-                dictkey = file.split('.')[0]
-                dictkey = dictkey.replace(os.path.join(self.getparentfolderpath(), file_prefix), "")
-                dictkey = dictkey.replace("_new", "").strip('_')
+                dictkey = file.split(".")[0]
+                dictkey = dictkey.replace(
+                    os.path.join(self.getparentfolderpath(), file_prefix), ""
+                )
+                dictkey = dictkey.replace("_new", "").strip("_")
 
                 # TODO: remove datetime if it exists in the filename (i.e. "2025_MM_DD_HH_")
                 # import re
@@ -165,7 +171,9 @@ if __name__ == "__main__":
 
     # Use FilingCabinet to create new file
     # Since qwer.txt exists, follow "new" behavior (add _new to filename)
-    qwer_path = cabinet.newfile("qwer", "txt", behavior="new", dictkey="special_identifier")
+    qwer_path = cabinet.newfile(
+        "qwer", "txt", behavior="new", dictkey="special_identifier"
+    )
     print("qwer filepath: {}".format(qwer_path))
 
     # Get qwer_file path using getpath
@@ -174,8 +182,8 @@ if __name__ == "__main__":
     print("from getpath: {}".format(iforgotpath))
 
     # Create testcsv in subject subfolder
-    with open(iforgotpath, 'a') as f:
-        writer = csv.writer(f, lineterminator='\n',quotechar='|')
+    with open(iforgotpath, "a") as f:
+        writer = csv.writer(f, lineterminator="\n", quotechar="|")
         writer.writerow(["foo", "bar"])
 
     print("Demo Finished")

@@ -324,6 +324,7 @@ class ExobootThread(BaseThread):
         if measured_temp >= self.max_case_temperature:
             self.exo_safety_shutoff_flag = True
             print("Case Temperature has exceed 75°C soft limit. Exiting Gracefully")
+            
         # if winding_temperature >= self.max_winding_temperature:
         #     self.exo_safety_shutoff_flag = True
         #     print("Winding Temperature has exceed 115°C soft limit. Exiting Gracefully")

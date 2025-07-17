@@ -107,7 +107,7 @@ TRIAL_CONDS_DICT = {
 }
 
 """ Datetime Constants """
-DETROIT_TIMEZONE = pytz.timezone('America/Detroit')
+DETROIT_TIMEZONE = pytz.timezone("America/Detroit")
 DATETIME_FORMATTER = "%Z_%Y_%m_%d_%H:%M:%S"
 DATETIME_FORMATTER_LESS_SEC = "%Y_%m_%d_%H_%M"
 
@@ -129,7 +129,9 @@ FLAT_WALK_TIMINGS = SPLINE_PARAMS(P_RISE=27.9, P_PEAK=53.3, P_FALL=10, P_TOE_OFF
 
 
 """ Assistance Type """
-CONTINUOUS_MODE_FLAG = True # if true, peak torque commands will update mid-stride for instant feedback
+CONTINUOUS_MODE_FLAG = (
+    True  # if true, peak torque commands will update mid-stride for instant feedback
+)
 
 
 """ Device Identifiers """
@@ -160,7 +162,7 @@ DEV_ID_TO_MOTOR_SIGN_DICT = {
 EB51_CONSTANTS = EXO_MOTOR_CONSTANTS(
     MOT_ENC_CLICKS_TO_REV=2**14,
     MOT_ENC_CLICKS_TO_DEG=360 / (2**14),
-    Kt=0.000146,    # in mA/Nm
+    Kt=0.000146,  # in mA/Nm
     EFFICIENCY=0.9,
     RES_PHASE=0.279,
     L_PHASE=0.5 * 138 * 10e-6,
@@ -175,7 +177,9 @@ EXO_SETUP_CONST = EXO_SETUP_CONSTANTS(
 )
 
 """ Exothread loop frequencies """
-THREAD_FREQS = EXO_THREAD_FREQUENCIES(EXOTHREAD_FREQ=500, BERTEC_FREQ=250, LOGGING_FREQ=250)  # Hz
+THREAD_FREQS = EXO_THREAD_FREQUENCIES(
+    EXOTHREAD_FREQ=500, BERTEC_FREQ=250, LOGGING_FREQ=250
+)  # Hz
 
 
 """ Controller Gains """
@@ -229,6 +233,9 @@ TEMPANTISPIKE = 100  # °C
 
 """ Gait State Estimation Toggle"""
 GSE_MODE = "IMU"  # Options: "IMU", "BERTEC", "COMBO"
+
+""" RT Plotting Toggle """
+RTPLOT_ENABLED = True  # if true, rtplotting thread will be started
 
 
 """ STANDARDIZING TIME"""

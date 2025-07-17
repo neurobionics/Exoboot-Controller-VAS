@@ -13,6 +13,7 @@ from rtplot import client
 from exoboot_thread import ExobootThread
 from gait_state_estimation_thread import GaitStateEstimator
 from grpc_thread import ExobootRemoteServerThread
+from rtplotting_thread import rtPlottingThread
 
 from src.logger.validator import Validator
 from src.logger.logging_nexus import LoggingNexus
@@ -52,14 +53,22 @@ class MainControllerWrapper:
         self.condition2 = condition2["cond"]
         self.usebackup = usebackup
 
-        file_prefix_list = [arg for arg in [self.subjectID, self.trial_type, self.condition1, self.condition2] if arg]
+        file_prefix_list = [
+            arg
+            for arg in [
+                self.subjectID,
+                self.trial_type,
+                self.condition1,
+                self.condition2,
+            ]
+            if arg
+        ]
         self.file_prefix = "_".join(file_prefix_list)
         print("DEBUG_fileprefix: ", self.file_prefix)
 
         # Exo alternative modes
         self.continuousmode = continuousmode
         self.overridedefaultcurrentbounds = overridedefaultcurrentbounds
-
 
         # Set up directories
         use_for_dir = [subjectID, trial_type]
@@ -78,7 +87,6 @@ class MainControllerWrapper:
             )
 
         print("DEBUG_parentfolderpath", self.filingcabinet.getparentfolderpath())
-
 
         # OLD way that doesn't work: Get IP for GRPC server
         # s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
@@ -183,7 +191,7 @@ class MainControllerWrapper:
                 overridedefaultcurrentbounds=self.overridedefaultcurrentbounds,
                 min_current=EXO_CURRENT_SAFETY_LIMITS.ZERO_CURRENT,
                 max_current=EXO_CURRENT_SAFETY_LIMITS.MAX_ALLOWABLE_CURRENT,
-                on_pause_triggers=0,    # TODO: wasn't being set to -1 earlier so just set it to 0
+                on_pause_triggers=0,  # TODO: wasn't being set to -1 earlier so just set it to 0
                 threadfrequency=EXO_THREAD_FREQUENCIES.EXOTHREAD_FREQ,
             )
 
@@ -224,7 +232,19 @@ class MainControllerWrapper:
                 )
                 self.gse_thread.start()
 
-            # Thread 4: Exoboot Remote Control
+            # Thread 4: Real-time plotting
+            if RTPLOT_ENABLED:
+                self.rtplot_thread = rtPlottingThread(
+                    thread_left=self.exothread_left,
+                    thread_right=self.exothread_right,
+                    name="rtplot",
+                    daemon=True,
+                    quit_event=self.quit_event,
+                    pause_event=self.pause_event,
+                    log_event=self.log_event,
+                )
+
+            # Thread 5: Exoboot Remote Control
             self.remote_thread = ExobootRemoteServerThread(
                 self,
                 startstamp=self.startstamp,
@@ -264,16 +284,36 @@ class MainControllerWrapper:
             while self.quit_event.is_set():
                 try:
                     try:
-                        print("Peak Torque Left/Right: ({}, {})".format(self.loggingnexus.get(self.exothread_left.name, "peak_torque"),
-                                                                        self.loggingnexus.get(self.exothread_right.name, "peak_torque"))
+                        print(
+                            "Peak Torque Left/Right: ({}, {})".format(
+                                self.loggingnexus.get(
+                                    self.exothread_left.name, "peak_torque"
+                                ),
+                                self.loggingnexus.get(
+                                    self.exothread_right.name, "peak_torque"
+                                ),
                             )
-                        print("Case Temp Left/Right: ({}, {})".format(self.loggingnexus.get(self.exothread_left.name, "temperature"),
-                                                                      self.loggingnexus.get(self.exothread_right.name, "temperature"))
+                        )
+                        print(
+                            "Case Temp Left/Right: ({}, {})".format(
+                                self.loggingnexus.get(
+                                    self.exothread_left.name, "temperature"
+                                ),
+                                self.loggingnexus.get(
+                                    self.exothread_right.name, "temperature"
+                                ),
                             )
-                        print("BattV Left/Right: ({}, {})\n".format(
-                                self.loggingnexus.get(self.exothread_left.name, "battery_voltage"),
-                                self.loggingnexus.get(self.exothread_right.name, "battery_voltage"))
+                        )
+                        print(
+                            "BattV Left/Right: ({}, {})\n".format(
+                                self.loggingnexus.get(
+                                    self.exothread_left.name, "battery_voltage"
+                                ),
+                                self.loggingnexus.get(
+                                    self.exothread_right.name, "battery_voltage"
+                                ),
                             )
+                        )
                     except:
                         pass
 
@@ -332,10 +372,14 @@ if __name__ == "__main__":
     }
 
     # Allow GSE to alter peak torque during stride
-    controller_kwargs["continuousmode"] = controller_kwargs["trial_type"] == "PREF" and controller_kwargs["condition1"] in ["SLIDER", "DIAL"]
+    controller_kwargs["continuousmode"] = controller_kwargs[
+        "trial_type"
+    ] == "PREF" and controller_kwargs["condition1"] in ["SLIDER", "DIAL"]
 
     # Use alternate upper and lower current bounds
-    controller_kwargs["overridedefaultcurrentbounds"] = controller_kwargs["trial_type"] == "VICKREY" and controller_kwargs["condition1"] in ["WNE", "NPO"]
+    controller_kwargs["overridedefaultcurrentbounds"] = controller_kwargs[
+        "trial_type"
+    ] == "VICKREY" and controller_kwargs["condition1"] in ["WNE", "NPO"]
 
     # Run the main controller
     MainControllerWrapper(**controller_kwargs).run()
