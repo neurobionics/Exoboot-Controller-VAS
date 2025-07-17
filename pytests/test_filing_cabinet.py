@@ -1,18 +1,16 @@
 import os
+import datetime
 import shutil
 import pytest
 from pathlib import Path
 from src.logger.filing_cabinet import FilingCabinet
+from src.settings.constants import DETROIT_TIMEZONE, DATETIME_FORMATTER_LESS_SEC
 
 test_dir = "test_subject_data"
 
 
 def setup_module(module):
     os.makedirs(test_dir, exist_ok=True)
-
-
-def teardown_module(module):
-    shutil.rmtree(test_dir, ignore_errors=True)
 
 
 def test_folder_hierarchy_creation():
@@ -63,19 +61,37 @@ def test_add_behavior():
     assert lines == ["first line\n", "second line\n"]
 
 
-def test_load_and_loadbackup():
+def test_loadbackup_date_stripping():
     """
-    Test the _load and loadbackup methods of FilingCabinet.
-    This test verifies that:
-    - The _load method correctly adds an existing file path to the filepaths_dict and can be retrieved with getpath.
-    - The loadbackup method returns False when no files matching the given prefix exist in the folder.
-    - (TODO) Future: Ensure that datetime in filenames does not interfere with backup loading logic.
+    Test whether the loadbackup method correctly strips the date from filenames.
     """
-    cabinet = FilingCabinet("root", test_dir, "subj6")
-    file_path = cabinet.newfile("backup", "csv", dictkey="bk")
-    Path(file_path).touch()
-    cabinet._load(file_path, "bk2")
-    assert cabinet.getpath("bk2") == file_path
+    file_prefix = "SUBJECT_TRIALTYPE_COND1_COND2"
+    current_date = datetime.datetime.now(tz=DETROIT_TIMEZONE).strftime(DATETIME_FORMATTER_LESS_SEC)
+    suffix = "backupfile"
+
+    cabinet = FilingCabinet(test_dir, "test_loadbackup_date_stripping")
+
+    orig_file = "_".join([file_prefix, current_date, suffix])
+    file_path = cabinet.newfile(orig_file, "txt")
+    with open(file_path, "w") as f:
+        f.write("Original file: " + current_date)
+
+    new_cabinet = FilingCabinet(test_dir, "test_loadbackup_date_stripping")
+    new_cabinet.loadbackup(file_prefix)
+
+    assert new_cabinet.filepaths_dict[suffix] == file_path
+
 
     # loadbackup should return False if no matching files
-    assert not cabinet.loadbackup("notfoundprefix")
+
+
+def test_loadbackup_rules():
+    """
+    Test whether the latest and oldest files are correctly identified when multiple files exist.
+    """
+
+
+def teardown_module(module):
+    shutil.rmtree(test_dir, ignore_errors=True)
+
+

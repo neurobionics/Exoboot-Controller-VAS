@@ -1,4 +1,4 @@
-import os, csv
+import os, csv, re
 
 from pathlib import Path
 from collections import deque
@@ -98,7 +98,7 @@ class FilingCabinet:
         """
         self.filepaths_dict[dictkey] = filepath
 
-    def loadbackup(self, file_prefix, rule=None):
+    def loadbackup(self, file_prefix, rule="newest"):
         """
         Load hierarchy from existing
         """
@@ -125,10 +125,10 @@ class FilingCabinet:
                 dictkey = dictkey.replace("_new", "").strip("_")
 
                 # TODO: remove datetime if it exists in the filename (i.e. "2025_MM_DD_HH_")
-                # import re
-                # pattern = re.compile(r"\d{4}(.*)_")
-                # strip out the datetime part in greedy manner
-
+                pattern = re.compile(r"\d{4}(.*)_")
+                result = pattern.search(dictkey)
+                date = dictkey[result.span()[0]:result.span()[1]-1]
+                dictkey = dictkey.replace(date, "").strip("_")
                 dictkeys.append(dictkey)
 
         dictkeys = set(dictkeys)
@@ -139,19 +139,14 @@ class FilingCabinet:
 
             if subbackupfiles:
                 if rule == "newest":
-                    subbackup = min(subbackupfiles, key=os.path.getctime)
-                elif rule == "oldest":
                     subbackup = max(subbackupfiles, key=os.path.getctime)
+                elif rule == "oldest":
+                    subbackup = min(subbackupfiles, key=os.path.getctime)
                 else:
                     print("No rule implemented for case {}".format(rule))
+                    break
 
-                for snippet in subbackup.split(os.sep):
-                    if snippet.endswith(self.validfiletypes):
-                        subject_info = snippet.split(".")[0]
-                        subject_info = subject_info.split("_")
-                        dictkey = subject_info[4]
-
-                        self.load(subbackup, dictkey)
+                self._load(subbackup, dictkey)
 
         return True
 

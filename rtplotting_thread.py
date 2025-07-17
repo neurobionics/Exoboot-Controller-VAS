@@ -22,10 +22,9 @@ class rtPlottingThread(BaseThread):
         name="rtplot",
         daemon=True,
         quit_event=Type[threading.Event],
-        pause_event=Type[threading.Event],
-        log_event=Type[threading.Event],
+        pause_event=Type[threading.Event]
     ):
-        super().__init__(name, daemon, quit_event, pause_event, log_event)
+        super().__init__(name, daemon, quit_event, pause_event)
         self.device_thread_left = thread_left
         self.device_thread_right = thread_right
 
@@ -119,11 +118,7 @@ class rtPlottingThread(BaseThread):
         for device_thread in [self.device_thread_left, self.device_thread_right]:
             data_to_plt.extend(
                 [
-                    abs(
-                        device_thread.data_dict["motor_current"]
-                        * EB51_CONSTANTS.Kt
-                        / 1000
-                    ),  # Motor current
+                    abs(device_thread.data_dict["motor_current"]* EB51_CONSTANTS.Kt/ 1000),  # Motor current
                     device_thread.data_dict["temperature"],  # Case temperature
                     device_thread.data_dict["ankle_angle"],  # Ankle angle
                     device_thread.data_dict["N"],  # Gear ratio

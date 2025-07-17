@@ -170,11 +170,10 @@ class ExobootCommServicer(pb2_grpc.exoboot_over_networkServicer):
         trial_type = self.mainwrapper.trial_type.upper()
         if not loadstatus:
             if trial_type == 'VICKREY':
-                current_date = datetime.datetime.now(tz=DETROIT_TIMEZONE).strftime(DATETIME_FORMATTER_LESS_SEC)
-                auctionname = "{}_{}_{}".format(self.file_prefix, current_date, "auction")
+                auctionname = "{}_{}".format(self.file_prefix, "auction")
                 auctionpath = self.filingcabinet.newfile(auctionname, "csv", dictkey="auction")
 
-                surveyname = "{}_{}_{}".format(self.file_prefix, current_date, "survey")
+                surveyname = "{}_{}".format(self.file_prefix, "survey")
                 surveypath = self.filingcabinet.newfile(surveyname, "csv", dictkey="survey")
 
                 with open(auctionpath, 'a', newline='') as f:
@@ -184,8 +183,7 @@ class ExobootCommServicer(pb2_grpc.exoboot_over_networkServicer):
 
             elif trial_type == 'VAS':
                 overtimepath = ""
-                current_date = datetime.datetime.now(tz=DETROIT_TIMEZONE).strftime(DATETIME_FORMATTER_LESS_SEC)
-                vasresultsname = "{}_{}_{}".format(self.file_prefix, current_date, "vasresults")
+                vasresultsname = "{}_{}".format(self.file_prefix, "vasresults")
                 vasresultspath = self.filingcabinet.newfile(vasresultsname, "csv", dictkey="vasresults")
 
                 with open(vasresultspath, 'a', newline='') as f:
@@ -204,8 +202,7 @@ class ExobootCommServicer(pb2_grpc.exoboot_over_networkServicer):
                     csv.writer(f).writerow(['pres', 'prop', 'T_ref', 'T_comp', 'truth', 'higher'])
 
             elif trial_type == 'PREF':
-                current_date = datetime.datetime.now(tz=DETROIT_TIMEZONE).strftime(DATETIME_FORMATTER_LESS_SEC)
-                prefname = "{}_{}_{}".format(self.file_prefix, current_date, "pref")
+                prefname = "{}_{}".format(self.file_prefix, "pref")
                 prefpath = self.filingcabinet.newfile(prefname, "csv", dictkey="pref")
 
                 with open(prefpath, 'a', newline='') as f:

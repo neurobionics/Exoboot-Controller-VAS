@@ -53,17 +53,9 @@ class MainControllerWrapper:
         self.condition2 = condition2["cond"]
         self.usebackup = usebackup
 
-        file_prefix_list = [
-            arg
-            for arg in [
-                self.subjectID,
-                self.trial_type,
-                self.condition1,
-                self.condition2,
-            ]
-            if arg
-        ]
-        self.file_prefix = "_".join(file_prefix_list)
+        current_date = datetime.datetime.now(tz=DETROIT_TIMEZONE).strftime(DATETIME_FORMATTER_LESS_SEC)
+        file_prefix_list = [arg for arg in [self.subjectID, self.trial_type, self.condition1, self.condition2] if arg]
+        self.file_prefix = "_".join(file_prefix_list) + "_" + current_date
         print("DEBUG_fileprefix: ", self.file_prefix)
 
         # Exo alternative modes
@@ -240,8 +232,7 @@ class MainControllerWrapper:
                     name="rtplot",
                     daemon=True,
                     quit_event=self.quit_event,
-                    pause_event=self.pause_event,
-                    log_event=self.log_event,
+                    pause_event=self.pause_event
                 )
 
             # Thread 5: Exoboot Remote Control
