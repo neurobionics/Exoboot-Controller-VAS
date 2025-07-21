@@ -39,14 +39,6 @@ if __name__ == "__main__":
     CREATE FILE NAME
     """
 
-    print(f"PREFIX_FORMAT_GENERIC: {PREFIX_FORMAT_GENERIC}")
-
-    current_date = datetime.datetime.now(tz=DETROIT_TIMEZONE).strftime(DATETIME_FORMAT_LESS_SEC)
-    subject = "TESTER"
-    trialtype = "VICKREY"
-    condition1 = "EPO"
-    condition2 = ""
-
     def build_prefix(**kwargs):
         """
         Build prefix using PREFIX_FORMAT_GENERIC as guidelines
@@ -72,7 +64,27 @@ if __name__ == "__main__":
             prefix_format = prefix_format + seps[i-1] + f"%{codes[i]}"
 
         return prefix, prefix_format
-        
+    
+    def build_filename(**kwargs):
+        """
+        Build filename using FORMAT and supplied kwargs
+        """
+        assert kwargs["FORMAT"]
+        filename = kwargs["FORMAT"]
+        for k, v in kwargs.items():
+            filename = filename.replace(f"%{k}", v)
+        return filename
+
+    """
+    DEMO creating prefix and filename
+    """
+    current_date = datetime.datetime.now(tz=DETROIT_TIMEZONE).strftime(DATETIME_FORMAT_LESS_SEC)
+    subject = "TESTER"
+    trialtype = "VICKREY"
+    condition1 = "EPO"
+    condition2 = ""
+
+    print(f"PREFIX_FORMAT_GENERIC: {PREFIX_FORMAT_GENERIC}")
 
     prefix, prefix_format = build_prefix(SUBJECT=subject, TRIALTYPE=trialtype, CONDITION1=condition1, CONDITION2=condition2)
     print(f"PREFIX: {prefix}")
@@ -81,33 +93,22 @@ if __name__ == "__main__":
 
     print(f"FILENAME_FORMAT: {FILENAME_FORMAT}")
 
-    def build_filename(**kwargs):
-        filename = kwargs["FORMAT"]
-        for k, v in kwargs.items():
-            filename = filename.replace(f"%{k}", v)
-        return filename
-
     filename = build_filename(FORMAT=FILENAME_FORMAT, PREFIX= prefix, DATE=current_date, SUFFIX="exothread_left", EXT="csv")
     print(f"FILENAME: {filename}\n")
+
 
 
     """
     STRIP FILE NAMES
     """
-
-    # Create necessary regexes
     def datetime_formatcode_to_regex(format_):
         for formatcode, regex in FORMATCODE_TO_REGEX.items():
             format_ = format_.replace(formatcode, regex)
         return format_
     
-    date_regex = datetime_formatcode_to_regex(DATETIME_FORMAT_LESS_SEC)
-    print(f"DATE_REGEX: {date_regex}")
-
-    ext_regex = r'\.(' + "|".join(VALID_FILE_EXTENSIONS) + ')'
-    print(f"EXT_REGEX: {ext_regex}")
-
-
+    def file_extension_regex(ext=VALID_FILE_EXTENSIONS):
+        return r'\.(' + "|".join(ext) + ')'
+    
     def group_files_by_uid(filenames, STATIC, VARIABLE=None):
         """
         Search filenames for STATIC identifier and VALID_FILE_EXTENSIONS, then remove VARIABLE regexes
@@ -137,6 +138,9 @@ if __name__ == "__main__":
 
         return uid_grouped_files
     
+    """
+    DEMO Group files by uid
+    """
     file_grabbag = ["2025_07_20_20_27_TESTER_VICKREY_EPO_2025_07_20_20_33_2025_07_20_20_33_2025_07_20_20_33_____exothread_left______.csv",
                     "2025_07_20_20_33_TESTER_VICKREY_EPO_2025_07_20_20_34_exothread_left.csv",
                     "TESTER_VICKREY_EPO_2025_07_20_20_35_exothread_left_2025_07_20_20_33.png",
@@ -148,5 +152,10 @@ if __name__ == "__main__":
                     "OTHER_VICKREY_EPO_2025_07_20_20_33_exothread_left.csv",
                     ]
 
+    date_regex = datetime_formatcode_to_regex(DATETIME_FORMAT_LESS_SEC)
+    ext_regex = file_extension_regex(VALID_FILE_EXTENSIONS)
+    print(f"DATE_REGEX: {date_regex}")
+    print(f"EXT_REGEX: {ext_regex}")
+
     unique_files = group_files_by_uid(file_grabbag, STATIC=prefix, VARIABLE=[date_regex, ext_regex])
-    print(unique_files)
+    print("FILES BY UID: ", unique_files)
