@@ -240,3 +240,15 @@ RTPLOT_ENABLED = True  # if true, rtplotting thread will be started
 
 """ STANDARDIZING TIME"""
 TIME_METHOD = time.perf_counter
+
+
+"""FILING CABINET REGEX"""
+VALID_FILE_EXTENSIONS = ["csv", "txt"]
+FORMATCODE_TO_REGEX = {
+        "%Y": r'\d{4}', 
+        "%m": r'(0[1-9]|1[0-2])', 
+        "%d": r'(0[1-9]|[1-2][0-9]|3[01])', 
+        "%H": r'([01][0-9]|[2][0-3])', 
+        "%M": r'([0-5][0-9])', 
+        "%S": r'([0-5][0-9])', 
+    }

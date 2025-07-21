@@ -3,6 +3,8 @@ import os, csv, re
 from pathlib import Path
 from collections import deque
 
+from src.settings.constants import VALID_FILE_EXTENSIONS
+
 
 class FilingCabinet:
     """
@@ -19,7 +21,7 @@ class FilingCabinet:
         self._init_folder_hierarchy(self, *hierarchy)
 
         self.filepaths_dict = {}
-        self.validfiletypes = ("csv", "txt")
+        self.validfiletypes = VALID_FILE_EXTENSIONS
         self.validbehaviors = ["new", "add"]
         try:
             assert defaultbehavior in self.validbehaviors
@@ -149,36 +151,3 @@ class FilingCabinet:
                 self._load(subbackup, dictkey)
 
         return True
-
-
-if __name__ == "__main__":
-    """
-    FilingCabinet Demo
-    """
-
-    # Create FilingCabinet for subject "dummy"
-    cabinet = FilingCabinet("a", "b", "c", "dummy")
-    parentfolder = cabinet.getparentfolderpath()
-
-    # Create txt files in subject_data and subject subfolder to show they exist
-    Path(os.path.join(parentfolder, "asdf.txt")).touch()
-    Path(os.path.join(cabinet.getparentfolderpath(), "qwer.txt")).touch()
-
-    # Use FilingCabinet to create new file
-    # Since qwer.txt exists, follow "new" behavior (add _new to filename)
-    qwer_path = cabinet.newfile(
-        "qwer", "txt", behavior="new", dictkey="special_identifier"
-    )
-    print("qwer filepath: {}".format(qwer_path))
-
-    # Get qwer_file path using getpath
-    # Should be same as qwer_path
-    iforgotpath = cabinet.getpath("special_identifier")
-    print("from getpath: {}".format(iforgotpath))
-
-    # Create testcsv in subject subfolder
-    with open(iforgotpath, "a") as f:
-        writer = csv.writer(f, lineterminator="\n", quotechar="|")
-        writer.writerow(["foo", "bar"])
-
-    print("Demo Finished")
