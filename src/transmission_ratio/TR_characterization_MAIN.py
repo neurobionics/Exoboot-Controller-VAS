@@ -14,7 +14,7 @@ from src.settings.constants import *
 TR_FILE_PREFIX = "default_TR"
 TR_COEFS_PREFIX = "{}_coefs".format(TR_FILE_PREFIX)
 TR_FULLDATA_PREFIX = "{}_fulldata".format(TR_FILE_PREFIX)
-TR_DATE_FORMATTER = "%Y_%m_%d_%H_%M"
+TR_DATE_FORMAT = "%Y_%m_%d_%H_%M"
 BIAS_CURRENT = 500
 
 from flexsea.fx_enums import FX_CURRENT
@@ -115,7 +115,7 @@ class TR_Characterizer:
 
         # Set filenames
         self.date = (
-            date if date else datetime.datetime.today().strftime(TR_DATE_FORMATTER)
+            date if date else datetime.datetime.today().strftime(TR_DATE_FORMAT)
         )
         self.fulldata_filename = "{}_{}_{}.csv".format(
             fulldata_prefix, self.side, self.date
@@ -255,7 +255,7 @@ if __name__ == "__main__":
     sides = [side_left, side_right]
 
     # Get YEAR_MONTH_DAY_HOUR_MINUTE
-    date = datetime.datetime.today().strftime(TR_DATE_FORMATTER)
+    date = datetime.datetime.today().strftime(TR_DATE_FORMAT)
 
     # Start device streaming and set gains:
     print("Starting TR Characterization")

@@ -5,7 +5,7 @@ from concurrent import futures
 import src.gui_communication.exoboot_remote_pb2 as pb2
 import src.gui_communication.exoboot_remote_pb2_grpc as pb2_grpc
 from base_exo_thread import BaseThread
-from src.settings.constants import GSE_MODE, DETROIT_TIMEZONE, DATETIME_FORMATTER_LESS_SEC
+from src.settings.constants import GSE_MODE, DETROIT_TIMEZONE, DATETIME_FORMAT_LESS_SEC
 
 class ExobootRemoteClient:
     """

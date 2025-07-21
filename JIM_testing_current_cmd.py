@@ -56,12 +56,12 @@ if __name__ == "__main__":
 
     # Get current date
     curr_date = datetime.datetime.today().strftime(
-        TR_DATE_FORMATTER
+        TR_DATE_FORMAT
     )  # Get YEAR_MONTH_DAY_HOUR_MINUTE
     date = (
         curr_date
         if curr_date
-        else datetime.datetime.today().strftime(TR_DATE_FORMATTER)
+        else datetime.datetime.today().strftime(TR_DATE_FORMAT)
     )
 
     fname = "{}mA".format(args.current_setpt_mA)

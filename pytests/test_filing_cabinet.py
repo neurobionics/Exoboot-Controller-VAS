@@ -4,7 +4,7 @@ import shutil
 import pytest
 from pathlib import Path
 from src.logger.filing_cabinet import FilingCabinet
-from src.settings.constants import DETROIT_TIMEZONE, DATETIME_FORMATTER_LESS_SEC
+from src.settings.constants import DETROIT_TIMEZONE, DATETIME_FORMAT_LESS_SEC
 
 test_dir = "test_subject_data"
 
@@ -66,7 +66,7 @@ def test_loadbackup_date_stripping():
     Test whether the loadbackup method correctly strips the date from filenames.
     """
     file_prefix = "SUBJECT_TRIALTYPE_COND1_COND2"
-    current_date = datetime.datetime.now(tz=DETROIT_TIMEZONE).strftime(DATETIME_FORMATTER_LESS_SEC)
+    current_date = datetime.datetime.now(tz=DETROIT_TIMEZONE).strftime(DATETIME_FORMAT_LESS_SEC)
     suffix = "backupfile"
 
     cabinet = FilingCabinet(test_dir, "test_loadbackup_date_stripping")

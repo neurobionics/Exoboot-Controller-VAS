@@ -1,7 +1,7 @@
 import re, datetime
 from src.logger.filing_cabinet import FilingCabinet
 
-from src.settings.constants import DETROIT_TIMEZONE, DATETIME_FORMATTER_LESS_SEC, VALID_FILE_EXTENSIONS, FORMATCODE_TO_REGEX
+from src.settings.constants import DETROIT_TIMEZONE, DATETIME_FORMAT_LESS_SEC, VALID_FILE_EXTENSIONS, FORMATCODE_TO_REGEX, PREFIX_FORMAT_GENERIC, FILENAME_FORMAT
 
 if __name__ == "__main__":
     """
@@ -39,52 +39,55 @@ if __name__ == "__main__":
     CREATE FILE NAME
     """
 
-    PREFIX_FORMATTER_GENERIC = r'%SUBJECT_%TRIALTYPE_%CONDITION1_%CONDITION2'
-    print(f"PREFIX_FORMATTER_GENERIC: {PREFIX_FORMATTER_GENERIC}")
+    print(f"PREFIX_FORMAT_GENERIC: {PREFIX_FORMAT_GENERIC}")
 
-    current_date = datetime.datetime.now(tz=DETROIT_TIMEZONE).strftime(DATETIME_FORMATTER_LESS_SEC)
+    current_date = datetime.datetime.now(tz=DETROIT_TIMEZONE).strftime(DATETIME_FORMAT_LESS_SEC)
     subject = "TESTER"
     trialtype = "VICKREY"
     condition1 = "EPO"
     condition2 = ""
 
     def build_prefix(**kwargs):
+        """
+        Build prefix using PREFIX_FORMAT_GENERIC as guidelines
+        Minimal requirements of SUBJECT and TRIALTYPE
+        Omits CONDITION# if empty
+        """
         assert kwargs["SUBJECT"] and kwargs["TRIALTYPE"]
 
         # Organize non-None kwargs
-        codes = [code for code in re.split(r'.?%', PREFIX_FORMATTER_GENERIC) if code]
+        codes = [code for code in re.split(r'.?%', PREFIX_FORMAT_GENERIC) if code]
         args = [kwargs[code] for code in codes if kwargs[code]]
 
         # Retrieve separators
-        seps = PREFIX_FORMATTER_GENERIC
+        seps = PREFIX_FORMAT_GENERIC
         for code in codes:
             seps = seps.replace(f"%{code}", "")
 
         # Create prefix and specific format string
         prefix = args[0]
-        prefix_formatter = f"%{codes[0]}"
+        prefix_format = f"%{codes[0]}"
         for i in range(1, len(args)):
             prefix = prefix + seps[i-1] + args[i]
-            prefix_formatter = prefix_formatter + seps[i-1] + f"%{codes[i]}"
+            prefix_format = prefix_format + seps[i-1] + f"%{codes[i]}"
 
-        return prefix, prefix_formatter
+        return prefix, prefix_format
         
 
-    prefix, prefix_formatter = build_prefix(SUBJECT=subject, TRIALTYPE=trialtype, CONDITION1=condition1, CONDITION2=condition2)
+    prefix, prefix_format = build_prefix(SUBJECT=subject, TRIALTYPE=trialtype, CONDITION1=condition1, CONDITION2=condition2)
     print(f"PREFIX: {prefix}")
-    print(f"PREFIX_FORMATTER: {prefix_formatter}\n")
+    print(f"PREFIX_FORMAT: {prefix_format}\n")
 
 
-    FILENAME_FORMATTER = "%PREFIX_%DATE_%SUFFIX.%EXT"
-    print(f"FILENAME_FORMATTER: {FILENAME_FORMATTER}")
+    print(f"FILENAME_FORMAT: {FILENAME_FORMAT}")
 
     def build_filename(**kwargs):
-        filename = FILENAME_FORMATTER
+        filename = kwargs["FORMAT"]
         for k, v in kwargs.items():
             filename = filename.replace(f"%{k}", v)
         return filename
 
-    filename = build_filename(PREFIX= prefix, DATE=current_date, SUFFIX="exothread_left", EXT="csv")
+    filename = build_filename(FORMAT=FILENAME_FORMAT, PREFIX= prefix, DATE=current_date, SUFFIX="exothread_left", EXT="csv")
     print(f"FILENAME: {filename}\n")
 
 
@@ -93,12 +96,12 @@ if __name__ == "__main__":
     """
 
     # Create necessary regexes
-    def datetime_format_code_to_regex(formatter):
+    def datetime_formatcode_to_regex(format_):
         for formatcode, regex in FORMATCODE_TO_REGEX.items():
-            formatter = formatter.replace(formatcode, regex)
-        return formatter
+            format_ = format_.replace(formatcode, regex)
+        return format_
     
-    date_regex = datetime_format_code_to_regex(DATETIME_FORMATTER_LESS_SEC)
+    date_regex = datetime_formatcode_to_regex(DATETIME_FORMAT_LESS_SEC)
     print(f"DATE_REGEX: {date_regex}")
 
     ext_regex = r'\.(' + "|".join(VALID_FILE_EXTENSIONS) + ')'

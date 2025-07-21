@@ -53,7 +53,7 @@ class MainControllerWrapper:
         self.condition2 = condition2["cond"]
         self.usebackup = usebackup
 
-        current_date = datetime.datetime.now(tz=DETROIT_TIMEZONE).strftime(DATETIME_FORMATTER_LESS_SEC)
+        current_date = datetime.datetime.now(tz=DETROIT_TIMEZONE).strftime(DATETIME_FORMAT_LESS_SEC)
         file_prefix_list = [arg for arg in [self.subjectID, self.trial_type, self.condition1, self.condition2] if arg]
         self.file_prefix = "_".join(file_prefix_list) + "_" + current_date
         print("DEBUG_fileprefix: ", self.file_prefix)

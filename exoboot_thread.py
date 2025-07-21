@@ -423,7 +423,7 @@ class ExobootThread(BaseThread):
         self.data_dict["pitime"] = TIME_METHOD() - self.startstamp
 
         # Datetime time stamp
-        self.data_dict['date_time'] = datetime.datetime.now(tz=DETROIT_TIMEZONE).strftime(DATETIME_FORMATTER)
+        self.data_dict['date_time'] = datetime.datetime.now(tz=DETROIT_TIMEZONE).strftime(DATETIME_FORMAT)
 
         # Read sensors
         self.read_sensors()
