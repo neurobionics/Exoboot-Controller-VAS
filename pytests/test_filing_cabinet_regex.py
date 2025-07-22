@@ -8,16 +8,17 @@ from src.settings.constants import DETROIT_TIMEZONE, DATETIME_FORMAT_LESS_SEC
 
 from filing_cabinet_regex import *
 
+current_date = datetime.datetime.now(tz=DETROIT_TIMEZONE).strftime(DATETIME_FORMAT_LESS_SEC)
+subject = "TESTER"
+trialtype = "VICKREY"
+condition1 = "EPO"
+condition2 = "BOO"
+
 def test_build_prefix_not_enough_args():
     with pytest.raises(KeyError):
         build_prefix()
 
 def test_build_prefix_basic():
-    subject = "TESTER"
-    trialtype = "VICKREY"
-    condition1 = "EPO"
-    condition2 = "BOO"
-
     prefix_2arg = build_prefix(prefix_format=PREFIX_FORMAT_GENERIC, SUBJECT=subject, TRIALTYPE=trialtype)
     prefix_3arg_c1 = build_prefix(prefix_format=PREFIX_FORMAT_GENERIC, SUBJECT=subject, TRIALTYPE=trialtype, CONDITION1=condition1)
     prefix_3arg_c2 = build_prefix(prefix_format=PREFIX_FORMAT_GENERIC, SUBJECT=subject, TRIALTYPE=trialtype, CONDITION2=condition2)
@@ -33,11 +34,6 @@ def test_build_prefix_different_PREFIX_FORMAT_GENERIC():
     # and extraneous CONDITION3
     new_prefix_format = r'%TRIALTYPE_%SUBJECT_%CONDITION1_%CONDITION2_%CONDITION3'
 
-    subject = "TESTER"
-    trialtype = "VICKREY"
-    condition1 = "EPO"
-    condition2 = "BOO"
-
     prefix_2arg = build_prefix(prefix_format=new_prefix_format, SUBJECT=subject, TRIALTYPE=trialtype)
     prefix_3arg_c1 = build_prefix(prefix_format=new_prefix_format, SUBJECT=subject, TRIALTYPE=trialtype, CONDITION1=condition1)
     prefix_3arg_c2 = build_prefix(prefix_format=new_prefix_format, SUBJECT=subject, TRIALTYPE=trialtype, CONDITION2=condition2)
@@ -49,32 +45,16 @@ def test_build_prefix_different_PREFIX_FORMAT_GENERIC():
     assert prefix_4arg == "VICKREY_TESTER_EPO_BOO"
 
 def test_build_prefix_different_and_long_separators():
-    subject = "TESTER"
-    trialtype = "VICKREY"
-    condition1 = "EPO"
-    condition2 = "BOO"
-
     new_prefix_format = r'%TRIALTYPE__%SUBJECT?_%CONDITION1^^^^^%CONDITION2+++%CONDITION3'
-
     prefix = build_prefix(prefix_format=new_prefix_format, SUBJECT=subject, TRIALTYPE=trialtype, CONDITION1=condition1, CONDITION2=condition2)
-    
     assert prefix == "VICKREY__TESTER?_EPO^^^^^BOO"
 
 
 def test_build_filename_basic():
-    current_date = datetime.datetime.now(tz=DETROIT_TIMEZONE).strftime(DATETIME_FORMAT_LESS_SEC)
-    subject = "TESTER"
-    trialtype = "VICKREY"
-    condition1 = "EPO"
-    condition2 = ""
-
-    prefix = build_prefix(SUBJECT=subject, PREFIX=prefix, TRIALTYPE=trialtype, CONDITION1=condition1, CONDITION2=condition2)
-
+    prefix = build_prefix(SUBJECT=subject, TRIALTYPE=trialtype, CONDITION1=condition1)
     filename = build_filename(FORMAT=FILENAME_FORMAT, PREFIX=prefix, DATE=current_date, SUFFIX="exothread_left", EXT="csv")
-
     assert filename == f"TESTER_VICKREY_EPO_{current_date}_exothread_left.csv"
 
-def test_build_filename_missing_prefix():
-    current_date = datetime.datetime.now(tz=DETROIT_TIMEZONE).strftime(DATETIME_FORMAT_LESS_SEC)
+def test_build_filename_missing_argument():
     with pytest.raises(KeyError):
         build_filename(FORMAT=FILENAME_FORMAT, DATE=current_date, SUFFIX="exothread_left", EXT="csv")
