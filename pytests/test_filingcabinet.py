@@ -4,7 +4,8 @@ import shutil
 import pytest
 from pathlib import Path
 from src.logger.filing_cabinet import FilingCabinet
-from src.settings.constants import DETROIT_TIMEZONE, DATETIME_FORMAT_LESS_SEC
+from src.logger.filing_cabinet_regex import build_prefix, build_filename
+from src.settings.constants import DETROIT_TIMEZONE, DATETIME_FORMAT_LESS_SEC, FILENAME_FORMAT, PREFIX_FORMAT_GENERIC
 
 test_dir = "test_subject_data"
 
@@ -22,9 +23,11 @@ def test_newfile_creates_unique_file():
     """Test if a unique file is created when the same name is used to create a file.
     Ensures that the new file has a "-new" suffix at the end to prevent conflicts."""
     cabinet = FilingCabinet("root", test_dir, "subj2")
-    file1 = cabinet.newfile("data", "txt")
+    filename = "data.txt"
+    uid = "data"
+    file1 = cabinet.newfile(filename, uid)
     Path(file1).touch()
-    file2 = cabinet.newfile("data", "txt")
+    file2 = cabinet.newfile(filename, uid)
     assert file2 != file1
     assert file2.endswith("_new.txt")
 
@@ -32,14 +35,19 @@ def test_newfile_creates_unique_file():
 def test_getpath_and_dictkey():
     """Test if the getpath method retrieves the correct file path using a dictkey."""
     cabinet = FilingCabinet("root", test_dir, "subj3")
-    file_path = cabinet.newfile("info", "csv", dictkey="special")
+    filename = "info.csv"
+    uid="special"
+    file_path = cabinet.newfile(filename, uid)
     assert cabinet.getpath("special") == file_path
 
 
 def test_add_behavior():
     """Ensure that when "add" behavior selected, the file is created without a suffix and data is appended to end of file."""
-    cabinet = FilingCabinet("root", test_dir, "subj5", defaultbehavior="add")
-    file = cabinet.newfile("data", "txt")
+    cabinet = FilingCabinet("root", test_dir, "subj5")
+
+    filename = "data_add.csv"
+    uid = "data"
+    file = cabinet.newfile(filename, uid, behavior="add")
 
     # ensure that a unique file has NOT been created
     assert not file.endswith("_new.txt")
@@ -49,7 +57,7 @@ def test_add_behavior():
         f.write("first line\n")
 
     # use FilingCabinet to append data
-    file_add = cabinet.newfile("data", "txt", behavior="add")
+    file_add = cabinet.newfile(filename, uid, behavior="add")
     with open(file_add, "a") as f:
         f.write("second line\n")
 
@@ -64,19 +72,25 @@ def test_loadbackup_date_stripping():
     """
     Test whether the loadbackup method correctly strips the date from filenames.
     """
-    file_prefix = "SUBJECT_TRIALTYPE_COND1_COND2"
+    # Create filename from info
     current_date = datetime.datetime.now(tz=DETROIT_TIMEZONE).strftime(DATETIME_FORMAT_LESS_SEC)
-    suffix = "backupfile"
+    subject = "TESTER"
+    trialtype = "VICKREY"
+    condition1 = "EPO"
+    condition2 = ""
+    suffix = "exothread_left"
+    prefix = build_prefix(SUBJECT=subject, TRIALTYPE=trialtype, CONDITION1=condition1, CONDITION2=condition2)
+    filename = build_filename(FORMAT=FILENAME_FORMAT, PREFIX=prefix, DATE=current_date, SUFFIX=suffix, EXT="csv")
 
     cabinet = FilingCabinet(test_dir, "test_loadbackup_date_stripping")
 
-    orig_file = "_".join([file_prefix, current_date, suffix])
-    file_path = cabinet.newfile(orig_file, "txt")
+
+    file_path = cabinet.newfile(filename, suffix)
     with open(file_path, "w") as f:
         f.write("Original file: " + current_date)
 
     new_cabinet = FilingCabinet(test_dir, "test_loadbackup_date_stripping")
-    new_cabinet.loadbackup(file_prefix)
+    new_cabinet.loadbackup(prefix)
 
     assert new_cabinet.filepaths_dict[suffix] == file_path
 

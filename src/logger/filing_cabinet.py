@@ -46,19 +46,20 @@ class FilingCabinet:
         """
         return self.filepaths_dict[name]
 
-    def newfile(self, filename, dictkey, behavior="new"):
+    def newfile(self, filename, uid, behavior="new"):
         """
         Create path for new file in subject_data_path folder
         Resolves conflicting names using behavior
 
-        Store paths under dictkey
+        Store paths under uid
         """
         if behavior == "new":
             # Create new file
             isunique = False
             while not isunique:
                 if os.path.isfile(os.path.join(self.getparentfolderpath(), filename)):
-                    filename = "{}_new.{}".format(filename.split(sep=".")[0], type)
+                    name_ext = filename.split(sep=".")
+                    filename = "{}_new.{}".format(name_ext[0], name_ext[1])
                 else:
                     isunique = True
         elif behavior == "add":
@@ -68,17 +69,16 @@ class FilingCabinet:
 
         fullpath = os.path.join(self.parentfolderpath, filename)
 
-        # If no specified dictkey, put path in filepaths_dict under fullpath
-        self.filepaths_dict[dictkey] = fullpath
+        self.filepaths_dict[uid] = fullpath
 
         return fullpath
 
-    def _load(self, filepath, dictkey):
+    def _load(self, filepath, uid):
         """
         Adds existing filepath into filepaths_dict
         MUST ALREADY EXIST
         """
-        self.filepaths_dict[dictkey] = filepath
+        self.filepaths_dict[uid] = filepath
 
     def loadbackup(self, file_prefix, rule="newest"):
         """
@@ -96,12 +96,12 @@ class FilingCabinet:
         if not backupfiles:
             return False
 
-        # Find unique dictkeys
+        # Find unique uids
         date_regex = datetime_formatcode_to_regex(DATETIME_FORMAT_LESS_SEC)
         ext_regex = file_extension_regex(VALID_FILE_EXTENSIONS)
         files_by_uid = group_files_by_uid(backupfiles, STATIC=file_prefix, VARIABLE=[date_regex, ext_regex])
 
-        # Find path to each unique dictkey
+        # Find path to each unique uid
         for uid, files in files_by_uid.items():
             if rule == "newest":
                 subbackup = max(files, key=os.path.getctime)

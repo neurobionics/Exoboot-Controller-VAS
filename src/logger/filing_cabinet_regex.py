@@ -1,5 +1,4 @@
 import re, datetime
-from src.logger.filing_cabinet import FilingCabinet
 
 from src.settings.constants import DETROIT_TIMEZONE, DATETIME_FORMAT_LESS_SEC, VALID_FILE_EXTENSIONS, FORMATCODE_TO_REGEX, PREFIX_FORMAT_GENERIC, FILENAME_FORMAT
 
@@ -51,7 +50,7 @@ def datetime_formatcode_to_regex(format_):
     for formatcode, regex in FORMATCODE_TO_REGEX.items():
         format_ = format_.replace(formatcode, regex)
     return format_
-    
+
 def file_extension_regex(ext=VALID_FILE_EXTENSIONS):
     """
     Convert file extensions list to regex
@@ -100,7 +99,7 @@ if __name__ == "__main__":
 
     print(f"PREFIX_FORMAT_GENERIC: {PREFIX_FORMAT_GENERIC}")
 
-    prefix = build_prefix(SUBJECT=subject, PREFIX=prefix, TRIALTYPE=trialtype, CONDITION1=condition1, CONDITION2=condition2)
+    prefix = build_prefix(SUBJECT=subject, TRIALTYPE=trialtype, CONDITION1=condition1, CONDITION2=condition2)
     print(f"PREFIX: {prefix}")
 
 

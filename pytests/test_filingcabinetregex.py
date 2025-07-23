@@ -1,10 +1,8 @@
-import os
-import datetime
-import shutil
-import pytest
-from src.settings.constants import DETROIT_TIMEZONE, DATETIME_FORMAT_LESS_SEC
+import pytest, datetime
 
-from logger.filing_cabinet_regex import *
+from src.settings.constants import DETROIT_TIMEZONE, DATETIME_FORMAT_LESS_SEC, PREFIX_FORMAT_GENERIC, FILENAME_FORMAT
+
+from src.logger.filing_cabinet_regex import build_prefix, build_filename
 
 current_date = datetime.datetime.now(tz=DETROIT_TIMEZONE).strftime(DATETIME_FORMAT_LESS_SEC)
 subject = "TESTER"

@@ -1,7 +1,7 @@
 import pytest
 from scipy.interpolate import CubicSpline
 from src.assistance_calculator import AssistanceCalculator
-from settings.constants import INCLINE_WALK_TIMINGS
+from src.settings.constants import INCLINE_WALK_TIMINGS
 import numpy as np
 
 @pytest.fixture
@@ -23,9 +23,9 @@ def test_set_new_timing_params(generator):
     Test that set_new_timing_params correctly updates timing parameters.
     """
     generator.set_new_timing_params(12, 35, 18)
-    assert generator.t_rise == 12
-    assert generator.t_peak == 35
-    assert generator.t_fall == 18
+    assert generator.t_rise == 12/100.
+    assert generator.t_peak == 35/100.
+    assert generator.t_fall == 18/100.
 
 
 def test_set_new_holding_torque(generator):
