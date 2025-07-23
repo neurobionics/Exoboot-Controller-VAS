@@ -32,6 +32,7 @@ class GaitStateEstimator(BaseThread):
         thread_right,
         name="GSE",
         filter_size=10,
+        stride_period_init=0,
         daemon=True,
         continuousmode=False,
         quit_event=Type[threading.Event],
@@ -46,6 +47,9 @@ class GaitStateEstimator(BaseThread):
 
         # Filter size
         self.filter_size = filter_size
+
+        # set initial stride period estimate
+        self.stride_period_init = stride_period_init
 
         # Operating mode
         self.continuousmode = continuousmode
@@ -100,10 +104,10 @@ class GaitStateEstimator(BaseThread):
         )
 
         self.bertec_estimator_left = BertecEstimator(
-            self.sub_bertec_left, filter_size=self.filter_size
+            self.sub_bertec_left, self.stride_period_init, filter_size=self.filter_size
         )
         self.bertec_estimator_right = BertecEstimator(
-            self.sub_bertec_right, filter_size=self.filter_size
+            self.sub_bertec_right, self.stride_period_init, filter_size=self.filter_size
         )
 
         # Period Tracker

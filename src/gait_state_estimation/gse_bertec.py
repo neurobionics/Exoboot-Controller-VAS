@@ -11,7 +11,7 @@ class BertecEstimator:
     def __init__(
         self,
         zmq_subscriber,
-        stride_period_init=1.2,
+        stride_period_init=0,
         filter_size=10,
         hs_threshold=80,
         to_threshold=30,

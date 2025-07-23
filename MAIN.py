@@ -41,6 +41,7 @@ class MainControllerWrapper:
         condition1=None,
         condition2=None,
         usebackup=False,
+        stride_period_init=0,
         continuousmode=False,
         overridedefaultcurrentbounds=False,
         main_loop_freq=0.2,
@@ -53,6 +54,7 @@ class MainControllerWrapper:
         self.condition1 = condition1["cond"]
         self.condition2 = condition2["cond"]
         self.usebackup = usebackup
+        self.stride_period_init = stride_period_init
         self.current_date = datetime.datetime.now(tz=DETROIT_TIMEZONE).strftime(DATETIME_FORMAT_LESS_SEC)
 
         self.file_prefix = build_prefix(
@@ -220,7 +222,8 @@ class MainControllerWrapper:
                     thread_left=self.exothread_left,
                     thread_right=self.exothread_right,
                     name="GSE",
-                    filter_size=5,
+                    filter_size=10,
+                    stride_period_init=self.stride_period_init,
                     daemon=True,
                     continuousmode=self.continuousmode,
                     quit_event=self.quit_event,
@@ -352,6 +355,7 @@ if __name__ == "__main__":
     condition1 = {"cond": "session5", "subdirectory": True}
     condition2 = {"cond": "group4", "subdirectory": False}
     usebackup = True
+    stride_period_init = 1.2
 
     # Validate args
     # TODO: update validator
@@ -366,6 +370,7 @@ if __name__ == "__main__":
         "condition1": condition1,
         "condition2": condition2,
         "usebackup": usebackup,
+        "stride_period_init": stride_period_init
     }
 
     # Allow GSE to alter peak torque during stride

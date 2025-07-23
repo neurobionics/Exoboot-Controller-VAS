@@ -43,7 +43,7 @@ class ExobootRemoteClient:
         Sends null message to LoggingServer to get subject details
         """
         subject_info = self.stub.get_subject_info(pb2.null())
-        return subject_info.startstamp, subject_info.subjectID, subject_info.trial_type, subject_info.trial_cond, subject_info.description, subject_info.usebackup
+        return subject_info.startstamp, subject_info.subjectID, subject_info.trial_type, subject_info.trial_cond, subject_info.description, subject_info.usebackup, subject_info.date
 
     def chop(self):
         """
@@ -223,7 +223,8 @@ class ExobootCommServicer(pb2_grpc.exoboot_over_networkServicer):
                                 trial_type=self.mainwrapper.trial_type,
                                 trial_cond=self.mainwrapper.condition1,
                                 description=self.mainwrapper.condition2,
-                                usebackup=self.mainwrapper.usebackup)
+                                usebackup=self.mainwrapper.usebackup,
+                                date = self.mainwrapper.current_date)
 
     def chop(self, beaver, context):
         """
