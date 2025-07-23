@@ -1,7 +1,24 @@
-import re, datetime
+import os, re, datetime
 
-from src.settings.constants import DETROIT_TIMEZONE, DATETIME_FORMAT_LESS_SEC, VALID_FILE_EXTENSIONS, FORMATCODE_TO_REGEX, PREFIX_FORMAT_GENERIC, FILENAME_FORMAT
+# from src.settings.constants import DETROIT_TIMEZONE, DATETIME_FORMAT_LESS_SEC, VALID_FILE_EXTENSIONS, FORMATCODE_TO_REGEX, PREFIX_FORMAT_GENERIC, FILENAME_FORMAT
+import pytz
+DETROIT_TIMEZONE = pytz.timezone("America/Detroit")
+DATETIME_FORMAT = "%Z_%Y_%m_%d_%H:%M:%S"
+DATETIME_FORMAT_LESS_SEC = "%Y_%m_%d_%H_%M"
+PREFIX_FORMAT_GENERIC = r'%SUBJECT_%TRIALTYPE_%CONDITION1_%CONDITION2'
+FILENAME_FORMAT = "%PREFIX_%DATE_%SUFFIX.%EXT"
 
+
+"""FILING CABINET REGEX"""
+VALID_FILE_EXTENSIONS = ["csv", "txt"]
+FORMATCODE_TO_REGEX = {
+        "%Y": r'\d{4}', 
+        "%m": r'(0[1-9]|1[0-2])', 
+        "%d": r'(0[1-9]|[1-2][0-9]|3[01])', 
+        "%H": r'([01][0-9]|[2][0-3])', 
+        "%M": r'([0-5][0-9])', 
+        "%S": r'([0-5][0-9])', 
+    }
 
 def build_prefix(prefix_format=PREFIX_FORMAT_GENERIC, **kwargs):
     """
@@ -66,6 +83,8 @@ def group_files_by_uid(filenames, STATIC, VARIABLE=None):
     uid_grouped_files = {}
     for filename in filenames:
         originalname = filename
+        # Remove directory path info
+        filename = filename.split(os.sep)[-1]
         if STATIC in filename and any(ext in filename for ext in VALID_FILE_EXTENSIONS):
             new_uid = True
             for uid in uid_grouped_files.keys():
@@ -105,12 +124,12 @@ if __name__ == "__main__":
 
     print(f"FILENAME_FORMAT: {FILENAME_FORMAT}")
 
-    filename = build_filename(FORMAT=FILENAME_FORMAT, DATE=current_date, SUFFIX="exothread_left", EXT="csv")
+    filename = build_filename(FORMAT=FILENAME_FORMAT, PREFIX=prefix, DATE=current_date, SUFFIX="exothread_left", EXT="csv")
     print(f"FILENAME: {filename}\n")
 
 
 
-    file_grabbag = ["2025_07_20_20_27_TESTER_VICKREY_EPO_2025_07_20_20_33_2025_07_20_20_33_2025_07_20_20_33_____exothread_left______.csv",
+    file_grabbag = [os.sep + "root" + os.sep + "2025_07_20_20_27_TESTER_VICKREY_EPO_2025_07_20_20_33_2025_07_20_20_33_2025_07_20_20_33_____exothread_left______.csv",
                     "2025_07_20_20_33_TESTER_VICKREY_EPO_2025_07_20_20_34_exothread_left.csv",
                     "TESTER_VICKREY_EPO_2025_07_20_20_35_exothread_left_2025_07_20_20_33.png",
                     "TESTER_VICKREY_NPO_2025_07_20_20_33_exothread_left.csv",
