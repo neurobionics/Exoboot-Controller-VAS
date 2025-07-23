@@ -48,6 +48,7 @@ message subject_info {
     string trial_cond = 4;
     string description = 5;
     bool usebackup = 6;
+    string date = 7;
 }
 
 // Vickrey Auction Messages
@@ -121,7 +122,7 @@ message datastream {
 service exoboot_over_network {
     // General Methods
     rpc testconnection (testmsg) returns (receipt) {};
-    rpc get_subject_info(ret_val) returns (subject_info);
+    rpc get_subject_info(null) returns (subject_info);
     rpc chop (beaver) returns (receipt) {}; // LoggingServer kill message
 
     // Exoboot Controller Commands
