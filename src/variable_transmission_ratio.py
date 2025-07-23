@@ -4,7 +4,7 @@ import datetime
 import numpy as np
 import matplotlib.pyplot as plt
 
-from src.settings.constants import TR_COEFS_PREFIX, TR_FOLDER_PATH, TR_DATE_FORMATTER
+from src.settings.constants import TR_COEFS_PREFIX, TR_FOLDER_PATH, TR_DATE_FORMAT
 
 
 class VariableTransmissionRatio:
@@ -61,7 +61,7 @@ class VariableTransmissionRatio:
                     datestring = (
                         file.replace(fullfileprefix, "").strip("_").split(".")[0]
                     )
-                    dt = datetime.datetime.strptime(datestring, TR_DATE_FORMATTER)
+                    dt = datetime.datetime.strptime(datestring, TR_DATE_FORMAT)
                     datestrings.append(datestring)
                     datetimes.append(dt)
 

@@ -31,7 +31,7 @@ def get_fulldata_file(side):
         if fullfileprefix in file:
             tr_files.append(os.path.join(filepath, file))
             datestring = file.replace(fullfileprefix, "").strip("_").split(".")[0]
-            dt = datetime.datetime.strptime(datestring, TR_DATE_FORMATTER)
+            dt = datetime.datetime.strptime(datestring, TR_DATE_FORMAT)
             datestrings.append(datestring)
             datetimes.append(dt)
 
@@ -100,7 +100,7 @@ def main(coefsfile, fulldatafile):
     write_to_file = input("Write coefficients to file (y/n): ")
     if write_to_file == "y":
         # Set filenames
-        date = datetime.datetime.today().strftime(TR_DATE_FORMATTER)
+        date = datetime.datetime.today().strftime(TR_DATE_FORMAT)
         coefs_filename = "{}_{}_{}.csv".format(TR_COEFS_PREFIX, side, date)
         with open(coefs_filename, "w", newline='') as file:
             writer = csv.writer(file, delimiter=",")

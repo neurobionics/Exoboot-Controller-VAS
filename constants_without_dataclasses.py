@@ -95,7 +95,7 @@ GSETHREAD_FIELDS = GENERAL_FIELDS + BERTEC_FIELDS
 TR_FILE_PREFIX = "default_TR"
 TR_COEFS_PREFIX = "{}_coefs".format(TR_FILE_PREFIX)
 TR_FULLDATA_PREFIX = "{}_fulldata".format(TR_FILE_PREFIX)
-TR_DATE_FORMATTER = "%Y_%m_%d_%H_%M"
+TR_DATE_FORMAT = "%Y_%m_%d_%H_%M"
 
 
 """Assistance Profile Constants"""

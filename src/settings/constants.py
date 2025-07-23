@@ -108,14 +108,14 @@ TRIAL_CONDS_DICT = {
 
 """ Datetime Constants """
 DETROIT_TIMEZONE = pytz.timezone("America/Detroit")
-DATETIME_FORMATTER = "%Z_%Y_%m_%d_%H:%M:%S"
-DATETIME_FORMATTER_LESS_SEC = "%Y_%m_%d_%H_%M"
+DATETIME_FORMAT = "%Z_%Y_%m_%d_%H:%M:%S"
+DATETIME_FORMAT_LESS_SEC = "%Y_%m_%d_%H_%M"
 
 """ Transmission Ratio Constants """
 TR_FILE_PREFIX = "default_TR"
 TR_COEFS_PREFIX = "{}_coefs".format(TR_FILE_PREFIX)
 TR_FULLDATA_PREFIX = "{}_fulldata".format(TR_FILE_PREFIX)
-TR_DATE_FORMATTER = "%Y_%m_%d_%H_%M"
+TR_DATE_FORMAT = "%Y_%m_%d_%H_%M"
 TR_FOLDER_PATH = "./src/transmission_ratio/TR_coef_logs/"  # path to coeff logs
 
 
@@ -240,3 +240,20 @@ RTPLOT_ENABLED = True  # if true, rtplotting thread will be started
 
 """ STANDARDIZING TIME"""
 TIME_METHOD = time.perf_counter
+
+
+"""FORMAT STRINGS"""
+PREFIX_FORMAT_GENERIC = r'%SUBJECT_%TRIALTYPE_%CONDITION1_%CONDITION2'
+FILENAME_FORMAT = "%PREFIX_%DATE_%SUFFIX.%EXT"
+
+
+"""FILING CABINET REGEX"""
+VALID_FILE_EXTENSIONS = ["csv", "txt"]
+FORMATCODE_TO_REGEX = {
+        "%Y": r'\d{4}', 
+        "%m": r'(0[1-9]|1[0-2])', 
+        "%d": r'(0[1-9]|[1-2][0-9]|3[01])', 
+        "%H": r'([01][0-9]|[2][0-3])', 
+        "%M": r'([0-5][0-9])', 
+        "%S": r'([0-5][0-9])', 
+    }
