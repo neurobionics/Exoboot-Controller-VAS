@@ -95,7 +95,7 @@ class TR_Characterizer:
         self,
         side,
         flexdevice,
-        current_cmd=BIAS_CURRENT,
+        current_cmd=EXO_DEFAULT_CONFIG.BIAS_CURRENT,
         freq=500,
         fulldata_prefix=TR_FULLDATA_PREFIX,
         coefs_prefix=TR_COEFS_PREFIX,
@@ -160,10 +160,10 @@ class TR_Characterizer:
                     # Ankle direction convention:   plantarflexion: increasing angle, dorsiflexion: decreasing angle
                     # info: dephy units for ank_ang are wrong. ank_ang units are in clicks/ticks
                     current_ank_angle = (
-                        self.ank_enc_sign * ank_ang * EXO_MOTOR_CONSTANTS.MOT_ENC_CLICKS_TO_DEG
+                        self.ank_enc_sign * ank_ang * EB51_CONSTANTS.MOT_ENC_CLICKS_TO_DEG
                     ) - self.offset  # deg
                     current_mot_angle = (
-                        self.motor_sign * mot_ang * EXO_MOTOR_CONSTANTS.MOT_ENC_CLICKS_TO_DEG
+                        self.motor_sign * mot_ang * EB51_CONSTANTS.MOT_ENC_CLICKS_TO_DEG
                     )  # deg
 
                     act_current = data.mot_cur
@@ -235,7 +235,7 @@ class TR_Characterizer:
             "Set ankle angle to maximum dorsiflexion hardstop. Press any key to lock in angle/offset at this ankle position"
         )
         act_pack = self.flexdevice.read()
-        self.offset = self.ank_enc_sign * act_pack.ank_ang * EXO_MOTOR_CONSTANTS.MOT_ENC_CLICKS_TO_DEG
+        self.offset = self.ank_enc_sign * act_pack.ank_ang * EB51_CONSTANTS.MOT_ENC_CLICKS_TO_DEG
         print("OFFSET: ", self.offset)
 
         input("Press any key to continue")
@@ -263,7 +263,7 @@ if __name__ == "__main__":
     for side, device in zip(sides, devices):
         if device:
             # Start device streaming and set gains:
-            device.set_gains(EXO_PID_GAINS.DEFAULT_KP, EXO_PID_GAINS.DEFAULT_KI, EXO_PID_GAINS.DEFAULT_KD, 0, 0, EXO_PID_GAINS.DEFAULT_FF)
+            device.set_gains(DEFAULT_PID_GAINS.KP, DEFAULT_PID_GAINS.KI, DEFAULT_PID_GAINS.KD, 0, 0, DEFAULT_PID_GAINS.FF)
 
             characterizer = TR_Characterizer(
                 side=side, flexdevice=device, current_cmd=750, date=date
