@@ -83,7 +83,7 @@ message presentation {
     float trial = 2;
     float pres = 3;
     repeated float torques = 4;
-    repeated float values = 5; 
+    repeated float values = 5;
 }
 
 // JND Messages
@@ -102,7 +102,7 @@ message preference {
     float torque = 2;
 }
 
-// Logging Messages 
+// Logging Messages
 // TODO IMPLEMENT GENERAL DICT LOGGING
 message header {
     repeated string names = 1;
@@ -121,7 +121,7 @@ message datastream {
 service exoboot_over_network {
     // General Methods
     rpc testconnection (testmsg) returns (receipt) {};
-    rpc get_subject_info(null) returns (subject_info);
+    rpc get_subject_info(ret_val) returns (subject_info);
     rpc chop (beaver) returns (receipt) {}; // LoggingServer kill message
 
     // Exoboot Controller Commands
