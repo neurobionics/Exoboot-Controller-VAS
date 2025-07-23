@@ -3,11 +3,12 @@ from typing import Type
 from pathlib import Path
 from collections import deque
 # from rtplot import client
+from src.logger.filing_cabinet_regex import build_filename
 
 class LoggingNexus:
-    def __init__(self, subjectID, file_prefix, filingcabinet, *threads):
-        self.subjectID = subjectID
-        self.file_prefix = file_prefix
+    def __init__(self, prefix, date, filingcabinet, *threads):
+        self.prefix = prefix
+        self.date = date
 
         self.thread_names = []
         self.thread_fields = {}
@@ -26,21 +27,17 @@ class LoggingNexus:
         for thread in threads:
             thread.loggingnexus = self
 
-            threadname = thread.name
-            self.thread_names.append(threadname)
-            self.thread_fields[threadname] = thread.fields
-            self.thread_stashes[threadname] = deque()
-            self.filenames[threadname] = "{}_{}".format(self.file_prefix, threadname)
+            self.thread_names.append(thread.name)
+            self.thread_fields[thread.name] = thread.fields
+            self.thread_stashes[thread.name] = deque()
 
-        # Write Headers to temp name
-        for thread in self.thread_names:
-            filename = self.filenames[thread]
-            filepath = self.filingcabinet.newfile(filename, "csv", behavior="new", dictkey=thread)
-            fields = self.thread_fields[thread]
+            filename = build_filename(PREFIX=self.prefix, DATE=self.date, SUFFIX=thread.name, EXT="csv")
+            self.filenames[thread.name] = filename
 
+            filepath = self.filingcabinet.newfile(filename, uid=thread.name, behavior="new")
             with open(filepath, 'a') as f:
                 writer = csv.writer(f, lineterminator='\n',quotechar='|')
-                writer.writerow(fields)
+                writer.writerow(thread.fields)
 
     def append(self, threadname, data_dict):
         """
@@ -75,7 +72,7 @@ class LoggingNexus:
             data = self.thread_stashes[threadname][-1][field]
             return data
         except:
-            return -1
+            return {}
 
     def log(self):
         """

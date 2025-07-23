@@ -93,10 +93,10 @@ class GaitStateEstimator(BaseThread):
         """
         # Bertec subscribers and estimators
         self.sub_bertec_right = Subscriber(
-            publisher_ip=STATIC_IP_ADDRESSES.VICON_IP, topic_filter="fz_right", timeout_ms=5
+            publisher_ip=IP_ADDRESSES.VICON_IP, topic_filter="fz_right", timeout_ms=5
         )
         self.sub_bertec_left = Subscriber(
-            publisher_ip=STATIC_IP_ADDRESSES.VICON_IP, topic_filter="fz_left", timeout_ms=5
+            publisher_ip=IP_ADDRESSES.VICON_IP, topic_filter="fz_left", timeout_ms=5
         )
 
         self.bertec_estimator_left = BertecEstimator(
@@ -111,7 +111,7 @@ class GaitStateEstimator(BaseThread):
         self.prev_end_time = TIME_METHOD()
 
         # Soft real time loop
-        self.softRTloop = FlexibleSleeper(period=1 / EXO_THREAD_FREQUENCIES.BERTEC_FREQ)
+        self.softRTloop = FlexibleSleeper(period=1 / THREAD_FREQS.BERTEC_FREQ)
 
     def pre_iterate(self, pause_event):
         """

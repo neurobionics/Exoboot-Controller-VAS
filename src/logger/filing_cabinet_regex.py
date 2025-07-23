@@ -1,24 +1,24 @@
 import os, re, datetime
 
-# from src.settings.constants import DETROIT_TIMEZONE, DATETIME_FORMAT_LESS_SEC, VALID_FILE_EXTENSIONS, FORMATCODE_TO_REGEX, PREFIX_FORMAT_GENERIC, FILENAME_FORMAT
-import pytz
-DETROIT_TIMEZONE = pytz.timezone("America/Detroit")
-DATETIME_FORMAT = "%Z_%Y_%m_%d_%H:%M:%S"
-DATETIME_FORMAT_LESS_SEC = "%Y_%m_%d_%H_%M"
-PREFIX_FORMAT_GENERIC = r'%SUBJECT_%TRIALTYPE_%CONDITION1_%CONDITION2'
-FILENAME_FORMAT = "%PREFIX_%DATE_%SUFFIX.%EXT"
+from src.settings.constants import DETROIT_TIMEZONE, DATETIME_FORMAT_LESS_SEC, VALID_FILE_EXTENSIONS, FORMATCODE_TO_REGEX, PREFIX_FORMAT_GENERIC, FILENAME_FORMAT
+# import pytz
+# DETROIT_TIMEZONE = pytz.timezone("America/Detroit")
+# DATETIME_FORMAT = "%Z_%Y_%m_%d_%H:%M:%S"
+# DATETIME_FORMAT_LESS_SEC = "%Y_%m_%d_%H_%M"
+# PREFIX_FORMAT_GENERIC = r'%SUBJECT_%TRIALTYPE_%CONDITION1_%CONDITION2'
+# FILENAME_FORMAT = "%PREFIX_%DATE_%SUFFIX.%EXT"
 
 
-"""FILING CABINET REGEX"""
-VALID_FILE_EXTENSIONS = ["csv", "txt"]
-FORMATCODE_TO_REGEX = {
-        "%Y": r'\d{4}', 
-        "%m": r'(0[1-9]|1[0-2])', 
-        "%d": r'(0[1-9]|[1-2][0-9]|3[01])', 
-        "%H": r'([01][0-9]|[2][0-3])', 
-        "%M": r'([0-5][0-9])', 
-        "%S": r'([0-5][0-9])', 
-    }
+# """FILING CABINET REGEX"""
+# VALID_FILE_EXTENSIONS = ["csv", "txt"]
+# FORMATCODE_TO_REGEX = {
+#         "%Y": r'\d{4}',
+#         "%m": r'(0[1-9]|1[0-2])',
+#         "%d": r'(0[1-9]|[1-2][0-9]|3[01])',
+#         "%H": r'([01][0-9]|[2][0-3])',
+#         "%M": r'([0-5][0-9])',
+#         "%S": r'([0-5][0-9])',
+#     }
 
 def build_prefix(prefix_format=PREFIX_FORMAT_GENERIC, **kwargs):
     """
@@ -53,7 +53,7 @@ def build_filename(format=FILENAME_FORMAT, **kwargs):
     """
     codes = re.findall(r'%([^\W_]*)', format)
 
-    filename = kwargs["FORMAT"]
+    filename = format
     for code in codes:
         assert kwargs[code]
         for k, v in kwargs.items():

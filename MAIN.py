@@ -53,8 +53,8 @@ class MainControllerWrapper:
         self.condition1 = condition1["cond"]
         self.condition2 = condition2["cond"]
         self.usebackup = usebackup
-
         self.current_date = datetime.datetime.now(tz=DETROIT_TIMEZONE).strftime(DATETIME_FORMAT_LESS_SEC)
+
         self.file_prefix = build_prefix(
             SUBJECT=subjectID,
             TRIALTYPE=trial_type,
@@ -149,20 +149,20 @@ class MainControllerWrapper:
 
             # Start device streaming and set gains:
             device_left.set_gains(
-                DEFAULT_PID_GAINS.DEFAULT_KP,
-                DEFAULT_PID_GAINS.DEFAULT_KI,
-                DEFAULT_PID_GAINS.DEFAULT_KD,
+                DEFAULT_PID_GAINS.KP,
+                DEFAULT_PID_GAINS.KI,
+                DEFAULT_PID_GAINS.KD,
                 0,
                 0,
-                DEFAULT_PID_GAINS.DEFAULT_FF,
+                DEFAULT_PID_GAINS.FF,
             )
             device_right.set_gains(
-                DEFAULT_PID_GAINS.DEFAULT_KP,
-                DEFAULT_PID_GAINS.DEFAULT_KI,
-                DEFAULT_PID_GAINS.DEFAULT_KD,
+                DEFAULT_PID_GAINS.KP,
+                DEFAULT_PID_GAINS.KI,
+                DEFAULT_PID_GAINS.KD,
                 0,
                 0,
-                DEFAULT_PID_GAINS.DEFAULT_FF,
+                DEFAULT_PID_GAINS.FF,
             )
 
             """Initialize Threads"""
@@ -189,7 +189,7 @@ class MainControllerWrapper:
                 min_current=EXO_CURRENT_SAFETY_LIMITS.ZERO_CURRENT,
                 max_current=EXO_CURRENT_SAFETY_LIMITS.MAX_ALLOWABLE_CURRENT,
                 on_pause_triggers=0,  # TODO: wasn't being set to -1 earlier so just set it to 0
-                threadfrequency=EXO_THREAD_FREQUENCIES.EXOTHREAD_FREQ,
+                threadfrequency=THREAD_FREQS.EXOTHREAD_FREQ,
             )
 
             self.exothread_right = ExobootThread(
@@ -205,7 +205,7 @@ class MainControllerWrapper:
                 min_current=EXO_CURRENT_SAFETY_LIMITS.ZERO_CURRENT,
                 max_current=EXO_CURRENT_SAFETY_LIMITS.MAX_ALLOWABLE_CURRENT,
                 on_pause_triggers=0,
-                threadfrequency=EXO_THREAD_FREQUENCIES.EXOTHREAD_FREQ,
+                threadfrequency=THREAD_FREQS.EXOTHREAD_FREQ,
             )
 
             self.exothread_left.start()
@@ -257,9 +257,10 @@ class MainControllerWrapper:
 
             # LoggingNexus
             if GSE_MODE != "IMU":
+                print(self.file_prefix)
                 self.loggingnexus = LoggingNexus(
-                    self.subjectID,
                     self.file_prefix,
+                    self.current_date,
                     self.filingcabinet,
                     self.exothread_left,
                     self.exothread_right,
@@ -267,8 +268,8 @@ class MainControllerWrapper:
                 )
             else:
                 self.loggingnexus = LoggingNexus(
-                    self.subjectID,
                     self.file_prefix,
+                    self.current_date,
                     self.filingcabinet,
                     self.exothread_left,
                     self.exothread_right,
@@ -350,7 +351,7 @@ if __name__ == "__main__":
     trial_type = "vas"
     condition1 = {"cond": "session5", "subdirectory": True}
     condition2 = {"cond": "group4", "subdirectory": False}
-    usebackup = False
+    usebackup = True
 
     # Validate args
     # TODO: update validator

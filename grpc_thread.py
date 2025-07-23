@@ -170,11 +170,11 @@ class ExobootCommServicer(pb2_grpc.exoboot_over_networkServicer):
         trial_type = self.mainwrapper.trial_type.upper()
         if not loadstatus:
             if trial_type == 'VICKREY':
-                auctionname = "{}_{}".format(self.file_prefix, "auction")
-                auctionpath = self.filingcabinet.newfile(auctionname, "csv", dictkey="auction")
+                auctionname = "{}_{}.csv".format(self.file_prefix, "auction")
+                auctionpath = self.filingcabinet.newfile(auctionname, uid="auction")
 
-                surveyname = "{}_{}".format(self.file_prefix, "survey")
-                surveypath = self.filingcabinet.newfile(surveyname, "csv", dictkey="survey")
+                surveyname = "{}_{}.csv".format(self.file_prefix, "survey")
+                surveypath = self.filingcabinet.newfile(surveyname, uid="survey")
 
                 with open(auctionpath, 'a', newline='') as f:
                     csv.writer(f).writerow(['t', 'subject_bid', 'user_win_flag', 'current_payout', 'total_winnings'])
@@ -183,8 +183,8 @@ class ExobootCommServicer(pb2_grpc.exoboot_over_networkServicer):
 
             elif trial_type == 'VAS':
                 overtimepath = ""
-                vasresultsname = "{}_{}".format(self.file_prefix, "vasresults")
-                vasresultspath = self.filingcabinet.newfile(vasresultsname, "csv", dictkey="vasresults")
+                vasresultsname = "{}_{}.csv".format(self.file_prefix, "vasresults")
+                vasresultspath = self.filingcabinet.newfile(vasresultsname, uid="vasresults")
 
                 with open(vasresultspath, 'a', newline='') as f:
                     header = ['btn_option', 'trial', 'pres']
@@ -194,16 +194,16 @@ class ExobootCommServicer(pb2_grpc.exoboot_over_networkServicer):
                     csv.writer(f).writerow(header)
 
             elif trial_type == 'JND':
-                comparisonname = "{}_{}".format(self.file_prefix, "comparison")
-                comparisonpath = self.filingcabinet.newfile(comparisonname, "csv", dictkey="comparison")
+                comparisonname = "{}_{}.csv".format(self.file_prefix, "comparison")
+                comparisonpath = self.filingcabinet.newfile(comparisonname, uid="comparison")
 
                 # TODO: Add extra logging on pi here for kaernbach (check file_prefix for trial cond)
                 with open(comparisonpath, 'a', newline='') as f:
                     csv.writer(f).writerow(['pres', 'prop', 'T_ref', 'T_comp', 'truth', 'higher'])
 
             elif trial_type == 'PREF':
-                prefname = "{}_{}".format(self.file_prefix, "pref")
-                prefpath = self.filingcabinet.newfile(prefname, "csv", dictkey="pref")
+                prefname = "{}_{}.csv".format(self.file_prefix, "pref")
+                prefpath = self.filingcabinet.newfile(prefname, uid="pref")
 
                 with open(prefpath, 'a', newline='') as f:
                     csv.writer(f).writerow(['pres', 'torque'])

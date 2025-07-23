@@ -216,7 +216,6 @@ EXO_IMU_CONSTANTS = IMU_CONSTANTS(
     GYROZ_SIGN=1,
 )
 
-
 """ Bertec Thresholds """
 BERTEC_THRESH = BERTEC_THRESHOLDS(
     HS_THRESHOLD=80,
@@ -232,10 +231,10 @@ TEMPANTISPIKE = 100  # °C
 
 
 """ Gait State Estimation Toggle"""
-GSE_MODE = "IMU"  # Options: "IMU", "BERTEC", "COMBO"
+GSE_MODE = "BERTEC"  # Options: "IMU", "BERTEC", "COMBO"
 
 """ RT Plotting Toggle """
-RTPLOT_ENABLED = True  # if true, rtplotting thread will be started
+RTPLOT_ENABLED = False  # if true, rtplotting thread will be started
 
 
 """ STANDARDIZING TIME"""
@@ -250,10 +249,10 @@ FILENAME_FORMAT = "%PREFIX_%DATE_%SUFFIX.%EXT"
 """FILING CABINET REGEX"""
 VALID_FILE_EXTENSIONS = ["csv", "txt"]
 FORMATCODE_TO_REGEX = {
-        "%Y": r'\d{4}', 
-        "%m": r'(0[1-9]|1[0-2])', 
-        "%d": r'(0[1-9]|[1-2][0-9]|3[01])', 
-        "%H": r'([01][0-9]|[2][0-3])', 
-        "%M": r'([0-5][0-9])', 
-        "%S": r'([0-5][0-9])', 
+        "%Y": r'\d{4}',
+        "%m": r'(0[1-9]|1[0-2])',
+        "%d": r'(0[1-9]|[1-2][0-9]|3[01])',
+        "%H": r'([01][0-9]|[2][0-3])',
+        "%M": r'([0-5][0-9])',
+        "%S": r'([0-5][0-9])',
     }
