@@ -20,6 +20,7 @@ from src.logger.logging_nexus import LoggingNexus
 from src.logger.filing_cabinet import FilingCabinet
 from src.utils.SoftRTloop import FlexibleSleeper
 from src.utils.get_my_ip import get_ip_address
+from src.logger.filing_cabinet_regex import build_prefix, build_filename
 from src.settings.constants import *
 
 thisdir = os.path.dirname(os.path.abspath(__file__))
@@ -53,9 +54,13 @@ class MainControllerWrapper:
         self.condition2 = condition2["cond"]
         self.usebackup = usebackup
 
-        current_date = datetime.datetime.now(tz=DETROIT_TIMEZONE).strftime(DATETIME_FORMAT_LESS_SEC)
-        file_prefix_list = [arg for arg in [self.subjectID, self.trial_type, self.condition1, self.condition2] if arg]
-        self.file_prefix = "_".join(file_prefix_list) + "_" + current_date
+        self.current_date = datetime.datetime.now(tz=DETROIT_TIMEZONE).strftime(DATETIME_FORMAT_LESS_SEC)
+        self.file_prefix = build_prefix(
+            SUBJECT=subjectID,
+            TRIALTYPE=trial_type,
+            CONDITION1=self.condition1,
+            CONDITION2=self.condition2
+        )
         print("DEBUG_fileprefix: ", self.file_prefix)
 
         # Exo alternative modes
@@ -345,7 +350,7 @@ if __name__ == "__main__":
     trial_type = "vas"
     condition1 = {"cond": "session5", "subdirectory": True}
     condition2 = {"cond": "group4", "subdirectory": False}
-    usebackup = "no"
+    usebackup = False
 
     # Validate args
     # TODO: update validator
@@ -359,7 +364,7 @@ if __name__ == "__main__":
         "trial_type": trial_type.upper(),
         "condition1": condition1,
         "condition2": condition2,
-        "usebackup": usebackup in ["true", "True", "1", "yes", "Yes"],
+        "usebackup": usebackup,
     }
 
     # Allow GSE to alter peak torque during stride

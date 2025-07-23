@@ -2,11 +2,9 @@ import os
 import datetime
 import shutil
 import pytest
-from pathlib import Path
-from src.logger.filing_cabinet import FilingCabinet
 from src.settings.constants import DETROIT_TIMEZONE, DATETIME_FORMAT_LESS_SEC
 
-from filing_cabinet_regex import *
+from logger.filing_cabinet_regex import *
 
 current_date = datetime.datetime.now(tz=DETROIT_TIMEZONE).strftime(DATETIME_FORMAT_LESS_SEC)
 subject = "TESTER"
@@ -23,7 +21,7 @@ def test_build_prefix_basic():
     prefix_3arg_c1 = build_prefix(prefix_format=PREFIX_FORMAT_GENERIC, SUBJECT=subject, TRIALTYPE=trialtype, CONDITION1=condition1)
     prefix_3arg_c2 = build_prefix(prefix_format=PREFIX_FORMAT_GENERIC, SUBJECT=subject, TRIALTYPE=trialtype, CONDITION2=condition2)
     prefix_4arg = build_prefix(prefix_format=PREFIX_FORMAT_GENERIC, SUBJECT=subject, TRIALTYPE=trialtype, CONDITION1=condition1, CONDITION2=condition2)
-    
+
     assert prefix_2arg == "TESTER_VICKREY"
     assert prefix_3arg_c1 == "TESTER_VICKREY_EPO"
     assert prefix_3arg_c2 == "TESTER_VICKREY_BOO"
@@ -38,7 +36,7 @@ def test_build_prefix_different_PREFIX_FORMAT_GENERIC():
     prefix_3arg_c1 = build_prefix(prefix_format=new_prefix_format, SUBJECT=subject, TRIALTYPE=trialtype, CONDITION1=condition1)
     prefix_3arg_c2 = build_prefix(prefix_format=new_prefix_format, SUBJECT=subject, TRIALTYPE=trialtype, CONDITION2=condition2)
     prefix_4arg = build_prefix(prefix_format=new_prefix_format, SUBJECT=subject, TRIALTYPE=trialtype, CONDITION1=condition1, CONDITION2=condition2)
-    
+
     assert prefix_2arg == "VICKREY_TESTER"
     assert prefix_3arg_c1 == "VICKREY_TESTER_EPO"
     assert prefix_3arg_c2 == "VICKREY_TESTER_BOO"

@@ -91,7 +91,7 @@ class ExobootThread(BaseThread):
         self.winding_temperature = 0
         self.max_case_temperature = EXO_THERMAL_SAFETY_LIMITS.MAX_CASE_TEMP
         self.max_winding_temperature = EXO_THERMAL_SAFETY_LIMITS.MAX_WINDING_TEMP
-        self.exo_safety_shutoff_flag = False
+        self.exceeded_temp_lim = False
         self.prev_temp = 0
 
         # Peak torque set over exoboot remote
@@ -274,8 +274,6 @@ class ExobootThread(BaseThread):
             self.motor_sign * data.mot_ang * EB51_CONSTANTS.MOT_ENC_CLICKS_TO_DEG
         )
         self.data_dict["motor_velocity"] = data.mot_vel
-
-        # TODO clamp motor current to not get bad readings
         self.data_dict["motor_current"] = data.mot_cur
         self.data_dict["motor_voltage"] = data.mot_volt
         self.data_dict["battery_voltage"] = data.batt_volt
@@ -304,7 +302,7 @@ class ExobootThread(BaseThread):
         Uses Jianpings model to project forward the measured temperature from Dephy ActPack.
 
         Returns:
-        exo_safety_shutoff_flag (bool): flag that indicates if the exo has exceeded thermal limits.
+        exceeded_temp_lim (bool): flag that indicates if the exo has exceeded thermal limits.
         Used to toggle whether the device should be shut off.
         """
 
@@ -321,18 +319,9 @@ class ExobootThread(BaseThread):
         self.data_dict["winding_temp"] = winding_temperature
 
         # Shut off exo if thermal limits breached
-        if measured_temp >= self.max_case_temperature:
-            self.exo_safety_shutoff_flag = True
-            print("Case Temperature has exceed 75°C soft limit. Exiting Gracefully")
-            
-        # if winding_temperature >= self.max_winding_temperature:
-        #     self.exo_safety_shutoff_flag = True
-        #     print("Winding Temperature has exceed 115°C soft limit. Exiting Gracefully")
-
-        # using Jianping's thermal model to project winding & case temperature
-        # using the updated case temperature and setting shut-off flag
-        # self.case_temperature = measured_temp
-        # exo_safety_shutoff_flag = self.get_modelled_temps(motor_current)
+        if (measured_temp >= self.max_case_temperature) or (winding_temperature >= self.max_winding_temperature):
+            self.exceeded_temp_lim = True
+            print("Case or Winding Temperature has exceeded it's soft limit. Exiting Gracefully")
 
     def set_peak_torque(self, T):
         """
@@ -485,16 +474,16 @@ class ExobootThread(BaseThread):
         # Clamp current between bias and max allowable current
         vetted_current = max(min(current_command, self.max_current), self.min_current)
 
+        # Propogate thermal model
+        self.thermal_safety_checker()
+
         # Shut off exo if thermal limits breached
-        if self.exo_safety_shutoff_flag:
+        if self.exceeded_temp_lim:
             print("Safety shutoff flag: pausing_threads")
             self.flexdevice.send_motor_command(FX_CURRENT, 0)
             self.pause_event.clear()
         else:
-            self.flexdevice.send_motor_command(
-                FX_CURRENT, self.motor_sign * vetted_current
-            )
-            # pass
+            self.flexdevice.send_motor_command(FX_CURRENT, self.motor_sign * vetted_current)
 
     def post_iterate(self):
         """
@@ -507,9 +496,6 @@ class ExobootThread(BaseThread):
         self.prev_end_time = end_time
         my_freq = 1 / self.period_tracker.average()
         self.data_dict["thread_freq"] = my_freq
-
-        # Perform thermal safety check on actpack
-        # TODO: self.thermal_safety_checker()
 
         # Send GSE data for logging
         if (

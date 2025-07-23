@@ -1,6 +1,6 @@
 import pytest
 import numpy as np
-from src.exo.variable_transmission_ratio import VariableTransmissionRatio
+from src.variable_transmission_ratio import VariableTransmissionRatio
 
 
 def test_tr_minimum_value():

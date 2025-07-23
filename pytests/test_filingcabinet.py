@@ -8,7 +8,6 @@ from src.settings.constants import DETROIT_TIMEZONE, DATETIME_FORMAT_LESS_SEC
 
 test_dir = "test_subject_data"
 
-
 def setup_module(module):
     os.makedirs(test_dir, exist_ok=True)
 

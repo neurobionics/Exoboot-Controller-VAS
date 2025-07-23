@@ -2,8 +2,9 @@ import os, csv, re
 
 from pathlib import Path
 from collections import deque
+from src.logger.filing_cabinet_regex import group_files_by_uid, datetime_formatcode_to_regex, file_extension_regex
 
-from src.settings.constants import VALID_FILE_EXTENSIONS
+from src.settings.constants import VALID_FILE_EXTENSIONS, DATETIME_FORMAT_LESS_SEC
 
 
 class FilingCabinet:
@@ -17,18 +18,12 @@ class FilingCabinet:
     Return paths using filepaths_dict lookup
     """
 
-    def __init__(self, *hierarchy, defaultbehavior="new"):
+    def __init__(self, *hierarchy):
         self._init_folder_hierarchy(self, *hierarchy)
 
         self.filepaths_dict = {}
         self.validfiletypes = VALID_FILE_EXTENSIONS
         self.validbehaviors = ["new", "add"]
-        try:
-            assert defaultbehavior in self.validbehaviors
-            self.defaultbehavior = defaultbehavior
-        except:
-            print("Invalid defaultbehavior for FilingCabinet")
-            self.defaultbehavior = "new"
 
     def _init_folder_hierarchy(self, *hierarchy):
         """
@@ -51,26 +46,15 @@ class FilingCabinet:
         """
         return self.filepaths_dict[name]
 
-    def newfile(self, name, type, behavior=None, dictkey=None):
+    def newfile(self, filename, dictkey, behavior="new"):
         """
         Create path for new file in subject_data_path folder
         Resolves conflicting names using behavior
 
         Store paths under dictkey
         """
-
-        try:
-            assert type in self.validfiletypes
-        except:
-            print("{} not in validfiletypes")
-
-        if not behavior:
-            behavior = self.defaultbehavior
-
         if behavior == "new":
             # Create new file
-            filename = "{}.{}".format(name, type)
-
             isunique = False
             while not isunique:
                 if os.path.isfile(os.path.join(self.getparentfolderpath(), filename)):
@@ -78,18 +62,14 @@ class FilingCabinet:
                 else:
                     isunique = True
         elif behavior == "add":
-            # Use existing file
-            filename = "{}.{}".format(name, type)
+            pass
         else:
             Exception("FilingCabinet: not a valid behavior")
 
         fullpath = os.path.join(self.parentfolderpath, filename)
 
         # If no specified dictkey, put path in filepaths_dict under fullpath
-        if not dictkey:
-            self.filepaths_dict[name] = fullpath
-        else:
-            self.filepaths_dict[dictkey] = fullpath
+        self.filepaths_dict[dictkey] = fullpath
 
         return fullpath
 
@@ -117,37 +97,20 @@ class FilingCabinet:
             return False
 
         # Find unique dictkeys
-        dictkeys = []
-        for file in backupfiles:
-            if file.endswith(self.validfiletypes):
-                dictkey = file.split(".")[0]
-                dictkey = dictkey.replace(
-                    os.path.join(self.getparentfolderpath(), file_prefix), ""
-                )
-                dictkey = dictkey.replace("_new", "").strip("_")
-
-                # TODO: remove datetime if it exists in the filename (i.e. "2025_MM_DD_HH_")
-                pattern = re.compile(r"\d{4}(.*)_")
-                result = pattern.search(dictkey)
-                date = dictkey[result.span()[0]:result.span()[1]-1]
-                dictkey = dictkey.replace(date, "").strip("_")
-                dictkeys.append(dictkey)
-
-        dictkeys = set(dictkeys)
+        date_regex = datetime_formatcode_to_regex(DATETIME_FORMAT_LESS_SEC)
+        ext_regex = file_extension_regex(VALID_FILE_EXTENSIONS)
+        files_by_uid = group_files_by_uid(backupfiles, STATIC=file_prefix, VARIABLE=[date_regex, ext_regex])
 
         # Find path to each unique dictkey
-        for dictkey in dictkeys:
-            subbackupfiles = [f for f in backupfiles if dictkey in f]
+        for uid, files in files_by_uid.items():
+            if rule == "newest":
+                subbackup = max(files, key=os.path.getctime)
+            elif rule == "oldest":
+                subbackup = min(files, key=os.path.getctime)
+            else:
+                print("No rule implemented for case {}".format(rule))
+                return False
 
-            if subbackupfiles:
-                if rule == "newest":
-                    subbackup = max(subbackupfiles, key=os.path.getctime)
-                elif rule == "oldest":
-                    subbackup = min(subbackupfiles, key=os.path.getctime)
-                else:
-                    print("No rule implemented for case {}".format(rule))
-                    break
-
-                self._load(subbackup, dictkey)
+            self._load(subbackup, uid)
 
         return True
