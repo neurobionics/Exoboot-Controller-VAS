@@ -268,12 +268,9 @@ class STATIC_IP_ADDRESSES:
     Dataclass to hold static IP addresses for exoboot system components.
     RTPLOT_IP: ip address of server for real time plotting (monitor) --
         rtplot command in server terminal:
-            python3 -m rtplot.server -p 35.3.249.99
+            python3 -m rtplot.server -p !!!INSERT CLIENT IP HERE!!!
     VICON_IP: Vicon ip to connect to Bertec Forceplates for streaming
     """
 
     RTPLOT_IP: str
     VICON_IP: str
-
-
-# TODO add dataclass for threadnames

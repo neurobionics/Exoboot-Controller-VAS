@@ -87,16 +87,9 @@ class MainControllerWrapper:
 
         print("DEBUG_parentfolderpath", self.filingcabinet.getparentfolderpath())
 
-        # OLD way that doesn't work: Get IP for GRPC server
-        # s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-        # s.connect(('10.255.255.255', 1))
-        # self.myIP = s.getsockname()[0] + ":50055"
-
-        # TODO: fix automatically getting ip address
+        # obtain IP address from rpi automatically
         self.myIP = get_ip_address() + ":50055"
         print("myIP: {}".format(self.myIP))
-        # self.myIP = "35.3.196.52" + ":50055"
-        # print("myIP: {}".format(self.myIP))
 
     @staticmethod
     def get_active_ports():

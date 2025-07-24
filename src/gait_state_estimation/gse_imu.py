@@ -1,7 +1,7 @@
 import time
 from math import sqrt
 from src.utils.filter_utils import MovingAverageFilter
-from constants_without_dataclasses import TIME_METHOD, ACCEPT_STRIDE_THRESHOLD
+from src.settings.constants import TIME_METHOD, BERTEC_THRESH
 from math import exp, pi, sqrt
 
 
@@ -217,7 +217,7 @@ class IMUEstimator:
                 # only feed new stride period into moving average if it's reasonable
                 if (
                     abs((stride_period_new - stride_period_avg) / stride_period_avg)
-                    < ACCEPT_STRIDE_THRESHOLD
+                    < BERTEC_THRESH.ACCEPT_STRIDE_THRESHOLD
                 ):  # TODO do when pause_event and updatefilters:
                     self.stride_period_tracker.update(stride_period_new)
 
