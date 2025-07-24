@@ -171,8 +171,6 @@ class rtPlottingThread(BaseThread):
                 self.pre_iterate()
                 if self.pause_event.is_set():
                     self.iterate()
-                else:
-                    pass
                 self.post_iterate()
         except Exception as e:
             print("ERROR {}: {}".format(self.name, e))
