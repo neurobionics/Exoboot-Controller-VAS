@@ -21,7 +21,7 @@ from src.settings.constants_dataclasses import (
 
 """ Static IP addresses """
 # run rtplot with this command: python3 -m rtplot.server -p !!!INSERT CLIENT IP HERE!!!
-IP_ADDRESSES = STATIC_IP_ADDRESSES(RTPLOT_IP="35.3.69.66", VICON_IP="141.212.77.30")
+IP_ADDRESSES = STATIC_IP_ADDRESSES(RTPLOT_IP="35.3.118.136", VICON_IP="141.212.77.30")
 
 
 """ File Paths on Pi """
@@ -29,7 +29,7 @@ SUBJECT_DATA_PATH = "subject_data"
 
 
 """ LoggingNexus Fields for each thread """
-GENERAL_FIELDS = ["pitime", "thread_freq"]
+GENERAL_FIELDS = ["pitime", "date_time", "thread_freq"]
 # TODO: added HS and stride_period fields to GSE_IMU since ran into exception in logging nexus: dict contains fields not in fieldnames: 'HS', 'stride_period'
 GSE_IMU_FIELDS = [
     "HS_imu",
@@ -230,7 +230,7 @@ TEMPANTISPIKE = 100  # °C
 GSE_MODE = "BERTEC"  # Options: "IMU", "BERTEC", "COMBO"
 
 """ RT Plotting Toggle """
-RTPLOT_ENABLED = True  # if true, rtplotting thread will be started
+RTPLOT_ENABLED = False  # if true, rtplotting thread will be started
 
 
 """ STANDARDIZING TIME"""

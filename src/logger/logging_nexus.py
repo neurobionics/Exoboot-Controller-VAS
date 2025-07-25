@@ -72,7 +72,7 @@ class LoggingNexus:
             data = self.thread_stashes[threadname][-1][field]
             return data
         except:
-            return {}
+            return -1
 
     def log(self):
         """

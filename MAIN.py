@@ -343,10 +343,10 @@ if __name__ == "__main__":
     """
     Experiment Parameters
     """
-    subjectID = "TESTER"
-    trial_type = "vas"
-    condition1 = {"cond": "session5", "subdirectory": True}
-    condition2 = {"cond": "group4", "subdirectory": False}
+    subjectID = "DUMMY"
+    trial_type = "VICKREY"
+    condition1 = {"cond": "EPO", "subdirectory": False}  # enter session+number here (no spaces)
+    condition2 = {"cond": "", "subdirectory": False}    # enter group+number here (no spaces)
     usebackup = True
     stride_period_init = 1.2
 

@@ -5,7 +5,8 @@ from concurrent import futures
 import src.gui_communication.exoboot_remote_pb2 as pb2
 import src.gui_communication.exoboot_remote_pb2_grpc as pb2_grpc
 from base_exo_thread import BaseThread
-from src.settings.constants import GSE_MODE, DETROIT_TIMEZONE, DATETIME_FORMAT_LESS_SEC
+from src.logger.filing_cabinet_regex import build_filename
+from src.settings.constants import GSE_MODE, FILENAME_FORMAT, DETROIT_TIMEZONE, DATETIME_FORMAT_LESS_SEC
 
 class ExobootRemoteClient:
     """
@@ -35,7 +36,7 @@ class ExobootRemoteClient:
         """
         Synchronize logging using startstamp reference from rpi
         """
-        startstampmsg = self.stub.set_startstamp(pb2.null)
+        startstampmsg = self.stub.set_startstamp(pb2.null())
         self.startstamp = startstampmsg.time
 
     def get_subject_info(self):
@@ -160,6 +161,7 @@ class ExobootCommServicer(pb2_grpc.exoboot_over_networkServicer):
 
         # file prefix from mainwrapper
         self.file_prefix = self.mainwrapper.file_prefix
+        self.current_date = self.mainwrapper.current_date
 
         # Load backup or...
         loadstatus = False
@@ -170,10 +172,10 @@ class ExobootCommServicer(pb2_grpc.exoboot_over_networkServicer):
         trial_type = self.mainwrapper.trial_type.upper()
         if not loadstatus:
             if trial_type == 'VICKREY':
-                auctionname = "{}_{}.csv".format(self.file_prefix, "auction")
+                auctionname = build_filename(FORMAT=FILENAME_FORMAT, PREFIX=self.file_prefix, DATE=self.current_date, SUFFIX="auction", EXT="csv")
                 auctionpath = self.filingcabinet.newfile(auctionname, uid="auction")
 
-                surveyname = "{}_{}.csv".format(self.file_prefix, "survey")
+                surveyname = build_filename(FORMAT=FILENAME_FORMAT, PREFIX=self.file_prefix, DATE=self.current_date, SUFFIX="survey", EXT="csv")
                 surveypath = self.filingcabinet.newfile(surveyname, uid="survey")
 
                 with open(auctionpath, 'a', newline='') as f:
@@ -183,7 +185,7 @@ class ExobootCommServicer(pb2_grpc.exoboot_over_networkServicer):
 
             elif trial_type == 'VAS':
                 overtimepath = ""
-                vasresultsname = "{}_{}.csv".format(self.file_prefix, "vasresults")
+                vasresultsname = build_filename(FORMAT=FILENAME_FORMAT, PREFIX=self.file_prefix, DATE=self.current_date, SUFFIX="vasresults", EXT="csv")
                 vasresultspath = self.filingcabinet.newfile(vasresultsname, uid="vasresults")
 
                 with open(vasresultspath, 'a', newline='') as f:
@@ -194,7 +196,7 @@ class ExobootCommServicer(pb2_grpc.exoboot_over_networkServicer):
                     csv.writer(f).writerow(header)
 
             elif trial_type == 'JND':
-                comparisonname = "{}_{}.csv".format(self.file_prefix, "comparison")
+                comparisonname = build_filename(FORMAT=FILENAME_FORMAT, PREFIX=self.file_prefix, DATE=self.current_date, SUFFIX="comparison", EXT="csv")
                 comparisonpath = self.filingcabinet.newfile(comparisonname, uid="comparison")
 
                 # TODO: Add extra logging on pi here for kaernbach (check file_prefix for trial cond)
@@ -202,7 +204,7 @@ class ExobootCommServicer(pb2_grpc.exoboot_over_networkServicer):
                     csv.writer(f).writerow(['pres', 'prop', 'T_ref', 'T_comp', 'truth', 'higher'])
 
             elif trial_type == 'PREF':
-                prefname = "{}_{}.csv".format(self.file_prefix, "pref")
+                prefname = build_filename(FORMAT=FILENAME_FORMAT, PREFIX=self.file_prefix, DATE=self.current_date, SUFFIX="pref", EXT="csv")
                 prefpath = self.filingcabinet.newfile(prefname, uid="pref")
 
                 with open(prefpath, 'a', newline='') as f:
@@ -344,8 +346,9 @@ class ExobootCommServicer(pb2_grpc.exoboot_over_networkServicer):
         pres = int(vasinfomsg.pres)
 
         print("Received updated vas info: ", btn_num, trial, pres)
-        overtimename = "{}_overtime_B{}_T{}_P{}".format(self.file_prefix, btn_num, trial, pres)
-        overtimepath = self.filingcabinet.newfile(overtimename, "csv", dictkey="overtime")
+        overtimesuffix = "overtime_B{}_T{}_P{}".format(btn_num, trial, pres)
+        overtimename = build_filename(FORMAT=FILENAME_FORMAT, PREFIX=self.file_prefix, DATE=self.current_date, SUFFIX=overtimesuffix, EXT="csv")
+        overtimepath = self.filingcabinet.newfile(overtimename, uid="overtime")
 
         header = ['pitime']
         for i in range(btn_num):
